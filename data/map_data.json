@@ -1,0 +1,16 @@
+{
+  "nodes": [
+    {"id": "N1", "name": "GHTK Hub CMT8", "x": 10.7785, "y": 106.6795},
+    {"id": "N2", "name": "HCMUS Nguyen Van Cu", "x": 10.7624, "y": 106.6827},
+    {"id": "N3", "name": "Vincom Dong Khoi", "x": 10.7781, "y": 106.7020},
+    {"id": "N4", "name": "Tu Du Hospital", "x": 10.7686, "y": 106.6853},
+    {"id": "N5", "name": "Turtle Lake Cafe", "x": 10.7828, "y": 106.6957}
+  ],
+  "edges": [
+    {"from": "N1", "to": "N4", "distance": 1.2, "travel_time": 4.0, "road_type": "Main Street", "direction": "two-way", "congestion": 4, "flooding": 1},
+    {"from": "N4", "to": "N2", "distance": 1.8, "travel_time": 6.0, "road_type": "Alley", "direction": "one-way", "congestion": 1, "flooding": 4},
+    {"from": "N4", "to": "N5", "distance": 2.0, "travel_time": 5.5, "road_type": "Boulevard", "direction": "two-way", "congestion": 2, "flooding": 1},
+    {"from": "N5", "to": "N3", "distance": 1.5, "travel_time": 5.0, "road_type": "Main Street", "direction": "one-way", "congestion": 5, "flooding": 2},
+    {"from": "N3", "to": "N2", "distance": 2.5, "travel_time": 9.0, "road_type": "Main Street", "direction": "two-way", "congestion": 3, "flooding": 1}
+  ]
+}
