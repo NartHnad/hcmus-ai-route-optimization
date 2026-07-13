@@ -28,7 +28,11 @@ class MapWidget(QWebEngineView):
         self.loadFinished.connect(self._on_load_finished)
 
         html_path = Path(__file__).resolve().parent / "assets" / "map.html"
-        self.load(QUrl.fromLocalFile(os.fspath(html_path)))
+        try:
+            with open(html_path, "r", encoding="utf-8") as f:
+                self.setHtml(f.read(), QUrl.fromLocalFile(os.fspath(html_path.parent) + "/"))
+        except Exception as e:
+            print(f"[MapWidget ERROR] Failed to read map.html: {e}")
 
     def _on_load_finished(self, ok):
         self._page_loaded = ok

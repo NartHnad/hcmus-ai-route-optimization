@@ -5,17 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Route Optimization Map</title>
 
-    <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIINfQH8BKtaM8U3r5iG4xyJ6U8W5J8pR6U="
-        crossorigin=""
-    />
-    <script
-        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-        crossorigin=""
-    ></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
         html,
@@ -106,6 +97,7 @@
         }
 
         function initMap(data) {
+            map.invalidateSize();
             graphData = normalizeInput(data);
             graphData.nodes = graphData.nodes || [];
             graphData.edges = graphData.edges || [];
