@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Route Optimization Map</title>
+
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIINfQH8BKtaM8U3r5iG4xyJ6U8W5J8pR6U="
+        crossorigin=""
+    />
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""
+    ></script>
+
+    <style>
+        html,
+        body,
+        #map {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            overflow: hidden;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .map-empty-message {
+            position: absolute;
+            z-index: 1000;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 12px;
+            border-radius: 8px;
+            color: #334155;
+            background: rgba(255, 255, 255, 0.92);
+            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.18);
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="empty-message" class="map-empty-message">Waiting for graph data...</div>
+
+    <script>
+        const DEFAULT_CENTER = [10.7741, 106.6782];
+        const DEFAULT_ZOOM = 14;
+
+        const NODE_STYLE = {
+            default: { radius: 8, color: '#2563eb', weight: 2, fillColor: '#60a5fa', fillOpacity: 0.9 },
+            visit: { radius: 10, color: '#ca8a04', weight: 3, fillColor: '#facc15', fillOpacity: 1.0 },
+            path: { radius: 11, color: '#15803d', weight: 3, fillColor: '#22c55e', fillOpacity: 1.0 },
+        };
+
+        const EDGE_STYLE = {
+            default: { color: '#64748b', weight: 3, opacity: 0.65 },
+            inspect: { color: '#f97316', weight: 5, opacity: 0.95 },
+            path: { color: '#16a34a', weight: 6, opacity: 1.0 },
+        };
+
+        let map = L.map('map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+        let nodeLayers = {};
+        let edgeLayers = {};
+        let graphData = { nodes: [], edges: [] };
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors',
+        }).addTo(map);
+
+        function edgeKey(fromNode, toNode) {
+            return `${fromNode}->${toNode}`;
+        }
+
+        function normalizeInput(data) {
+            if (typeof data === 'string') {
+                return JSON.parse(data);
+            }
+            return data || { nodes: [], edges: [] };
+        }
+
+        function clearGraphLayers() {
+            Object.values(nodeLayers).forEach(layer => map.removeLayer(layer));
+            Object.values(edgeLayers).forEach(layer => map.removeLayer(layer));
+            nodeLayers = {};
+            edgeLayers = {};
+        }
+
+        function nodeById(nodeId) {
+            return graphData.nodes.find(node => node.id === nodeId);
+        }
+
+        function setEmptyMessage(visible, text = 'Waiting for graph data...') {
+            const element = document.getElementById('empty-message');
+            element.textContent = text;
+            element.style.display = visible ? 'block' : 'none';
+        }
+
+        function initMap(data) {
+            graphData = normalizeInput(data);
+            graphData.nodes = graphData.nodes || [];
+            graphData.edges = graphData.edges || [];
+
+            clearGraphLayers();
+
+            if (graphData.nodes.length === 0) {
+                setEmptyMessage(true, 'No graph nodes to display.');
+                map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+                return;
+            }
+
+            setEmptyMessage(false);
+
+            graphData.edges.forEach(edge => {
+                const fromNode = nodeById(edge.from);
+                const toNode = nodeById(edge.to);
+
+                if (!fromNode || !toNode) {
+                    return;
+                }
+
+                const layer = L.polyline(
+                    [[fromNode.lat, fromNode.lon], [toNode.lat, toNode.lon]],
+                    EDGE_STYLE.default
+                ).addTo(map);
+
+                layer.bindPopup(`
+                    <b>${edge.from} → ${edge.to}</b><br>
+                    Distance: ${edge.distance ?? '-'}<br>
+                    Time: ${edge.travel_time ?? '-'}<br>
+                    Road: ${edge.road_type ?? '-'}<br>
+                    Congestion: ${edge.congestion ?? '-'}<br>
+                    Risk: ${edge.risk ?? edge.flooding ?? '-'}<br>
+                    ${edge.note ? `Note: ${edge.note}` : ''}
+                `);
+
+                edgeLayers[edgeKey(edge.from, edge.to)] = layer;
+            });
+
+            graphData.nodes.forEach(node => {
+                const layer = L.circleMarker([node.lat, node.lon], NODE_STYLE.default).addTo(map);
+
+                layer.bindTooltip(`${node.id} - ${node.name}`, {
+                    direction: 'top',
+                    offset: [0, -8],
+                });
+
+                layer.bindPopup(`
+                    <b>${node.name}</b><br>
+                    ID: ${node.id}<br>
+                    Type: ${node.type ?? 'intersection'}<br>
+                    Lat/Lon: ${node.lat}, ${node.lon}
+                `);
+
+                nodeLayers[node.id] = layer;
+            });
+
+            const bounds = L.latLngBounds(graphData.nodes.map(node => [node.lat, node.lon]));
+            map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+        }
+
+        function applyStep(step) {
+            const currentStep = normalizeInput(step);
+            if (!currentStep || !currentStep.type) {
+                return;
+            }
+
+            if (currentStep.type === 'visit_node') {
+                const layer = nodeLayers[currentStep.node];
+                if (layer) {
+                    layer.setStyle(NODE_STYLE.visit);
+                    map.panTo(layer.getLatLng(), { animate: true, duration: 0.25 });
+                }
+                return;
+            }
+
+            if (currentStep.type === 'inspect_edge') {
+                const layer = edgeLayers[edgeKey(currentStep.from, currentStep.to)];
+                if (layer) {
+                    layer.setStyle(EDGE_STYLE.inspect);
+                }
+                return;
+            }
+
+            if (currentStep.type === 'path_edge') {
+                const layer = edgeLayers[edgeKey(currentStep.from, currentStep.to)];
+                if (layer) {
+                    layer.setStyle(EDGE_STYLE.path);
+                    layer.bringToFront();
+                }
+                return;
+            }
+
+            if (currentStep.type === 'finish') {
+                const path = currentStep.path || [];
+                path.forEach(nodeId => {
+                    const nodeLayer = nodeLayers[nodeId];
+                    if (nodeLayer) {
+                        nodeLayer.setStyle(NODE_STYLE.path);
+                    }
+                });
+
+                for (let i = 0; i < path.length - 1; i += 1) {
+                    const layer = edgeLayers[edgeKey(path[i], path[i + 1])];
+                    if (layer) {
+                        layer.setStyle(EDGE_STYLE.path);
+                        layer.bringToFront();
+                    }
+                }
+            }
+        }
+
+        function resetMap() {
+            Object.values(nodeLayers).forEach(layer => layer.setStyle(NODE_STYLE.default));
+            Object.values(edgeLayers).forEach(layer => layer.setStyle(EDGE_STYLE.default));
+        }
+    </script>
+</body>
+</html>
