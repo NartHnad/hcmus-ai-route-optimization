@@ -3,29 +3,45 @@
 
 class Node:
     """
-    Represents a physical traffic intersection, landmark, school, hospital, bus station, warehouse, or district.
-    It stores coordinates (x, y) which are essential for GUI rendering
-    and computing Heuristic distances (e.g., Euclidean) for informed search algorithms like A* and Greedy BFS.
+    Represents a map node such as an intersection, landmark, school, hospital,
+    bus station, warehouse, or district.
+
+    The canonical coordinate names are lat/lon to match mock_data.json.
+    x/y are kept as aliases for GUI rendering and heuristic code that already
+    uses the older contract.
     """
 
-    def __init__(self, node_id: str, name: str, x: float, y: float):
+    def __init__(
+        self,
+        node_id: str,
+        name: str,
+        x: float = None,
+        y: float = None,
+        lat: float = None,
+        lon: float = None,
+        node_type: str = "intersection",
+    ):
         self.id = node_id
         self.name = name
 
-        # X-coordinate, Y-coordinate for GUI visualization and Heuristic calculation
-        self.x = x
-        self.y = y
+        self.lat = float(lat if lat is not None else x)
+        self.lon = float(lon if lon is not None else y)
+        self.type = node_type
 
-    # Magic Method: define how a Node object is represented as a string
+        # Backward-compatible aliases for earlier GUI/heuristic code.
+        self.x = self.lat
+        self.y = self.lon
+
     def __repr__(self):
         return f"Node({self.id}, {self.name})"
 
 
 class Edge:
     """
-    Represents a one-way urban street segment connecting two intersections.
-    Instead of using static physical distance, it wraps a dynamic cost function
-    that aggregates real-time traffic constraints (congestion, flooding) modulated by user-controlled GUI weights.
+    Represents a directed urban street segment connecting two nodes.
+
+    The canonical risk field follows mock_data.json. flooding and direction are
+    retained as compatibility aliases for older code and tests.
     """
 
     def __init__(
@@ -35,22 +51,33 @@ class Edge:
         distance: float,
         travel_time: float,
         road_type: str,
-        direction: str = "one-way",
+        direction: str = None,
+        is_oneway: bool = None,
         congestion: int = 1,
-        flooding: int = 1,
+        risk: int = None,
+        flooding: int = None,
+        note: str = "",
     ):
         self.from_node = from_node
         self.to_node = to_node
 
-        # Compulsory Attributes
-        self.distance = distance  # Raw physical distance (meters/kilometers)
-        self.travel_time = travel_time  # Estimated travel time
-        self.road_type = road_type  # Type of road
-        self.direction = direction  # Traffice direction: 'one-way' or 'two-way'
-        self.congestion = congestion  # Traffic traffic level scaled from 1 to 5
+        self.distance = float(distance)
+        self.travel_time = float(travel_time)
+        self.road_type = road_type
+        self.congestion = int(congestion)
+        self.risk = int(risk if risk is not None else (flooding if flooding is not None else 1))
+        self.note = note
 
-        # Optional Risk Factors
-        self.flooding = flooding  # Rain flooding level scaled from 1 to 5
+        if is_oneway is None:
+            normalized_direction = (direction or "one-way").strip().lower()
+            self.is_oneway = normalized_direction != "two-way"
+        else:
+            self.is_oneway = bool(is_oneway)
+
+        self.direction = "one-way" if self.is_oneway else "two-way"
+
+        # Backward-compatible alias for older cost/GUI code.
+        self.flooding = self.risk
 
     def calculate_cost(
         self,
@@ -62,25 +89,66 @@ class Edge:
     ):
         """
         Dynamically evaluate the edge's weight based on different routing strategies.
-        This directly implements the formula from section 4.3 Cost Function:
-        Cost = alpha * Distance + beta * Time + gamma * Congestion + delta * Risk
 
-        Where:
-        - Distance: raw physical length of the road segment.
-        - Time: estimated travel time based on speed and traffic condition.
-        - Congestion: traffic level (scale 1 to 5).
-        - Risk: penalty for flooding, construction, narrow roads, etc. (scale 1 to 5).
+        Cost = alpha * Distance + beta * Time + gamma * Congestion + delta * Risk
         """
 
         if mode == "shortest":
             return self.distance
 
-        # Return cost_value
         return (
             (alpha * self.distance)
             + (beta * self.travel_time)
             + (gamma * self.congestion)
-            + (delta * self.flooding)
+            + (delta * self.risk)
+        )
+
+    def reversed(self):
+        """Return a reversed copy of this edge for legacy two-way graph building."""
+        return Edge(
+            from_node=self.to_node,
+            to_node=self.from_node,
+            distance=self.distance,
+            travel_time=self.travel_time,
+            road_type=self.road_type,
+            is_oneway=self.is_oneway,
+            congestion=self.congestion,
+            risk=self.risk,
+            note=self.note,
+        )
+
+    def __repr__(self):
+        return f"Edge({self.from_node} -> {self.to_node}, cost={self.calculate_cost()})"
+
+
+class SearchResult:
+    """
+    Standard return object for search algorithms.
+
+    GUI code can consume steps directly, while algorithm code can also expose
+    path, total cost, visited order, success state, and a human-readable message.
+    """
+
+    def __init__(
+        self,
+        path=None,
+        steps=None,
+        total_cost: float = 0.0,
+        visited_order=None,
+        success: bool = True,
+        message: str = "",
+    ):
+        self.path = path or []
+        self.steps = steps or []
+        self.total_cost = float(total_cost)
+        self.visited_order = visited_order or []
+        self.success = success
+        self.message = message
+
+    def __repr__(self):
+        return (
+            f"SearchResult(success={self.success}, "
+            f"path={self.path}, total_cost={self.total_cost})"
         )
 
 
@@ -92,38 +160,36 @@ class Graph:
         self.adjacency_list = {}
 
     def add_node(self, node: Node):
-        """
-        Register a new intersection into the graph network and initialize its adjacency list.
-        """
-
+        """Register a node into the graph network and initialize its adjacency list."""
         self.nodes[node.id] = node
         if node.id not in self.adjacency_list:
             self.adjacency_list[node.id] = []
 
-    def add_edge(self, edge: Edge):
+    def add_edge(self, edge: Edge, auto_reverse: bool = False):
         """
-        Establish connectivity between nodes.
-        Automatically handles one-way constraints and creates a reverse edge if the road type direction is specified as 'two-way'.
+        Add a directed edge to the graph.
+
+        mock_data.json already stores reverse directions explicitly, so the default
+        behavior is to add only the edge passed in. Set auto_reverse=True for legacy
+        callers that still expect a two-way edge to create a reverse edge.
         """
-        # Add the forward edge
-        if edge.from_node in self.adjacency_list:
-            self.adjacency_list[edge.from_node].append(edge)
+        if edge.from_node not in self.adjacency_list:
+            self.adjacency_list[edge.from_node] = []
+        self.adjacency_list[edge.from_node].append(edge)
 
-        # If it is a two-way street, create the reverse path
-        if edge.direction == "two-way":
-            # create a reversed edge
-            reverse_edge = Edge(
-                from_node=edge.to_node,
-                to_node=edge.from_node,
-                distance=edge.distance,
-                travel_time=edge.travel_time,
-                road_type=edge.road_type,
-                direction=edge.direction,
-                congestion=edge.congestion,
-                flooding=edge.flooding,
-            )
-
-            # Add the reversed edge
+        if auto_reverse and edge.direction == "two-way":
+            reverse_edge = edge.reversed()
             if reverse_edge.from_node not in self.adjacency_list:
                 self.adjacency_list[reverse_edge.from_node] = []
-            self.adjacency_list[edge.from_node].append(reverse_edge)
+            self.adjacency_list[reverse_edge.from_node].append(reverse_edge)
+
+    def get_neighbors(self, node_id: str):
+        """Return all outgoing edges from a node."""
+        return self.adjacency_list.get(node_id, [])
+
+    def get_edge(self, from_node: str, to_node: str):
+        """Return the first edge from from_node to to_node, or None."""
+        for edge in self.adjacency_list.get(from_node, []):
+            if edge.to_node == to_node:
+                return edge
+        return None
