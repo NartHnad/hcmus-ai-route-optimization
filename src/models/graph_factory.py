@@ -15,26 +15,6 @@ def _iter_nodes(raw_nodes):
     return raw_nodes or []
 
 
-def _edge_is_oneway(edge: dict) -> bool:
-    if "is_oneway" in edge:
-        return bool(edge["is_oneway"])
-
-    direction = str(edge.get("direction", "one-way")).strip().lower()
-    return direction != "two-way"
-
-
-def _should_auto_reverse(edge: dict) -> bool:
-    """
-    Legacy map_data.json stores two-way roads as one edge with direction='two-way'.
-    mock_data.json stores each direction explicitly using u/v and is_oneway.
-    """
-    if "is_oneway" in edge:
-        return False
-
-    direction = str(edge.get("direction", "one-way")).strip().lower()
-    return direction == "two-way"
-
-
 def build_graph(json_path: str) -> Graph:
     """
     FACTORY PATTERN: Reads a JSON dataset containing both Nodes and Edges
@@ -71,12 +51,12 @@ def build_graph(json_path: str) -> Graph:
             distance=float(edge["distance"]),
             travel_time=float(edge.get("time", edge.get("travel_time"))),
             road_type=edge["road_type"].strip(),
-            is_oneway=_edge_is_oneway(edge),
+            is_one_way=edge["is_one_way"],
             congestion=int(edge.get("congestion", 1)),
-            risk=int(edge.get("risk", edge.get("flooding", 1))),
+            risk=int(edge.get("risk")),
             note=edge.get("note", ""),
         )
-        graph.add_edge(new_edge, auto_reverse=_should_auto_reverse(edge))
+        graph.add_edge(new_edge)
 
     print(f"[FACTORY SUCCESS] Added {len(graph.nodes)} nodes and paths into Graph.")
 

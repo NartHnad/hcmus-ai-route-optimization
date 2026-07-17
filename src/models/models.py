@@ -3,20 +3,15 @@
 
 class Node:
     """
-    Represents a map node such as an intersection, landmark, school, hospital,
-    bus station, warehouse, or district.
-
-    The canonical coordinate names are lat/lon to match mock_data.json.
-    x/y are kept as aliases for GUI rendering and heuristic code that already
-    uses the older contract.
+    Represents a physical traffic intersection, landmark, school, hospital, bus station, warehouse, or district.
+    It stores coordinates (lat, lon) 
+    and computing Heuristic distances (e.g., Euclidean) for informed search algorithms like A* and Greedy BFS.
     """
 
     def __init__(
         self,
         node_id: str,
         name: str,
-        x: float = None,
-        y: float = None,
         lat: float = None,
         lon: float = None,
         node_type: str = "intersection",
@@ -24,24 +19,18 @@ class Node:
         self.id = node_id
         self.name = name
 
-        self.lat = float(lat if lat is not None else x)
-        self.lon = float(lon if lon is not None else y)
-        self.type = node_type
+        self.lat = lat  # latitude: Vi do
+        self.lon = lon  # longitude: Kinh do
+        self.node_type = node_type
 
-        # Backward-compatible aliases for earlier GUI/heuristic code.
-        self.x = self.lat
-        self.y = self.lon
-
+    # Magic Method: define how a Node object is represented as a string
     def __repr__(self):
         return f"Node({self.id}, {self.name})"
 
 
 class Edge:
     """
-    Represents a directed urban street segment connecting two nodes.
-
-    The canonical risk field follows mock_data.json. flooding and direction are
-    retained as compatibility aliases for older code and tests.
+    Represents a directed urban street segment connecting two intersection.
     """
 
     def __init__(
@@ -50,34 +39,30 @@ class Edge:
         to_node: str,
         distance: float,
         travel_time: float,
-        road_type: str,
-        direction: str = None,
-        is_oneway: bool = None,
-        congestion: int = 1,
+        road_type: str = None,
+        is_one_way: bool = False,
+        congestion: int = None,
         risk: int = None,
-        flooding: int = None,
         note: str = "",
     ):
         self.from_node = from_node
         self.to_node = to_node
 
-        self.distance = float(distance)
-        self.travel_time = float(travel_time)
-        self.road_type = road_type
+        # Compulsory Attributes
+        self.distance = float(distance)  # Raw physical distance (meters/kilometers)
+        self.travel_time = float(travel_time)  # Estimated travel time
+        self.road_type = road_type  
+        self.is_one_way = is_one_way # Traffic direction: 'one-way' or 'two-way'
+
+        # # Traffic traffic level scaled from a to b
         self.congestion = int(congestion)
-        self.risk = int(risk if risk is not None else (flooding if flooding is not None else 1))
+
+        #  penalty for flooding, construction, difficult intersections, narrow roads, or unsafe areas
+        self.risk = int(risk)
+
         self.note = note
 
-        if is_oneway is None:
-            normalized_direction = (direction or "one-way").strip().lower()
-            self.is_oneway = normalized_direction != "two-way"
-        else:
-            self.is_oneway = bool(is_oneway)
-
-        self.direction = "one-way" if self.is_oneway else "two-way"
-
-        # Backward-compatible alias for older cost/GUI code.
-        self.flooding = self.risk
+        self.road_type = road_type
 
     def calculate_cost(
         self,
@@ -111,7 +96,6 @@ class Edge:
             distance=self.distance,
             travel_time=self.travel_time,
             road_type=self.road_type,
-            is_oneway=self.is_oneway,
             congestion=self.congestion,
             risk=self.risk,
             note=self.note,
@@ -165,24 +149,30 @@ class Graph:
         if node.id not in self.adjacency_list:
             self.adjacency_list[node.id] = []
 
-    def add_edge(self, edge: Edge, auto_reverse: bool = False):
+    def add_edge(self, edge: Edge):
         """
-        Add a directed edge to the graph.
-
-        mock_data.json already stores reverse directions explicitly, so the default
-        behavior is to add only the edge passed in. Set auto_reverse=True for legacy
-        callers that still expect a two-way edge to create a reverse edge.
+        Establish connectivity between nodes.
+        Automatically handles one-way constraints and creates a reverse edge if the road type direction is specified as 'two-way'.
         """
+        # Add the forward edge
         if edge.from_node not in self.adjacency_list:
             self.adjacency_list[edge.from_node] = []
+
         self.adjacency_list[edge.from_node].append(edge)
 
-        if auto_reverse and edge.direction == "two-way":
+        # If it is a two-way street, create the reverse path
+        if not edge.is_one_way:
             reverse_edge = edge.reversed()
+
             if reverse_edge.from_node not in self.adjacency_list:
                 self.adjacency_list[reverse_edge.from_node] = []
+            
             self.adjacency_list[reverse_edge.from_node].append(reverse_edge)
 
+
+    def get_node(self, node_id):
+        return self.nodes.get(node_id)
+    
     def get_neighbors(self, node_id: str):
         """Return all outgoing edges from a node."""
         return self.adjacency_list.get(node_id, [])
@@ -193,3 +183,7 @@ class Graph:
             if edge.to_node == to_node:
                 return edge
         return None
+    
+    def clear(self):
+        self.nodes.clear()
+        self.adjacency_list.clear()

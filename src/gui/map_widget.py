@@ -73,11 +73,9 @@ class MapWidget(QWebEngineView):
                     "distance": edge.distance,
                     "travel_time": edge.travel_time,
                     "road_type": edge.road_type,
-                    "is_oneway": edge.is_oneway,
-                    "direction": edge.direction,
+                    "is_one_way": edge.is_one_way,
                     "congestion": edge.congestion,
                     "risk": edge.risk,
-                    "flooding": edge.flooding,
                     "note": edge.note,
                 })
 
