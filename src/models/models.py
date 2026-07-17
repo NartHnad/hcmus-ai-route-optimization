@@ -41,8 +41,8 @@ class Edge:
         travel_time: float,
         road_type: str = None,
         is_one_way: bool = False,
-        congestion: int = None,
-        risk: int = None,
+        congestion: int = 0,
+        risk: int = 0,
         note: str = "",
     ):
         self.from_node = from_node
@@ -54,17 +54,15 @@ class Edge:
         self.road_type = road_type  
         self.is_one_way = is_one_way # Traffic direction: 'one-way' or 'two-way'
 
-        # # Traffic traffic level scaled from a to b
+        # Traffic traffic level scaled from a to b
         self.congestion = int(congestion)
 
-        #  penalty for flooding, construction, difficult intersections, narrow roads, or unsafe areas
+        # Penalty for flooding, construction, difficult intersections, narrow roads, or unsafe areas
         self.risk = int(risk)
 
         self.note = note
 
-        self.road_type = road_type
-
-    def calculate_cost(
+    def calculate_cost( #need to be updated
         self,
         alpha: float = 1.0,
         beta: float = 1.0,
@@ -104,6 +102,26 @@ class Edge:
     def __repr__(self):
         return f"Edge({self.from_node} -> {self.to_node}, cost={self.calculate_cost()})"
 
+from enum import Enum
+
+class StepType(Enum):
+    EXPAND = "expand"           # Lấy node ra khỏi hàng đợi để xét (Visited)
+    DISCOVER = "discover"       # Tìm thấy node mới lần đầu (Frontier Add)
+    UPDATE = "update"           # Tìm thấy đường đi rẻ hơn đến node đã biết (Relaxation)
+
+    FINISH = "finish"
+
+
+class SearchStep:
+    def __init__(
+        self, 
+        step_type: StepType, 
+        node_id: str = None, 
+        edge_from: str = None, 
+        edge_to: str = None,
+        metrics: dict = None  # g, h, f of heuristic function
+    ):
+        pass
 
 class SearchResult:
     """
@@ -116,18 +134,13 @@ class SearchResult:
     def __init__(
         self,
         path=None,
-        steps=None,
+        steps=[SearchStep(StepType.FINISH)],
         total_cost: float = 0.0,
-        visited_order=None,
-        success: bool = True,
-        message: str = "",
+
     ):
         self.path = path or []
         self.steps = steps or []
         self.total_cost = float(total_cost)
-        self.visited_order = visited_order or []
-        self.success = success
-        self.message = message
 
     def __repr__(self):
         return (
