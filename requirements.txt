@@ -1,0 +1,9 @@
+PyQt5>=5.15.0
+PyQtWebEngine>=5.15.0
+numpy>=2.0.0
+networkx>=3.0
+geopandas>=1.0.0
+osmnx>=2.0.0
+pandas>=2.0.0
+requests>=2.34.0
+shapely>=2.0.0
