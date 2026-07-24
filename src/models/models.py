@@ -187,12 +187,14 @@ class SearchResult:
         steps=None,
         total_cost: float = 0.0,
         success: bool = False,
+        message: str = "",
         visited_order=None,
     ):
         self.path = path or []
         self.steps = steps or []
         self.total_cost = float(total_cost)
         self.success = success
+        self.message = message
         self.visited_order = visited_order or []
 
     def to_dict(self):

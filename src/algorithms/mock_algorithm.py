@@ -1,5 +1,8 @@
 # src/algorithms/mock_algorithm.py
-from models.models import SearchResult, SearchStep, StepType
+try:
+    from models.models import SearchResult, SearchStep, StepType
+except ImportError:
+    from src.models.models import SearchResult, SearchStep, StepType
 
 
 def mock_search(graph, start_id, goal_id):

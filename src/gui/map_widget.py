@@ -100,18 +100,27 @@ class MapWidget(QWebEngineView):
 
     def draw_map_step_by_step (self, result, interval_ms=500):
         """
-        draw_map_step_by_step: replay its SearchSteps one per timer tick,
-        then let the JS 'finish' step highlight the final path.
-
-        This is the single entry point for search visualization — every
-        algorithm (mock, DFS, BFS, UCS, A*) returns a SearchResult, so this
-        method never needs to change when swapping algorithms.
+        Animate a search process. Accepts either a SearchResult object (new contract)
+        or a list of step dicts (legacy/mock contract) and replays them on the map.
         """
         self.stop_animation()
 
-        self._result = result
-        self._steps = list(result.steps)
-        self._step_index = 0
+        if hasattr(result, "steps"):
+            self._result = result
+            self._steps = list(result.steps)
+        else:
+            # Wrap legacy steps list inside a mock SearchResult to maintain formatting
+            self._steps = list(result or [])
+            path = []
+            if self._steps and isinstance(self._steps[-1], dict) and self._steps[-1].get("type") == "finish":
+                path = self._steps[-1].get("path", [])
+
+            try:
+                from models.models import SearchResult
+                self._result = SearchResult(path=path, steps=self._steps)
+            except ImportError:
+                from src.models.models import SearchResult
+                self._result = SearchResult(path=path, steps=self._steps)
 
         if not self._steps:
             return
@@ -128,11 +137,14 @@ class MapWidget(QWebEngineView):
         step = self._steps[self._step_index]
         self._step_index += 1
 
-        step_dict = step.to_dict()
+        if hasattr(step, "to_dict"):
+            step_dict = step.to_dict()
+        else:
+            step_dict = dict(step)
 
         # The final path belongs to the SearchResult, not to any single step —
         # attach it to the 'finish' step so JS can highlight the whole path.
-        if step_dict["type"] == "finish" and self._result is not None:
+        if step_dict.get("type") == "finish" and self._result is not None:
             step_dict.setdefault("path", list(self._result.path))
 
         if self._page_loaded:
