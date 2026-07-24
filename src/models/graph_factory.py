@@ -51,9 +51,9 @@ def build_graph(json_path: str) -> Graph:
             distance=float(edge["distance"]),
             travel_time=float(edge.get("time", edge.get("travel_time"))),
             road_type=edge["road_type"].strip(),
-            is_one_way=edge["is_one_way"],
+            is_one_way=edge.get("is_one_way", False),
             congestion=int(edge.get("congestion", 1)),
-            risk=int(edge.get("risk")),
+            risk=int(edge.get("risk", 0)),
             note=edge.get("note", ""),
         )
         graph.add_edge(new_edge)

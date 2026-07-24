@@ -11,7 +11,11 @@ from PyQt5.QtWebEngineWidgets import QWebEngineView
 class MapWidget(QWebEngineView):
     """
     QWebEngineView wrapper that renders a Leaflet map and exposes Python APIs
-    for drawing a Graph and animating search steps.
+    for drawing a Graph and animating a SearchResult.
+
+    Boundary rule: everything on the Python side speaks Graph / SearchResult;
+    everything past _run_js_function speaks plain dicts / JSON. This class is
+    the only translator between the two.
     """
 
     def __init__(self, parent=None):
@@ -21,6 +25,7 @@ class MapWidget(QWebEngineView):
         self._pending_graph_data = None
         self._steps = []
         self._step_index = 0
+        self._result = None
 
         self._timer = QTimer(self)
         self._timer.timeout.connect(self.apply_next_step)
@@ -61,7 +66,7 @@ class MapWidget(QWebEngineView):
                 "name": node.name,
                 "lat": node.lat,
                 "lon": node.lon,
-                "type": getattr(node, "type", "intersection"),
+                "type": getattr(node, "node_type", "intersection"),
             })
 
         edges = []
@@ -93,13 +98,19 @@ class MapWidget(QWebEngineView):
         else:
             self._pending_graph_data = graph_data
 
-    def draw_map_step_by_step(self, steps, interval_ms=500):
+    def draw_map_step_by_step (self, result, interval_ms=500):
         """
-        Animate a list of search steps by sending one step to JavaScript per timer tick.
+        draw_map_step_by_step: replay its SearchSteps one per timer tick,
+        then let the JS 'finish' step highlight the final path.
+
+        This is the single entry point for search visualization — every
+        algorithm (mock, DFS, BFS, UCS, A*) returns a SearchResult, so this
+        method never needs to change when swapping algorithms.
         """
         self.stop_animation()
 
-        self._steps = list(steps or [])
+        self._result = result
+        self._steps = list(result.steps)
         self._step_index = 0
 
         if not self._steps:
@@ -117,10 +128,17 @@ class MapWidget(QWebEngineView):
         step = self._steps[self._step_index]
         self._step_index += 1
 
-        if self._page_loaded:
-            self._run_js_function("applyStep", step)
+        step_dict = step.to_dict()
 
-        if step.get("type") == "finish":
+        # The final path belongs to the SearchResult, not to any single step —
+        # attach it to the 'finish' step so JS can highlight the whole path.
+        if step_dict["type"] == "finish" and self._result is not None:
+            step_dict.setdefault("path", list(self._result.path))
+
+        if self._page_loaded:
+            self._run_js_function("applyStep", step_dict)
+
+        if step_dict["type"] == "finish":
             self.stop_animation()
 
     def stop_animation(self):
@@ -132,6 +150,7 @@ class MapWidget(QWebEngineView):
         """Reset node/edge styles and stop any running animation."""
         self.stop_animation()
         self._step_index = 0
+        self._result = None
 
         if self._page_loaded:
             self._run_js_function("resetMap")

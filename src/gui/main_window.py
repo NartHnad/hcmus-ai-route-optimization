@@ -164,8 +164,8 @@ class MainWindow(QMainWindow):
 
         self.status_label.setText(f"Running mock pathfinding from {start_id} to {goal_id}...")
 
-        steps = mock_search(self.graph, start_id, goal_id)
-        self.map_widget.draw_map_step_by_step(steps, interval_ms=500)
+        result = mock_search(self.graph, start_id, goal_id)
+        self.map_widget.draw_map_step_by_step(result, interval_ms=500)
 
     def on_reset_clicked(self):
         self.map_widget.reset()
