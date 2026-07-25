@@ -68,7 +68,12 @@ class MainWindow(QMainWindow):
 
         dataset_layout.addWidget(QLabel("Select Dataset:"))
         self.dataset_combo = QComboBox()
-        self.dataset_combo.addItems(["mock_data.json", "map_data.json"])
+        # Dynamically load all JSON files from the data folder
+        data_dir = PROJECT_ROOT / "data"
+        json_files = [f.name for f in data_dir.glob("*.json")] if data_dir.exists() else []
+        if not json_files:
+            json_files = ["No datasets found"]
+        self.dataset_combo.addItems(json_files)
         dataset_layout.addWidget(self.dataset_combo)
 
         self.load_button = QPushButton("Load Graph Data")
