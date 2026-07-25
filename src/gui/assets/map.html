@@ -166,7 +166,7 @@
                 return;
             }
 
-            if (currentStep.type === 'visit_node') {
+            if (currentStep.type === 'expand') {
                 const layer = nodeLayers[currentStep.node];
                 if (layer) {
                     layer.setStyle(NODE_STYLE.visit);
@@ -175,7 +175,7 @@
                 return;
             }
 
-            if (currentStep.type === 'inspect_edge') {
+            if (currentStep.type === 'discover') {
                 const layer = edgeLayers[edgeKey(currentStep.from, currentStep.to)];
                 if (layer) {
                     layer.setStyle(EDGE_STYLE.inspect);
@@ -183,7 +183,7 @@
                 return;
             }
 
-            if (currentStep.type === 'path_edge') {
+            if (currentStep.type === 'update') {
                 const layer = edgeLayers[edgeKey(currentStep.from, currentStep.to)];
                 if (layer) {
                     layer.setStyle(EDGE_STYLE.path);

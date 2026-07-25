@@ -41,8 +41,8 @@ class Edge:
         travel_time: float,
         road_type: str = None,
         is_one_way: bool = False,
-        congestion: int = None,
-        risk: int = None,
+        congestion: int = 0,
+        risk: int = 0,
         note: str = "",
     ):
         self.from_node = from_node
@@ -54,17 +54,15 @@ class Edge:
         self.road_type = road_type  
         self.is_one_way = is_one_way # Traffic direction: 'one-way' or 'two-way'
 
-        # # Traffic traffic level scaled from a to b
+        # Traffic traffic level scaled from a to b
         self.congestion = int(congestion)
 
-        #  penalty for flooding, construction, difficult intersections, narrow roads, or unsafe areas
+        # Penalty for flooding, construction, difficult intersections, narrow roads, or unsafe areas
         self.risk = int(risk)
 
         self.note = note
 
-        self.road_type = road_type
-
-    def calculate_cost(
+    def calculate_cost( #need to be updated
         self,
         alpha: float = 1.0,
         beta: float = 1.0,
@@ -104,6 +102,76 @@ class Edge:
     def __repr__(self):
         return f"Edge({self.from_node} -> {self.to_node}, cost={self.calculate_cost()})"
 
+from enum import Enum
+
+class StepType(Enum):
+    EXPAND = "expand"           # Lấy node ra khỏi hàng đợi để xét (Visited)
+    DISCOVER = "discover"       # Tìm thấy node mới lần đầu (Frontier Add)
+    UPDATE = "update"           # Tìm thấy đường đi rẻ hơn đến node đã biết (Relaxation)
+
+    FINISH = "finish"
+
+
+class SearchStep:
+    """
+    Represents a single search event emitted in chronological order.
+
+    Algorithm → GUI contract:
+    - EXPAND: Node removed from frontier for expansion.
+    - DISCOVER: First time a node is found and added to frontier.
+    - UPDATE: Better path to an existing node is found.
+    - FINISH: Search terminates (success or failure).
+
+    Rules:
+    - Emit exactly one SearchStep when the event occurs.
+    - Do not batch or reconstruct events afterward.
+    - Unused fields must be None.
+    """
+
+    def __init__(
+        self,
+        step_type: StepType,
+        node_id: str = None,
+        edge_from: str = None,
+        edge_to: str = None,
+        metrics: dict = None,  # g, h, f of heuristic function
+    ):
+        self.step_type = step_type
+        self.node_id = node_id
+        self.edge_from = edge_from
+        self.edge_to = edge_to
+        self.metrics = metrics or {}
+
+    def to_dict(self):
+        """
+        Serialize to the plain-dict schema the GUI / JavaScript side consumes.
+        Fields that are None are omitted to keep the JSON payload small.
+        """
+        data = {"type": self.step_type.value}
+
+        if self.node_id is not None:
+            data["node"] = self.node_id
+
+        if self.edge_from is not None:
+            data["from"] = self.edge_from
+
+        if self.edge_to is not None:
+            data["to"] = self.edge_to
+
+        if self.metrics:
+            data["metrics"] = dict(self.metrics)
+
+        return data
+
+    def __repr__(self):
+        parts = [f"type={self.step_type.value}"]
+        if self.node_id is not None:
+            parts.append(f"node={self.node_id}")
+        if self.edge_from is not None or self.edge_to is not None:
+            parts.append(f"edge={self.edge_from}->{self.edge_to}")
+        if self.metrics:
+            parts.append(f"metrics={self.metrics}")
+        return f"SearchStep({', '.join(parts)})"
 
 class SearchResult:
     """
@@ -118,21 +186,39 @@ class SearchResult:
         path=None,
         steps=None,
         total_cost: float = 0.0,
-        visited_order=None,
-        success: bool = True,
+        success: bool = False,
         message: str = "",
+        visited_order=None,
     ):
         self.path = path or []
         self.steps = steps or []
         self.total_cost = float(total_cost)
-        self.visited_order = visited_order or []
         self.success = success
         self.message = message
+        self.visited_order = visited_order or []
+
+    def to_dict(self):
+        """
+        Serialize the whole result into one JSON-ready dict.
+        """
+        return {
+            "success": self.success,
+            "path": list(self.path),
+            "total_cost": self.total_cost,
+            "message": getattr(self, "message", ""),
+            "visited_order": list(self.visited_order),
+            # Accept both SearchStep objects and plain dicts (mock steps),
+            # so mixed lists still serialize cleanly.
+            "steps": [
+                step.to_dict() if hasattr(step, "to_dict") else step
+                for step in self.steps
+            ],
+        }
 
     def __repr__(self):
         return (
             f"SearchResult(success={self.success}, "
-            f"path={self.path}, total_cost={self.total_cost})"
+            f"path={self.path}, total_cost={self.total_cost}, "
         )
 
 
