@@ -58,10 +58,15 @@
             path: { color: '#16a34a', weight: 6, opacity: 1.0 },
         };
 
-        let map = L.map('map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+        // Canvas renderer instead of SVG: no DOM node per marker/polyline,
+        // which keeps thousands of nodes/edges smooth during pan/zoom.
+        let map = L.map('map', { renderer: L.canvas(), preferCanvas: true })
+            .setView(DEFAULT_CENTER, DEFAULT_ZOOM);
         let nodeLayers = {};
         let edgeLayers = {};
         let graphData = { nodes: [], edges: [] };
+        // O(1) lookup by node id, rebuilt on every initMap call.
+        let nodeIndex = {};
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
@@ -87,7 +92,7 @@
         }
 
         function nodeById(nodeId) {
-            return graphData.nodes.find(node => node.id === nodeId);
+            return nodeIndex[nodeId];
         }
 
         function setEmptyMessage(visible, text = 'Waiting for graph data...') {
@@ -101,6 +106,9 @@
             graphData = normalizeInput(data);
             graphData.nodes = graphData.nodes || [];
             graphData.edges = graphData.edges || [];
+
+            nodeIndex = {};
+            graphData.nodes.forEach(node => { nodeIndex[node.id] = node; });
 
             clearGraphLayers();
 
@@ -170,7 +178,11 @@
                 const layer = nodeLayers[currentStep.node];
                 if (layer) {
                     layer.setStyle(NODE_STYLE.visit);
-                    map.panTo(layer.getLatLng(), { animate: true, duration: 0.25 });
+                    // Only pan when the expanded node is off-screen — animating
+                    // a pan for every step is the main lag source on big graphs.
+                    if (!map.getBounds().contains(layer.getLatLng())) {
+                        map.panTo(layer.getLatLng(), { animate: true, duration: 0.25 });
+                    }
                 }
                 return;
             }
