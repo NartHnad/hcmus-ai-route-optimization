@@ -60,18 +60,250 @@
 
         // Canvas renderer instead of SVG: no DOM node per marker/polyline,
         // which keeps thousands of nodes/edges smooth during pan/zoom.
-        let map = L.map('map', { renderer: L.canvas(), preferCanvas: true })
+        let map = L.map('map', { preferCanvas: true })
             .setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+
+        // Separate canvas panes per element kind, with zIndex enforcing
+        // draw order — otherwise edges added after nodes paint OVER them.
+        map.createPane('edgesPane');
+        map.getPane('edgesPane').style.zIndex = 400;
+        map.createPane('nodesPane');
+        map.getPane('nodesPane').style.zIndex = 500;
+        const edgeRenderer = L.canvas({ pane: 'edgesPane' });
+        const nodeRenderer = L.canvas({ pane: 'nodesPane' });
+
+        // graphData is the single source of truth (plain data, always complete).
+        let graphData = { nodes: [], edges: [] };
+        // O(1) lookups, rebuilt on every initMap call.
+        let nodeIndex = {};   // nodeId -> node data
+        let edgeIndex = {};   // "from->to" -> edge data
+        // Layer cache: a Leaflet layer object is created lazily the first time
+        // its element enters the viewport — never for areas the user never pans to.
         let nodeLayers = {};
         let edgeLayers = {};
-        let graphData = { nodes: [], edges: [] };
-        // O(1) lookup by node id, rebuilt on every initMap call.
-        let nodeIndex = {};
+        // Style state stores: the single source of truth for highlight state.
+        // applyStep/resetMap write here; getNodeLayer/getEdgeLayer apply it on
+        // (re)creation, so animation state survives viewport culling.
+        let nodeStyles = {};
+        let edgeStyles = {};
+        // Which cached layers are currently on the map (set of ids/keys).
+        let visibleSet = new Set();
+        // Spatial grid for viewport queries: cellKey -> {nodes: [], edges: []}.
+        let spatialGrid = {};
+        const GRID_CELL_DEG = 0.005; // ~500m cells, tuned for inner-city density
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; OpenStreetMap contributors',
         }).addTo(map);
+
+        // ------------------------------------------------------------------
+        // Spatial grid: bucket nodes/edges into fixed cells once at initMap,
+        // so each viewport refresh only inspects the cells overlapping the
+        // view instead of scanning the whole graph (O(view) not O(N)).
+        // ------------------------------------------------------------------
+
+        function cellKey(lat, lon) {
+            return `${Math.floor(lat / GRID_CELL_DEG)}:${Math.floor(lon / GRID_CELL_DEG)}`;
+        }
+
+        function gridCell(lat, lon) {
+            const key = cellKey(lat, lon);
+            if (!spatialGrid[key]) {
+                spatialGrid[key] = { nodes: [], edges: [] };
+            }
+            return spatialGrid[key];
+        }
+
+        function registerNodeToGrid(node) {
+            gridCell(node.lat, node.lon).nodes.push(node.id);
+        }
+
+        // Register an edge into every cell its bounding box crosses, so a long
+        // edge cutting across the view is found even if both ends are outside.
+        function registerEdgeToGrid(edge, fromNode, toNode) {
+            const key = edgeKey(edge.from, edge.to);
+            const lat1 = Math.min(fromNode.lat, toNode.lat);
+            const lat2 = Math.max(fromNode.lat, toNode.lat);
+            const lon1 = Math.min(fromNode.lon, toNode.lon);
+            const lon2 = Math.max(fromNode.lon, toNode.lon);
+
+            const c1 = Math.floor(lat1 / GRID_CELL_DEG);
+            const c2 = Math.floor(lat2 / GRID_CELL_DEG);
+            const c3 = Math.floor(lon1 / GRID_CELL_DEG);
+            const c4 = Math.floor(lon2 / GRID_CELL_DEG);
+
+            for (let i = c1; i <= c2; i += 1) {
+                for (let j = c3; j <= c4; j += 1) {
+                    const cell = spatialGrid[`${i}:${j}`] || (spatialGrid[`${i}:${j}`] = { nodes: [], edges: [] });
+                    cell.edges.push(key);
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Lazy layer factories: create the Leaflet object on first use and
+        // stamp it with the CURRENT style from the state stores, so a layer
+        // materializing mid-animation already shows the right highlight.
+        // ------------------------------------------------------------------
+
+        function getNodeLayer(nodeId) {
+            let layer = nodeLayers[nodeId];
+            if (layer) {
+                return layer;
+            }
+
+            const node = nodeIndex[nodeId];
+            if (!node) {
+                return null;
+            }
+
+            layer = L.circleMarker(
+                [node.lat, node.lon],
+                Object.assign({ pane: 'nodesPane', renderer: nodeRenderer }, nodeStyles[nodeId] || NODE_STYLE.default)
+            );
+
+            layer.bindTooltip(`${node.id} - ${node.name}`, {
+                direction: 'top',
+                offset: [0, -8],
+            });
+
+            layer.bindPopup(`
+                <b>${node.name}</b><br>
+                ID: ${node.id}<br>
+                Type: ${node.type ?? 'intersection'}<br>
+                Lat/Lon: ${node.lat}, ${node.lon}
+            `);
+
+            nodeLayers[nodeId] = layer;
+            return layer;
+        }
+
+        function getEdgeLayer(key) {
+            let layer = edgeLayers[key];
+            if (layer) {
+                return layer;
+            }
+
+            const edge = edgeIndex[key];
+            if (!edge) {
+                return null;
+            }
+            const fromNode = nodeIndex[edge.from];
+            const toNode = nodeIndex[edge.to];
+            if (!fromNode || !toNode) {
+                return null;
+            }
+
+            layer = L.polyline(
+                [[fromNode.lat, fromNode.lon], [toNode.lat, toNode.lon]],
+                Object.assign({ pane: 'edgesPane', renderer: edgeRenderer }, edgeStyles[key] || EDGE_STYLE.default)
+            );
+
+            layer.bindPopup(`
+                <b>${edge.from} → ${edge.to}</b><br>
+                Distance: ${edge.distance ?? '-'}<br>
+                Time: ${edge.travel_time ?? '-'}<br>
+                Road: ${edge.road_type ?? '-'}<br>
+                Congestion: ${edge.congestion ?? '-'}<br>
+                Risk: ${edge.risk ?? edge.flooding ?? '-'}<br>
+                ${edge.note ? `Note: ${edge.note}` : ''}
+            `);
+
+            edgeLayers[key] = layer;
+            return layer;
+        }
+
+        // ------------------------------------------------------------------
+        // Viewport culling: gather candidate ids from the grid cells that
+        // overlap the view, lazily create + add layers inside it, and remove
+        // the ones that fell outside (objects stay cached).
+        // ------------------------------------------------------------------
+
+        function toggleLayerVisibility(id, layer, shouldShow) {
+            if (shouldShow && !visibleSet.has(id)) {
+                visibleSet.add(id);
+                layer.addTo(map);
+            } else if (!shouldShow && visibleSet.has(id)) {
+                visibleSet.delete(id);
+                map.removeLayer(layer);
+            }
+        }
+
+        function refreshVisibleLayers() {
+            // pad(0.5) keeps a 50% off-screen margin: short pans then rarely
+            // add/remove anything, avoiding the burst of canvas re-renders
+            // that causes the visible stutter while dragging.
+            const viewBounds = map.getBounds().pad(0.5);
+
+            const nodeCandidates = new Set();
+            const edgeCandidates = new Set();
+            const south = viewBounds.getSouth();
+            const north = viewBounds.getNorth();
+            const west = viewBounds.getWest();
+            const east = viewBounds.getEast();
+
+            const i1 = Math.floor(south / GRID_CELL_DEG);
+            const i2 = Math.floor(north / GRID_CELL_DEG);
+            const j1 = Math.floor(west / GRID_CELL_DEG);
+            const j2 = Math.floor(east / GRID_CELL_DEG);
+
+            for (let i = i1; i <= i2; i += 1) {
+                for (let j = j1; j <= j2; j += 1) {
+                    const cell = spatialGrid[`${i}:${j}`];
+                    if (!cell) {
+                        continue;
+                    }
+                    cell.nodes.forEach(id => nodeCandidates.add(id));
+                    cell.edges.forEach(key => edgeCandidates.add(key));
+                }
+            }
+
+            nodeCandidates.forEach(nodeId => {
+                const node = nodeIndex[nodeId];
+                if (!node) {
+                    return;
+                }
+                const layer = getNodeLayer(nodeId);
+                if (layer) {
+                    toggleLayerVisibility(nodeId, layer, viewBounds.contains([node.lat, node.lon]));
+                }
+            });
+
+            edgeCandidates.forEach(key => {
+                const edge = edgeIndex[key];
+                if (!edge) {
+                    return;
+                }
+                const fromNode = nodeIndex[edge.from];
+                const toNode = nodeIndex[edge.to];
+                if (!fromNode || !toNode) {
+                    return;
+                }
+                const layer = getEdgeLayer(key);
+                if (!layer) {
+                    return;
+                }
+                const edgeBounds = L.latLngBounds(
+                    [fromNode.lat, fromNode.lon],
+                    [toNode.lat, toNode.lon]
+                );
+                toggleLayerVisibility(key, layer, viewBounds.intersects(edgeBounds));
+            });
+        }
+
+        // Debounce: consecutive pans fire several moveend events; collapsing
+        // them into one refresh avoids redundant add/remove bursts.
+        let refreshTimer = null;
+        map.on('moveend', () => {
+            if (refreshTimer !== null) {
+                clearTimeout(refreshTimer);
+            }
+            refreshTimer = setTimeout(() => {
+                refreshTimer = null;
+                refreshVisibleLayers();
+            }, 30);
+        });
 
         function edgeKey(fromNode, toNode) {
             return `${fromNode}->${toNode}`;
@@ -89,6 +321,9 @@
             Object.values(edgeLayers).forEach(layer => map.removeLayer(layer));
             nodeLayers = {};
             edgeLayers = {};
+            nodeStyles = {};
+            edgeStyles = {};
+            visibleSet = new Set();
         }
 
         function nodeById(nodeId) {
@@ -107,10 +342,28 @@
             graphData.nodes = graphData.nodes || [];
             graphData.edges = graphData.edges || [];
 
-            nodeIndex = {};
-            graphData.nodes.forEach(node => { nodeIndex[node.id] = node; });
-
             clearGraphLayers();
+
+            // Build plain-data indexes and the spatial grid only — Leaflet
+            // layers are created lazily on first viewport entry.
+            nodeIndex = {};
+            edgeIndex = {};
+            spatialGrid = {};
+
+            graphData.nodes.forEach(node => {
+                nodeIndex[node.id] = node;
+                registerNodeToGrid(node);
+            });
+
+            graphData.edges.forEach(edge => {
+                const fromNode = nodeIndex[edge.from];
+                const toNode = nodeIndex[edge.to];
+                if (!fromNode || !toNode) {
+                    return;
+                }
+                edgeIndex[edgeKey(edge.from, edge.to)] = edge;
+                registerEdgeToGrid(edge, fromNode, toNode);
+            });
 
             if (graphData.nodes.length === 0) {
                 setEmptyMessage(true, 'No graph nodes to display.');
@@ -120,52 +373,11 @@
 
             setEmptyMessage(false);
 
-            graphData.edges.forEach(edge => {
-                const fromNode = nodeById(edge.from);
-                const toNode = nodeById(edge.to);
-
-                if (!fromNode || !toNode) {
-                    return;
-                }
-
-                const layer = L.polyline(
-                    [[fromNode.lat, fromNode.lon], [toNode.lat, toNode.lon]],
-                    EDGE_STYLE.default
-                ).addTo(map);
-
-                layer.bindPopup(`
-                    <b>${edge.from} → ${edge.to}</b><br>
-                    Distance: ${edge.distance ?? '-'}<br>
-                    Time: ${edge.travel_time ?? '-'}<br>
-                    Road: ${edge.road_type ?? '-'}<br>
-                    Congestion: ${edge.congestion ?? '-'}<br>
-                    Risk: ${edge.risk ?? edge.flooding ?? '-'}<br>
-                    ${edge.note ? `Note: ${edge.note}` : ''}
-                `);
-
-                edgeLayers[edgeKey(edge.from, edge.to)] = layer;
-            });
-
-            graphData.nodes.forEach(node => {
-                const layer = L.circleMarker([node.lat, node.lon], NODE_STYLE.default).addTo(map);
-
-                layer.bindTooltip(`${node.id} - ${node.name}`, {
-                    direction: 'top',
-                    offset: [0, -8],
-                });
-
-                layer.bindPopup(`
-                    <b>${node.name}</b><br>
-                    ID: ${node.id}<br>
-                    Type: ${node.type ?? 'intersection'}<br>
-                    Lat/Lon: ${node.lat}, ${node.lon}
-                `);
-
-                nodeLayers[node.id] = layer;
-            });
-
             const bounds = L.latLngBounds(graphData.nodes.map(node => [node.lat, node.lon]));
             map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+            // fitBounds triggers 'moveend' -> refreshVisibleLayers(); call it
+            // once more synchronously in case the view didn't actually change.
+            refreshVisibleLayers();
         }
 
         function applyStep(step) {
@@ -175,20 +387,26 @@
             }
 
             if (currentStep.type === 'expand') {
-                const layer = nodeLayers[currentStep.node];
-                if (layer) {
-                    layer.setStyle(NODE_STYLE.visit);
-                    // Only pan when the expanded node is off-screen — animating
-                    // a pan for every step is the main lag source on big graphs.
-                    if (!map.getBounds().contains(layer.getLatLng())) {
-                        map.panTo(layer.getLatLng(), { animate: true, duration: 0.25 });
+                const nodeId = currentStep.node;
+                if (nodeIndex[nodeId]) {
+                    nodeStyles[nodeId] = NODE_STYLE.visit;
+                    const layer = nodeLayers[nodeId];
+                    if (layer) {
+                        layer.setStyle(NODE_STYLE.visit);
+                        // Only pan when the expanded node is off-screen —
+                        // animating a pan per step is the main lag source.
+                        if (!map.getBounds().contains(layer.getLatLng())) {
+                            map.panTo(layer.getLatLng(), { animate: true, duration: 0.25 });
+                        }
                     }
                 }
                 return;
             }
 
             if (currentStep.type === 'discover') {
-                const layer = edgeLayers[edgeKey(currentStep.from, currentStep.to)];
+                const key = edgeKey(currentStep.from, currentStep.to);
+                edgeStyles[key] = EDGE_STYLE.inspect;
+                const layer = edgeLayers[key];
                 if (layer) {
                     layer.setStyle(EDGE_STYLE.inspect);
                 }
@@ -196,7 +414,9 @@
             }
 
             if (currentStep.type === 'update') {
-                const layer = edgeLayers[edgeKey(currentStep.from, currentStep.to)];
+                const key = edgeKey(currentStep.from, currentStep.to);
+                edgeStyles[key] = EDGE_STYLE.path;
+                const layer = edgeLayers[key];
                 if (layer) {
                     layer.setStyle(EDGE_STYLE.path);
                     layer.bringToFront();
@@ -207,6 +427,7 @@
             if (currentStep.type === 'finish') {
                 const path = currentStep.path || [];
                 path.forEach(nodeId => {
+                    nodeStyles[nodeId] = NODE_STYLE.path;
                     const nodeLayer = nodeLayers[nodeId];
                     if (nodeLayer) {
                         nodeLayer.setStyle(NODE_STYLE.path);
@@ -214,7 +435,9 @@
                 });
 
                 for (let i = 0; i < path.length - 1; i += 1) {
-                    const layer = edgeLayers[edgeKey(path[i], path[i + 1])];
+                    const key = edgeKey(path[i], path[i + 1]);
+                    edgeStyles[key] = EDGE_STYLE.path;
+                    const layer = edgeLayers[key];
                     if (layer) {
                         layer.setStyle(EDGE_STYLE.path);
                         layer.bringToFront();
@@ -224,6 +447,8 @@
         }
 
         function resetMap() {
+            nodeStyles = {};
+            edgeStyles = {};
             Object.values(nodeLayers).forEach(layer => layer.setStyle(NODE_STYLE.default));
             Object.values(edgeLayers).forEach(layer => layer.setStyle(EDGE_STYLE.default));
         }
