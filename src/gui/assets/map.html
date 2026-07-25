@@ -121,17 +121,15 @@
 
         // Register an edge into every cell its bounding box crosses, so a long
         // edge cutting across the view is found even if both ends are outside.
-        function registerEdgeToGrid(edge, fromNode, toNode) {
+        // edge.bounds is precomputed in initMap — reuse it instead of
+        // re-deriving min/max lat/lon here.
+        function registerEdgeToGrid(edge) {
             const key = edgeKey(edge.from, edge.to);
-            const lat1 = Math.min(fromNode.lat, toNode.lat);
-            const lat2 = Math.max(fromNode.lat, toNode.lat);
-            const lon1 = Math.min(fromNode.lon, toNode.lon);
-            const lon2 = Math.max(fromNode.lon, toNode.lon);
 
-            const c1 = Math.floor(lat1 / GRID_CELL_DEG);
-            const c2 = Math.floor(lat2 / GRID_CELL_DEG);
-            const c3 = Math.floor(lon1 / GRID_CELL_DEG);
-            const c4 = Math.floor(lon2 / GRID_CELL_DEG);
+            const c1 = Math.floor(edge.bounds.getSouth() / GRID_CELL_DEG);
+            const c2 = Math.floor(edge.bounds.getNorth() / GRID_CELL_DEG);
+            const c3 = Math.floor(edge.bounds.getWest() / GRID_CELL_DEG);
+            const c4 = Math.floor(edge.bounds.getEast() / GRID_CELL_DEG);
 
             for (let i = c1; i <= c2; i += 1) {
                 for (let j = c3; j <= c4; j += 1) {
@@ -147,6 +145,39 @@
         // materializing mid-animation already shows the right highlight.
         // ------------------------------------------------------------------
 
+        // Popup HTML builders — pure functions, only invoked on first click.
+        function buildNodePopupHtml(node) {
+            return `
+                <b>${node.name}</b><br>
+                ID: ${node.id}<br>
+                Type: ${node.type ?? 'intersection'}<br>
+                Lat/Lon: ${node.lat}, ${node.lon}
+            `;
+        }
+
+        function buildEdgePopupHtml(edge) {
+            return `
+                <b>${edge.from} → ${edge.to}</b><br>
+                Distance: ${edge.distance ?? '-'}<br>
+                Time: ${edge.travel_time ?? '-'}<br>
+                Road: ${edge.road_type ?? '-'}<br>
+                Congestion: ${edge.congestion ?? '-'}<br>
+                Risk: ${edge.risk ?? edge.flooding ?? '-'}<br>
+                ${edge.note ? `Note: ${edge.note}` : ''}
+            `;
+        }
+
+        // Bind popup lazily: the HTML string is only built if the user
+        // actually clicks, matching the lazy-layer architecture.
+        function bindLazyPopup(layer, buildHtml) {
+            layer.on('click', () => {
+                if (!layer.getPopup()) {
+                    layer.bindPopup(buildHtml());
+                }
+                layer.openPopup();
+            });
+        }
+
         function getNodeLayer(nodeId) {
             let layer = nodeLayers[nodeId];
             if (layer) {
@@ -159,21 +190,19 @@
             }
 
             layer = L.circleMarker(
-                [node.lat, node.lon],
+                node.latLng,
                 Object.assign({ pane: 'nodesPane', renderer: nodeRenderer }, nodeStyles[nodeId] || NODE_STYLE.default)
             );
 
+            // Tooltip stays eagerly bound: it shows on hover, a frequent
+            // interaction — lazy-binding it would add a perceptible delay
+            // on the very first mouseover.
             layer.bindTooltip(`${node.id} - ${node.name}`, {
                 direction: 'top',
                 offset: [0, -8],
             });
 
-            layer.bindPopup(`
-                <b>${node.name}</b><br>
-                ID: ${node.id}<br>
-                Type: ${node.type ?? 'intersection'}<br>
-                Lat/Lon: ${node.lat}, ${node.lon}
-            `);
+            bindLazyPopup(layer, () => buildNodePopupHtml(node));
 
             nodeLayers[nodeId] = layer;
             return layer;
@@ -196,19 +225,11 @@
             }
 
             layer = L.polyline(
-                [[fromNode.lat, fromNode.lon], [toNode.lat, toNode.lon]],
+                [fromNode.latLng, toNode.latLng],
                 Object.assign({ pane: 'edgesPane', renderer: edgeRenderer }, edgeStyles[key] || EDGE_STYLE.default)
             );
 
-            layer.bindPopup(`
-                <b>${edge.from} → ${edge.to}</b><br>
-                Distance: ${edge.distance ?? '-'}<br>
-                Time: ${edge.travel_time ?? '-'}<br>
-                Road: ${edge.road_type ?? '-'}<br>
-                Congestion: ${edge.congestion ?? '-'}<br>
-                Risk: ${edge.risk ?? edge.flooding ?? '-'}<br>
-                ${edge.note ? `Note: ${edge.note}` : ''}
-            `);
+            bindLazyPopup(layer, () => buildEdgePopupHtml(edge));
 
             edgeLayers[key] = layer;
             return layer;
@@ -266,7 +287,7 @@
                 }
                 const layer = getNodeLayer(nodeId);
                 if (layer) {
-                    toggleLayerVisibility(nodeId, layer, viewBounds.contains([node.lat, node.lon]));
+                    toggleLayerVisibility(nodeId, layer, viewBounds.contains(node.latLng));
                 }
             });
 
@@ -275,35 +296,19 @@
                 if (!edge) {
                     return;
                 }
-                const fromNode = nodeIndex[edge.from];
-                const toNode = nodeIndex[edge.to];
-                if (!fromNode || !toNode) {
-                    return;
-                }
                 const layer = getEdgeLayer(key);
                 if (!layer) {
                     return;
                 }
-                const edgeBounds = L.latLngBounds(
-                    [fromNode.lat, fromNode.lon],
-                    [toNode.lat, toNode.lon]
-                );
-                toggleLayerVisibility(key, layer, viewBounds.intersects(edgeBounds));
+                toggleLayerVisibility(key, layer, viewBounds.intersects(edge.bounds));
             });
         }
 
-        // Debounce: consecutive pans fire several moveend events; collapsing
-        // them into one refresh avoids redundant add/remove bursts.
-        let refreshTimer = null;
-        map.on('moveend', () => {
-            if (refreshTimer !== null) {
-                clearTimeout(refreshTimer);
-            }
-            refreshTimer = setTimeout(() => {
-                refreshTimer = null;
-                refreshVisibleLayers();
-            }, 30);
-        });
+        // moveend fires only after a pan/zoom settles, so a debounce here
+        // adds latency without collapsing any real burst — call directly.
+        // The pad(0.5) margin in refreshVisibleLayers() is what actually
+        // prevents add/remove thrash during short pans.
+        map.on('moveend', refreshVisibleLayers);
 
         function edgeKey(fromNode, toNode) {
             return `${fromNode}->${toNode}`;
@@ -324,10 +329,6 @@
             nodeStyles = {};
             edgeStyles = {};
             visibleSet = new Set();
-        }
-
-        function nodeById(nodeId) {
-            return nodeIndex[nodeId];
         }
 
         function setEmptyMessage(visible, text = 'Waiting for graph data...') {
@@ -351,6 +352,10 @@
             spatialGrid = {};
 
             graphData.nodes.forEach(node => {
+                // Cache the LatLng once — reused by layer creation, viewport
+                // containment checks and fitBounds, avoiding repeated
+                // temporary [lat, lon] arrays in the pan/zoom hot path.
+                node.latLng = L.latLng(node.lat, node.lon);
                 nodeIndex[node.id] = node;
                 registerNodeToGrid(node);
             });
@@ -361,8 +366,13 @@
                 if (!fromNode || !toNode) {
                     return;
                 }
+                // Cache bounds once — refreshVisibleLayers() intersects every
+                // candidate edge on every viewport change; allocating a fresh
+                // LatLngBounds per check was the hottest allocation in that
+                // path. Grid registration also reuses this.
+                edge.bounds = L.latLngBounds(fromNode.latLng, toNode.latLng);
                 edgeIndex[edgeKey(edge.from, edge.to)] = edge;
-                registerEdgeToGrid(edge, fromNode, toNode);
+                registerEdgeToGrid(edge);
             });
 
             if (graphData.nodes.length === 0) {
@@ -373,7 +383,7 @@
 
             setEmptyMessage(false);
 
-            const bounds = L.latLngBounds(graphData.nodes.map(node => [node.lat, node.lon]));
+            const bounds = L.latLngBounds(graphData.nodes.map(node => node.latLng));
             map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
             // fitBounds triggers 'moveend' -> refreshVisibleLayers(); call it
             // once more synchronously in case the view didn't actually change.
