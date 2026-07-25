@@ -22,6 +22,13 @@ except ImportError:
     pass
 
 try:
+    from src.algorithms.a_star import a_star
+
+    ALGORITHMS["A* Search"] = a_star
+except ImportError:
+    pass
+
+try:
     from src.algorithms.mock_algorithm import mock_search
 
     ALGORITHMS["Mock Search"] = mock_search

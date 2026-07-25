@@ -28,11 +28,11 @@ if os.fspath(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, os.fspath(PROJECT_ROOT))
 
 try:
-    from algorithms.mock_algorithm import mock_search
+    from algorithms.algorithms import get_algorithms, run_algorithm
     from gui.map_widget import MapWidget
     from models.graph_factory import build_graph
 except ImportError:
-    from src.algorithms.mock_algorithm import mock_search
+    from src.algorithms.algorithms import get_algorithms, run_algorithm
     from src.gui.map_widget import MapWidget
     from src.models.graph_factory import build_graph
 
@@ -89,7 +89,12 @@ class MainWindow(QMainWindow):
         self.goal_combo = QComboBox()
         pathfinding_layout.addWidget(self.goal_combo)
 
-        self.run_button = QPushButton("Run Mock Search")
+        pathfinding_layout.addWidget(QLabel("Algorithm:"))
+        self.algorithm_combo = QComboBox()
+        self.algorithm_combo.addItems(get_algorithms())
+        pathfinding_layout.addWidget(self.algorithm_combo)
+
+        self.run_button = QPushButton("Run Search")
         self.run_button.setEnabled(False)
         self.run_button.clicked.connect(self.on_run_search_clicked)
         pathfinding_layout.addWidget(self.run_button)
@@ -157,15 +162,19 @@ class MainWindow(QMainWindow):
 
         start_id = self.start_combo.currentText()
         goal_id = self.goal_combo.currentText()
+        algorithm_name = self.algorithm_combo.currentText()
 
         if not start_id or not goal_id:
             self.status_label.setText("Error: start or goal node selection is invalid.")
             return
 
-        self.status_label.setText(f"Running mock pathfinding from {start_id} to {goal_id}...")
+        self.status_label.setText(f"Running {algorithm_name} from {start_id} to {goal_id}...")
 
-        result = mock_search(self.graph, start_id, goal_id)
-        self.map_widget.draw_map_step_by_step(result, interval_ms=500)
+        try:
+            result = run_algorithm(algorithm_name, self.graph, start_id, goal_id)
+            self.map_widget.draw_map_step_by_step(result, interval_ms=500)
+        except Exception as e:
+            self.status_label.setText(f"Error running algorithm: {str(e)}")
 
     def on_reset_clicked(self):
         self.map_widget.reset()
