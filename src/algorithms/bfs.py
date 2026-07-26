@@ -1,6 +1,6 @@
 from collections import deque
 
-from src.models.models import SearchResult
+from src.models.models import SearchResult, SearchStep, StepType
 
 
 def bfs(graph, start_id, goal_id):
@@ -16,7 +16,7 @@ def bfs(graph, start_id, goal_id):
 
     # Validate all inputs before starting the search.
     if graph is None:
-        steps.append({"type": "finish", "path": []})
+        steps.append(SearchStep(StepType.FINISH))
         return SearchResult(
             path=[],
             steps=steps,
@@ -27,7 +27,7 @@ def bfs(graph, start_id, goal_id):
         )
 
     if start_id not in graph.nodes:
-        steps.append({"type": "finish", "path": []})
+        steps.append(SearchStep(StepType.FINISH))
         return SearchResult(
             path=[],
             steps=steps,
@@ -38,7 +38,7 @@ def bfs(graph, start_id, goal_id):
         )
 
     if goal_id not in graph.nodes:
-        steps.append({"type": "finish", "path": []})
+        steps.append(SearchStep(StepType.FINISH))
         return SearchResult(
             path=[],
             steps=steps,
@@ -57,7 +57,7 @@ def bfs(graph, start_id, goal_id):
     while queue:
         current = queue.popleft()
         visited_order.append(current)
-        steps.append({"type": "visit_node", "node": current})
+        steps.append(SearchStep(StepType.EXPAND, node_id=current))
 
         if current == goal_id:
             path = []
@@ -81,15 +81,8 @@ def bfs(graph, start_id, goal_id):
             total_cost = 0.0
             for edge in path_edges:
                 total_cost += edge.calculate_cost()
-                steps.append(
-                    {
-                        "type": "path_edge",
-                        "from": edge.from_node,
-                        "to": edge.to_node,
-                    }
-                )
-
-            steps.append({"type": "finish", "path": path})
+            # The map frontend automatically highlights the final path, so we just emit FINISH.
+            steps.append(SearchStep(StepType.FINISH, node_id=goal_id))
 
             return SearchResult(
                 path=path,
@@ -105,13 +98,12 @@ def bfs(graph, start_id, goal_id):
         for edge in graph.get_neighbors(current):
             neighbor = edge.to_node
 
-            steps.append(
-                {
-                    "type": "inspect_edge",
-                    "from": current,
-                    "to": neighbor,
-                }
-            )
+            steps.append(SearchStep(
+                StepType.DISCOVER,
+                node_id=neighbor,
+                edge_from=current,
+                edge_to=neighbor,
+            ))
 
             if neighbor in visited:
                 continue
@@ -122,7 +114,7 @@ def bfs(graph, start_id, goal_id):
             queue.append(neighbor)
 
     # The queue is empty, so the goal is not reachable from the start.
-    steps.append({"type": "finish", "path": []})
+    steps.append(SearchStep(StepType.FINISH))
     return SearchResult(
         path=[],
         steps=steps,
