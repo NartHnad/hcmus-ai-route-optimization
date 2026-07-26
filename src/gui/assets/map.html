@@ -50,6 +50,21 @@
             default: { radius: 8, color: '#2563eb', weight: 2, fillColor: '#60a5fa', fillOpacity: 0.9 },
             visit: { radius: 10, color: '#ca8a04', weight: 3, fillColor: '#facc15', fillOpacity: 1.0 },
             path: { radius: 11, color: '#15803d', weight: 3, fillColor: '#22c55e', fillOpacity: 1.0 },
+        
+            start: {
+                radius: 12,
+                color: "#16a34a",
+                weight: 4,
+                fillColor: "#22c55e",
+                fillOpacity: 1
+            },
+            goal: {
+                radius: 12,
+                color: "#dc2626",
+                weight: 4,
+                fillColor: "#ef4444",
+                fillOpacity: 1
+            },
         };
 
         const EDGE_STYLE = {
@@ -62,6 +77,12 @@
         let nodeLayers = {};
         let edgeLayers = {};
         let graphData = { nodes: [], edges: [] };
+
+        // Control Node State: Start and Goal
+        let currentStart = null;
+        let currentGoal = null;
+
+        let defaultTooltips = {};
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
@@ -141,7 +162,12 @@
             graphData.nodes.forEach(node => {
                 const layer = L.circleMarker([node.lat, node.lon], NODE_STYLE.default).addTo(map);
 
-                layer.bindTooltip(`${node.id} - ${node.name}`, {
+                // Tooltip
+                const tooltip = `${node.id} - ${node.name}`;
+
+                defaultTooltips[node.id] = tooltip;
+
+                layer.bindTooltip(tooltip, {
                     direction: 'top',
                     offset: [0, -8],
                 });
@@ -212,8 +238,69 @@
         }
 
         function resetMap() {
-            Object.values(nodeLayers).forEach(layer => layer.setStyle(NODE_STYLE.default));
-            Object.values(edgeLayers).forEach(layer => layer.setStyle(EDGE_STYLE.default));
+            Object.values(edgeLayers).forEach(layer =>
+                layer.setStyle(EDGE_STYLE.default)
+            );
+
+            updateSelection({
+                start: currentStart,
+                goal: currentGoal,
+            });
+        }
+
+        function updateSelection(selection) {
+            selection = normalizeInput(selection);
+
+            currentStart = selection.start;
+            currentGoal = selection.goal;
+
+            // Reset tất cả node
+            graphData.nodes.forEach(node => {
+
+                const layer = nodeLayers[node.id];
+                if (!layer) return;
+
+                layer.setStyle(NODE_STYLE.default);
+
+                layer.unbindTooltip();
+
+                layer.bindTooltip(defaultTooltips[node.id], {
+                    direction: "top",
+                    offset: [0, -8],
+                });
+            });
+
+            // Start
+            if (currentStart && nodeLayers[currentStart]) {
+
+                nodeLayers[currentStart].setStyle(NODE_STYLE.start);
+
+                nodeLayers[currentStart].unbindTooltip();
+
+                nodeLayers[currentStart].bindTooltip(
+                    `START<br>${defaultTooltips[currentStart]}`,
+                    {
+                        direction: "top",
+                        offset: [0, -8],
+                    }
+                );
+            }
+
+            // Goal
+            if (currentGoal && nodeLayers[currentGoal]) {
+
+                nodeLayers[currentGoal].setStyle(NODE_STYLE.goal);
+
+                nodeLayers[currentGoal].unbindTooltip();
+
+                nodeLayers[currentGoal].bindTooltip(
+                    `GOAL<br>${defaultTooltips[currentGoal]}`,
+                    {
+                        direction: "top",
+                        offset: [0, -8],
+                    }
+                );
+            }
         }
     </script>
 </body>

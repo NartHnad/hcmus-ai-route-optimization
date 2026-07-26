@@ -21,7 +21,7 @@ class Node:
 
         self.lat = lat  # latitude: Vi do
         self.lon = lon  # longitude: Kinh do
-        self.node_type = node_type
+        self.node_type = node_type # Giao lộ, Bệnh viện, ...
 
     # Magic Method: define how a Node object is represented as a string
     def __repr__(self):
