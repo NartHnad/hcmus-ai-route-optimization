@@ -266,6 +266,7 @@ class MainWindow(QMainWindow):
 
         start_id = self.start_combo.currentText()
         goal_id = self.goal_combo.currentText()
+        algorithm_name = self.algorithm_combo.currentText()
 
         # Validate user selections
         if not start_id or not goal_id:
