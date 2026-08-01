@@ -78,9 +78,6 @@
         let edgeLayers = {};
         let graphData = { nodes: [], edges: [] };
 
-        // 
-        let graph = {nodes: [], edges: [],};
-
         // Control Node State: Start and Goal
         let currentStart = null;
         let currentGoal = null;
@@ -122,18 +119,10 @@
 
         function initMap(data) {
             map.invalidateSize();
-            graph = normalizeInput(data);
-            resetKind(nodes);
-            resetKind(edges);
 
-            (graph.nodes || []).forEach(node => {
-                // Cache LatLng once — reused by layer creation, containment
-                // checks and fitBounds, avoiding repeated [lat, lon] arrays
-                // in the pan/zoom hot path.
-                node.latLng = L.latLng(node.lat, node.lon);
-                nodes.index[node.id] = node;
-                registerToGrid(nodes, node.id, L.latLngBounds(node.latLng, node.latLng));
-            });
+            graphData = normalizeInput(data);
+            graphData.nodes = graphData.nodes || [];
+            graphData.edges = graphData.edges || [];
 
             clearGraphLayers();
 
@@ -145,52 +134,47 @@
 
             setEmptyMessage(false);
 
+            // Draw edges
             graphData.edges.forEach(edge => {
                 const fromNode = nodeById(edge.from);
                 const toNode = nodeById(edge.to);
 
-                if (!fromNode || !toNode) {
-                    return;
-                }
+                if (!fromNode || !toNode) return;
 
                 const layer = L.polyline(
                     [[fromNode.lat, fromNode.lon], [toNode.lat, toNode.lon]],
                     EDGE_STYLE.default
                 ).addTo(map);
 
-                layer.bindPopup(`
-                    <b>${edge.from} → ${edge.to}</b><br>
-                    Distance: ${edge.distance ?? '-'}<br>
-                    Time: ${edge.travel_time ?? '-'}<br>
-                    Road: ${edge.road_type ?? '-'}<br>
-                    Congestion: ${edge.congestion ?? '-'}<br>
-                    Risk: ${edge.risk ?? edge.flooding ?? '-'}<br>
-                    ${edge.note ? `Note: ${edge.note}` : ''}
-                `);
-
                 edgeLayers[edgeKey(edge.from, edge.to)] = layer;
             });
 
+            // Draw nodes
             graphData.nodes.forEach(node => {
-                const layer = L.circleMarker([node.lat, node.lon], NODE_STYLE.default).addTo(map);
+                const layer = L.circleMarker(
+                    [node.lat, node.lon],
+                    NODE_STYLE.default
+                ).addTo(map);
 
-                layer.bindTooltip(`${node.id} - ${node.name}`, {
+                const tooltip = `${node.id} - ${node.name}`;
+                defaultTooltips[node.id] = tooltip;
+
+                layer.bindTooltip(tooltip, {
                     direction: 'top',
                     offset: [0, -8],
                 });
 
-                layer.bindPopup(`
-                    <b>${node.name}</b><br>
-                    ID: ${node.id}<br>
-                    Type: ${node.type ?? 'intersection'}<br>
-                    Lat/Lon: ${node.lat}, ${node.lon}
-                `);
-
                 nodeLayers[node.id] = layer;
             });
 
-            const bounds = L.latLngBounds(graphData.nodes.map(node => [node.lat, node.lon]));
-            map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+            const bounds = L.latLngBounds(
+                graphData.nodes.map(node => [node.lat, node.lon])
+            );
+
+            map.fitBounds(bounds, {
+                padding: [40, 40],
+                maxZoom: 16,
+            });
         }
 
         function applyStep(step) {
@@ -201,9 +185,17 @@
 
             if (currentStep.type === 'expand') {
                 const layer = nodeLayers[currentStep.node];
+
                 if (layer) {
                     layer.setStyle(NODE_STYLE.visit);
-                    map.panTo(layer.getLatLng(), { animate: true, duration: 0.25 });
+
+                    // Only pan the map if the node is outside the current view bounds
+                    if (!map.getBounds().contains(layer.getLatLng())) {
+                        map.panTo(layer.getLatLng(), {
+                            animate: true,
+                            duration: 0.25,
+                        });
+                    }
                 }
                 return;
             }
@@ -245,18 +237,13 @@
         }
 
         function resetMap() {
-            // Reset state styles for all nodes/edges
-            nodes.styles = {};
-            edges.styles = {};
-
-            // Reset layers are displaying
-            Object.values(nodes.layers).forEach(layer => {
+            Object.values(nodeLayers).forEach(layer => {
                 layer.setStyle(NODE_STYLE.default);
             });
 
-            Object.values(edges.layers).forEach(layer =>
-                layer.setStyle(EDGE_STYLE.default)
-            );
+            Object.values(edgeLayers).forEach(layer => {
+                layer.setStyle(EDGE_STYLE.default);
+            });
 
             updateSelection({
                 start: currentStart,
@@ -270,19 +257,46 @@
             currentStart = selection.start;
             currentGoal = selection.goal;
 
-            // Reset tất cả node
-            Object.keys(nodes.index).forEach(nodeId => {
-                setStyle('node', nodeId, NODE_STYLE.default);
+            // Reset all nodes
+            graphData.nodes.forEach(node => {
+                const layer = nodeLayers[node.id];
+                if (!layer) return;
+
+                layer.setStyle(NODE_STYLE.default);
+
+                layer.unbindTooltip();
+                layer.bindTooltip(defaultTooltips[node.id], {
+                    direction: 'top',
+                    offset: [0, -8],
+                });
             });
 
             // Start
-            if (currentStart && nodes.index[currentStart]) {
-            setStyle('node', currentStart, NODE_STYLE.start);
-        }
+            if (currentStart && nodeLayers[currentStart]) {
+                nodeLayers[currentStart].setStyle(NODE_STYLE.start);
+
+                nodeLayers[currentStart].unbindTooltip();
+                nodeLayers[currentStart].bindTooltip(
+                    `START<br>${defaultTooltips[currentStart]}`,
+                    {
+                        direction: 'top',
+                        offset: [0, -8],
+                    }
+                );
+            }
 
             // Goal
-            if (currentGoal && nodes.index[currentGoal]) {
-                setStyle('node', currentGoal, NODE_STYLE.goal);
+            if (currentGoal && nodeLayers[currentGoal]) {
+                nodeLayers[currentGoal].setStyle(NODE_STYLE.goal);
+
+                nodeLayers[currentGoal].unbindTooltip();
+                nodeLayers[currentGoal].bindTooltip(
+                    `GOAL<br>${defaultTooltips[currentGoal]}`,
+                    {
+                        direction: 'top',
+                        offset: [0, -8],
+                    }
+                );
             }
         }
     </script>
