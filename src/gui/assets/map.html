@@ -50,6 +50,21 @@
             default: { radius: 8, color: '#2563eb', weight: 2, fillColor: '#60a5fa', fillOpacity: 0.9 },
             visit: { radius: 10, color: '#ca8a04', weight: 3, fillColor: '#facc15', fillOpacity: 1.0 },
             path: { radius: 11, color: '#15803d', weight: 3, fillColor: '#22c55e', fillOpacity: 1.0 },
+        
+            start: {
+                radius: 12,
+                color: "#16a34a",
+                weight: 4,
+                fillColor: "#22c55e",
+                fillOpacity: 1
+            },
+            goal: {
+                radius: 12,
+                color: "#dc2626",
+                weight: 4,
+                fillColor: "#ef4444",
+                fillOpacity: 1
+            },
         };
 
         const EDGE_STYLE = {
@@ -62,6 +77,15 @@
         let nodeLayers = {};
         let edgeLayers = {};
         let graphData = { nodes: [], edges: [] };
+
+        // 
+        let graph = {nodes: [], edges: [],};
+
+        // Control Node State: Start and Goal
+        let currentStart = null;
+        let currentGoal = null;
+
+        let defaultTooltips = {};
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
@@ -98,9 +122,18 @@
 
         function initMap(data) {
             map.invalidateSize();
-            graphData = normalizeInput(data);
-            graphData.nodes = graphData.nodes || [];
-            graphData.edges = graphData.edges || [];
+            graph = normalizeInput(data);
+            resetKind(nodes);
+            resetKind(edges);
+
+            (graph.nodes || []).forEach(node => {
+                // Cache LatLng once — reused by layer creation, containment
+                // checks and fitBounds, avoiding repeated [lat, lon] arrays
+                // in the pan/zoom hot path.
+                node.latLng = L.latLng(node.lat, node.lon);
+                nodes.index[node.id] = node;
+                registerToGrid(nodes, node.id, L.latLngBounds(node.latLng, node.latLng));
+            });
 
             clearGraphLayers();
 
@@ -212,8 +245,45 @@
         }
 
         function resetMap() {
-            Object.values(nodeLayers).forEach(layer => layer.setStyle(NODE_STYLE.default));
-            Object.values(edgeLayers).forEach(layer => layer.setStyle(EDGE_STYLE.default));
+            // Reset state styles for all nodes/edges
+            nodes.styles = {};
+            edges.styles = {};
+
+            // Reset layers are displaying
+            Object.values(nodes.layers).forEach(layer => {
+                layer.setStyle(NODE_STYLE.default);
+            });
+
+            Object.values(edges.layers).forEach(layer =>
+                layer.setStyle(EDGE_STYLE.default)
+            );
+
+            updateSelection({
+                start: currentStart,
+                goal: currentGoal,
+            });
+        }
+
+        function updateSelection(selection) {
+            selection = normalizeInput(selection);
+
+            currentStart = selection.start;
+            currentGoal = selection.goal;
+
+            // Reset tất cả node
+            Object.keys(nodes.index).forEach(nodeId => {
+                setStyle('node', nodeId, NODE_STYLE.default);
+            });
+
+            // Start
+            if (currentStart && nodes.index[currentStart]) {
+            setStyle('node', currentStart, NODE_STYLE.start);
+        }
+
+            // Goal
+            if (currentGoal && nodes.index[currentGoal]) {
+                setStyle('node', currentGoal, NODE_STYLE.goal);
+            }
         }
     </script>
 </body>

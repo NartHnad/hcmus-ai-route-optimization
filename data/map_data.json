@@ -1,0 +1,420 @@
+{
+  "nodes": [
+  {
+    "id": "N6",
+    "name": "Saigon Centre",
+    "lat": 10.7738,
+    "lon": 106.7018,
+    "node_type": "shopping_mall"
+  },
+  {
+    "id": "N7",
+    "name": "Ben Thanh Market",
+    "lat": 10.7725,
+    "lon": 106.6980,
+    "node_type": "market"
+  },
+  {
+    "id": "N8",
+    "name": "Independence Palace",
+    "lat": 10.7770,
+    "lon": 106.6953,
+    "node_type": "landmark"
+  },
+  {
+    "id": "N9",
+    "name": "Notre Dame Cathedral",
+    "lat": 10.7798,
+    "lon": 106.6990,
+    "node_type": "landmark"
+  },
+  {
+    "id": "N10",
+    "name": "Diamond Plaza",
+    "lat": 10.7806,
+    "lon": 106.6998,
+    "node_type": "shopping_mall"
+  },
+  {
+    "id": "N11",
+    "name": "Children Hospital 2",
+    "lat": 10.7816,
+    "lon": 106.6992,
+    "node_type": "hospital"
+  },
+  {
+    "id": "N12",
+    "name": "HCMUT",
+    "lat": 10.7733,
+    "lon": 106.6607,
+    "node_type": "university"
+  },
+  {
+    "id": "N13",
+    "name": "Cho Ray Hospital",
+    "lat": 10.7567,
+    "lon": 106.6601,
+    "node_type": "hospital"
+  },
+  {
+    "id": "N14",
+    "name": "Van Hanh Mall",
+    "lat": 10.7636,
+    "lon": 106.6689,
+    "node_type": "shopping_mall"
+  },
+  {
+    "id": "N15",
+    "name": "GHN Hub District 10",
+    "lat": 10.7648,
+    "lon": 106.6668,
+    "node_type": "warehouse"
+  },
+  {
+    "id": "N16",
+    "name": "Petrolimex Station",
+    "lat": 10.7688,
+    "lon": 106.6910,
+    "node_type": "gas_station"
+  },
+  {
+    "id": "N17",
+    "name": "Bus Station Ham Nghi",
+    "lat": 10.7702,
+    "lon": 106.7008,
+    "node_type": "bus_station"
+  },
+  {
+    "id": "N18",
+    "name": "Highlands Coffee",
+    "lat": 10.7791,
+    "lon": 106.6971,
+    "node_type": "restaurant"
+  },
+  {
+    "id": "N19",
+    "name": "Pizza 4P's",
+    "lat": 10.7810,
+    "lon": 106.6936,
+    "node_type": "restaurant"
+  },
+  {
+    "id": "N20",
+    "name": "Vinhomes Golden River",
+    "lat": 10.7865,
+    "lon": 106.7060,
+    "node_type": "apartment"
+  },
+  {
+    "id": "N21",
+    "name": "The Manor",
+    "lat": 10.7935,
+    "lon": 106.7204,
+    "node_type": "apartment"
+  },
+  {
+    "id": "N22",
+    "name": "Nga Tu Hang Xanh",
+    "lat": 10.8010,
+    "lon": 106.7148,
+    "node_type": "intersection"
+  },
+  {
+    "id": "N23",
+    "name": "Nga Sau Cong Truong Dan Chu",
+    "lat": 10.7754,
+    "lon": 106.6872,
+    "node_type": "intersection"
+  },
+  {
+    "id": "N24",
+    "name": "Nga Tu Dien Bien Phu",
+    "lat": 10.7825,
+    "lon": 106.7093,
+    "node_type": "intersection"
+  },
+  {
+    "id": "N25",
+    "name": "Le Van Tam Park",
+    "lat": 10.7873,
+    "lon": 106.6965,
+    "node_type": "park"
+  }
+], "edges": [
+    {
+      "from": "N1",
+      "to": "N4",
+      "distance": 1.2,
+      "travel_time": 4.0,
+      "road_type": "primary",
+      "is_one_way": false,
+      "congestion": 4,
+      "risk": 1,
+      "note": "CMT8"
+    },
+    {
+      "from": "N4",
+      "to": "N2",
+      "distance": 1.8,
+      "travel_time": 6.0,
+      "road_type": "secondary",
+      "is_one_way": true,
+      "congestion": 1,
+      "risk": 4,
+      "note": "Vo Van Tan"
+    },
+    {
+      "from": "N4",
+      "to": "N5",
+      "distance": 2.0,
+      "travel_time": 5.5,
+      "road_type": "primary",
+      "is_one_way": false,
+      "congestion": 2,
+      "risk": 1,
+      "note": "Nam Ky Khoi Nghia"
+    },
+    {
+      "from": "N5",
+      "to": "N3",
+      "distance": 1.5,
+      "travel_time": 5.0,
+      "road_type": "primary",
+      "is_one_way": true,
+      "congestion": 5,
+      "risk": 2,
+      "note": "Hai Ba Trung"
+    },
+    {
+      "from": "N3",
+      "to": "N2",
+      "distance": 2.5,
+      "travel_time": 9.0,
+      "road_type": "primary",
+      "is_one_way": false,
+      "congestion": 3,
+      "risk": 1,
+      "note": "Le Thanh Ton"
+    },
+    {
+    "from": "N3",
+    "to": "N6",
+    "distance": 0.4,
+    "travel_time": 2,
+    "road_type": "primary",
+    "is_one_way": false,
+    "congestion": 2,
+    "risk": 1,
+    "note": "Le Loi"
+  },
+  {
+    "from": "N6",
+    "to": "N7",
+    "distance": 0.5,
+    "travel_time": 2,
+    "road_type": "primary",
+    "is_one_way": false,
+    "congestion": 3,
+    "risk": 1,
+    "note": "Le Loi"
+  },
+  {
+    "from": "N7",
+    "to": "N8",
+    "distance": 0.8,
+    "travel_time": 4,
+    "road_type": "secondary",
+    "is_one_way": true,
+    "congestion": 4,
+    "risk": 2,
+    "note": "Nam Ky Khoi Nghia"
+  },
+  {
+    "from": "N8",
+    "to": "N9",
+    "distance": 0.7,
+    "travel_time": 3,
+    "road_type": "secondary",
+    "is_one_way": false,
+    "congestion": 2,
+    "risk": 1,
+    "note": "Pasteur"
+  },
+  {
+    "from": "N9",
+    "to": "N10",
+    "distance": 0.3,
+    "travel_time": 1,
+    "road_type": "secondary",
+    "is_one_way": false,
+    "congestion": 1,
+    "risk": 1,
+    "note": "Le Duan"
+  },
+  {
+    "from": "N10",
+    "to": "N11",
+    "distance": 0.6,
+    "travel_time": 2,
+    "road_type": "secondary",
+    "is_one_way": false,
+    "congestion": 2,
+    "risk": 1,
+    "note": "Pham Ngoc Thach"
+  },
+  {
+    "from": "N4",
+    "to": "N23",
+    "distance": 0.8,
+    "travel_time": 3,
+    "road_type": "primary",
+    "is_one_way": false,
+    "congestion": 3,
+    "risk": 1,
+    "note": "CMT8"
+  },
+  {
+    "from": "N23",
+    "to": "N8",
+    "distance": 1.1,
+    "travel_time": 4,
+    "road_type": "primary",
+    "is_one_way": false,
+    "congestion": 4,
+    "risk": 2,
+    "note": "Nam Ky Khoi Nghia"
+  },
+  {
+    "from": "N23",
+    "to": "N14",
+    "distance": 2.2,
+    "travel_time": 7,
+    "road_type": "primary",
+    "is_one_way": false,
+    "congestion": 3,
+    "risk": 1,
+    "note": "3 Thang 2"
+  },
+  {
+    "from": "N14",
+    "to": "N15",
+    "distance": 0.4,
+    "travel_time": 2,
+    "road_type": "secondary",
+    "is_one_way": false,
+    "congestion": 2,
+    "risk": 1,
+    "note": "Su Van Hanh"
+  },
+  {
+    "from": "N15",
+    "to": "N12",
+    "distance": 1.8,
+    "travel_time": 5,
+    "road_type": "primary",
+    "is_one_way": false,
+    "congestion": 3,
+    "risk": 2,
+    "note": "Ly Thuong Kiet"
+  },
+  {
+    "from": "N15",
+    "to": "N13",
+    "distance": 2.4,
+    "travel_time": 7,
+    "road_type": "primary",
+    "is_one_way": false,
+    "congestion": 4,
+    "risk": 2,
+    "note": "Nguyen Chi Thanh"
+  },
+  {
+    "from": "N5",
+    "to": "N18",
+    "distance": 0.4,
+    "travel_time": 2,
+    "road_type": "secondary",
+    "is_one_way": false,
+    "congestion": 2,
+    "risk": 1,
+    "note": "Vo Van Tan"
+  },
+  {
+    "from": "N18",
+    "to": "N19",
+    "distance": 0.6,
+    "travel_time": 2,
+    "road_type": "secondary",
+    "is_one_way": false,
+    "congestion": 2,
+    "risk": 1,
+    "note": "Hai Ba Trung"
+  },
+  {
+    "from": "N18",
+    "to": "N25",
+    "distance": 1.1,
+    "travel_time": 4,
+    "road_type": "secondary",
+    "is_one_way": false,
+    "congestion": 3,
+    "risk": 1,
+    "note": "Dien Bien Phu"
+  },
+  {
+    "from": "N25",
+    "to": "N20",
+    "distance": 1.7,
+    "travel_time": 6,
+    "road_type": "primary",
+    "is_one_way": false,
+    "congestion": 3,
+    "risk": 1,
+    "note": "Ton Duc Thang"
+  },
+  {
+    "from": "N20",
+    "to": "N21",
+    "distance": 2.3,
+    "travel_time": 7,
+    "road_type": "primary",
+    "is_one_way": false,
+    "congestion": 4,
+    "risk": 2,
+    "note": "Nguyen Huu Canh"
+  },
+  {
+    "from": "N21",
+    "to": "N22",
+    "distance": 1.2,
+    "travel_time": 4,
+    "road_type": "secondary",
+    "is_one_way": false,
+    "congestion": 3,
+    "risk": 1,
+    "note": "Dien Bien Phu"
+  },
+  {
+    "from": "N22",
+    "to": "N24",
+    "distance": 2.1,
+    "travel_time": 6,
+    "road_type": "primary",
+    "is_one_way": false,
+    "congestion": 4,
+    "risk": 2,
+    "note": "Dien Bien Phu"
+  },
+  {
+    "from": "N24",
+    "to": "N20",
+    "distance": 0.8,
+    "travel_time": 3,
+    "road_type": "secondary",
+    "is_one_way": false,
+    "congestion": 2,
+    "risk": 1,
+    "note": "Nguyen Binh Khiem"
+  }
+  ]
+}
