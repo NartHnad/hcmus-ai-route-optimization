@@ -411,6 +411,7 @@ class MainWindow(QMainWindow):
 
         start_id = self.start_combo.currentText()
         goal_id = self.goal_combo.currentText()
+        algorithm_name = self.algorithm_combo.currentText()
 
         # Validate user selections
         if not start_id or not goal_id:
@@ -423,13 +424,13 @@ class MainWindow(QMainWindow):
 
         # Execute search algorithm
         algorithm = self.algorithm_combo.currentText()
-        steps = run_algorithm(algorithm, self.graph, start_id, goal_id)
+        result = run_algorithm(algorithm, self.graph, start_id, goal_id)
 
         # Get interval from animation speed
         interval = int(self.speed_combo.currentText().split()[0])
 
         # Animate the search process on the map
-        self.map_widget.draw_map_step_by_step(steps, interval)
+        self.map_widget.draw_map_step_by_step(result, interval)
 
         # Enable Execution Controls
         self.pause_button.setEnabled(True)

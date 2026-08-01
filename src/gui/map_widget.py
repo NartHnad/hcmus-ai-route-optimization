@@ -7,11 +7,17 @@ from pathlib import Path
 from PyQt5.QtCore import QTimer, QUrl, pyqtSignal
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 
+from src.models.models import SearchResult
+
 
 class MapWidget(QWebEngineView):
     """
     QWebEngineView wrapper that renders a Leaflet map and exposes Python APIs
-    for drawing a Graph and animating search steps.
+    for drawing a Graph and animating a SearchResult.
+
+    Boundary rule: everything on the Python side speaks Graph / SearchResult;
+    everything past _run_js_function speaks plain dicts / JSON. This class is
+    the only translator between the two.
     """
 
     animation_finished = pyqtSignal()
@@ -24,6 +30,7 @@ class MapWidget(QWebEngineView):
         self._pending_graph_data = None
         self._steps = []
         self._step_index = 0
+        self._result = None
 
         self._is_paused = False
 
@@ -111,13 +118,25 @@ class MapWidget(QWebEngineView):
         else:
             self._pending_graph_data = graph_data
 
-    def draw_map_step_by_step(self, steps, interval_ms=500):
+    def draw_map_step_by_step(self, result, interval_ms=500):
         """
-        Animate a list of search steps by sending one step to JavaScript per timer tick.
+        Animate a search process. Accepts either a SearchResult object (new contract)
+        or a list of step dicts (legacy/mock contract) and replays them on the map.
         """
         self.stop_animation()
 
-        self._steps = list(steps or [])
+        if isinstance(result, SearchResult):
+            self._result = result
+            self._steps = list(result.steps)
+        else:
+            self._result = SearchResult(
+                path=[],
+                steps=list(result or []),
+                success=False,
+                message="Legacy step-by-step data provided; no final path available.",
+            )
+            self._steps = self._result.steps
+
         self._step_index = 0
         self._is_paused = False
 
@@ -137,12 +156,24 @@ class MapWidget(QWebEngineView):
         step = self._steps[self._step_index]
         self._step_index += 1
 
+        if hasattr(step, "to_dict"):
+            step_dict = step.to_dict()
+        else:
+            step_dict = dict(step)
+
+        # The final path belongs to the SearchResult, not to any single step —
+        # attach it to the 'finish' step so JS can highlight the whole path.
+        if step_dict.get("type") == "finish" and self._result is not None:
+            step_dict.setdefault("path", list(self._result.path))
+
+        # Send step to JavaScript
         if self._page_loaded:
-            self._run_js_function("applyStep", step)
+            self._run_js_function("applyStep", step_dict)
 
-        self.step_changed.emit(step)
+        # Keep Python-side status logging working
+        self.step_changed.emit(step_dict)
 
-        if step.get("type") == "finish":
+        if step_dict["type"] == "finish":
             self.stop_animation()
             self.animation_finished.emit()
 
@@ -189,6 +220,7 @@ class MapWidget(QWebEngineView):
         self.stop_animation()
 
         self._step_index = 0
+        self._result = None
 
         self._steps.clear()
 
