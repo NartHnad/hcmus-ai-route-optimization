@@ -156,8 +156,11 @@ def genetic_algorithm(
 
     # Initial Population
     population = []
+    attempts = 0
+    max_attempts = max(200, population_size * 100)
 
-    while len(population) < population_size:
+    while len(population) < population_size and attempts < max_attempts:
+        attempts += 1
         candidate = random_path(graph, start_id, goal_id, max_steps=20)
 
         if candidate and candidate[-1] == goal_id:
@@ -172,6 +175,9 @@ def genetic_algorithm(
                         edge_from=candidate[i],
                         edge_to=candidate[i + 1],
                         metrics={"path_length": len(candidate)},
+                        frontier=candidate[i + 1 :],
+                        explored=candidate[: i + 1],
+                        visited_order=candidate[: i + 1],
                     )
                 )
 
@@ -181,6 +187,8 @@ def genetic_algorithm(
             message="Unable to generate any valid path",
             steps=steps,
         )
+
+    population_target = len(population)
 
     # Fitness closure
     fitness = lambda path: fitness_function(graph, path, mode=mode)
@@ -211,14 +219,19 @@ def genetic_algorithm(
                         "generation": genertation,
                         "best_cost": round(path_cost(graph, best_path, mode=mode), 2),
                     },
+                    frontier=best_path[i + 1 :],
+                    explored=best_path[: i + 1],
+                    visited_order=best_path[: i + 1],
                 )
             )
 
         # Elitism: keep top 20%
-        elite_count = max(1, population_size // 5)
+        elite_count = max(1, population_target // 5)
         new_population = population[:elite_count]
 
-        while len(new_population) < population_size:
+        child_attempts = 0
+        while len(new_population) < population_target and child_attempts < max_attempts:
+            child_attempts += 1
             parent1 = select_parent(population, fitness)
             parent2 = select_parent(population, fitness)
 
@@ -229,6 +242,9 @@ def genetic_algorithm(
 
             if child and child[-1] == goal_id:
                 new_population.append(child)
+
+        if len(new_population) < population_target:
+            new_population.extend(population[: population_target - len(new_population)])
 
         population = new_population
 
@@ -244,6 +260,9 @@ def genetic_algorithm(
                 edge_from=best_path[i],
                 edge_to=best_path[i + 1],
                 metrics={"final_path": True},
+                frontier=best_path[i + 1 :],
+                explored=best_path[: i + 1],
+                visited_order=best_path[: i + 1],
             )
         )
 
@@ -255,6 +274,9 @@ def genetic_algorithm(
                 "total_cost": round(total_cost, 2),
                 "path_length": len(best_path),
             },
+            frontier=[],
+            explored=list(best_path),
+            visited_order=list(best_path),
         )
     )
 

@@ -87,7 +87,11 @@ def a_star(graph, start_id, goal_id):
             SearchStep(
                 StepType.EXPAND,
                 node_id=current,
-                metrics={"g": current_g, "f": current_f},
+                metrics={
+                    "g": current_g,
+                    "h": max(0.0, current_f - current_g),
+                    "f": current_f,
+                },
             )
         )
 
@@ -109,7 +113,17 @@ def a_star(graph, start_id, goal_id):
 
             total_cost = current_g
 
-            steps.append(SearchStep(StepType.FINISH, node_id=goal_id))
+            steps.append(
+                SearchStep(
+                    StepType.FINISH,
+                    node_id=goal_id,
+                    metrics={
+                        "g": current_g,
+                        "h": 0.0,
+                        "f": current_f,
+                    },
+                )
+            )
 
             return SearchResult(
                 path=path,
@@ -146,11 +160,14 @@ def a_star(graph, start_id, goal_id):
                         edge_from=current,
                         edge_to=neighbor,
                         metrics={"g": tentative_g, "h": h, "f": f},
+                        frontier_position="priority",
                     )
                 )
 
     # Queue empty and goal not reached
-    steps.append(SearchStep(StepType.FINISH))
+    steps.append(
+        SearchStep(StepType.FINISH)
+    )
     return SearchResult(
         path=[],
         steps=steps,

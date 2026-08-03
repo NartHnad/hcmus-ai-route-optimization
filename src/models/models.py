@@ -142,6 +142,12 @@ class SearchStep:
     - Emit exactly one SearchStep when the event occurs.
     - Do not batch or reconstruct events afterward.
     - Unused fields must be None.
+
+    ``frontier``/``explored``/``visited_order`` remain supported for small,
+    legacy producers. Core graph-search algorithms emit compact delta events
+    instead: DISCOVER/UPDATE adds ``node`` to the frontier and EXPAND removes
+    it and appends it to the explored/visited order. ``frontier_position``
+    preserves stack ordering for DFS without copying the entire stack.
     """
 
     def __init__(
@@ -151,12 +157,24 @@ class SearchStep:
         edge_from: str = None,
         edge_to: str = None,
         metrics: dict = None,  # g, h, f of heuristic function
+        frontier=None,
+        explored=None,
+        visited_order=None,
+        frontier_position: str = None,
     ):
         self.step_type = step_type
         self.node_id = node_id
         self.edge_from = edge_from
         self.edge_to = edge_to
         self.metrics = metrics or {}
+        # Optional state snapshots keep playback deterministic and allow the UI
+        # to move both forwards and backwards without re-running an algorithm.
+        self.frontier = None if frontier is None else list(frontier)
+        self.explored = None if explored is None else list(explored)
+        self.visited_order = (
+            None if visited_order is None else list(visited_order)
+        )
+        self.frontier_position = frontier_position
 
     def to_dict(self):
         """
@@ -176,6 +194,18 @@ class SearchStep:
 
         if self.metrics:
             data["metrics"] = dict(self.metrics)
+
+        if self.frontier is not None:
+            data["frontier"] = list(self.frontier)
+
+        if self.explored is not None:
+            data["explored"] = list(self.explored)
+
+        if self.visited_order is not None:
+            data["visited_order"] = list(self.visited_order)
+
+        if self.frontier_position is not None:
+            data["frontier_position"] = self.frontier_position
 
         return data
 
@@ -206,6 +236,9 @@ class SearchResult:
         success: bool = False,
         message: str = "",
         visited_order=None,
+        runtime_ms: float = 0.0,
+        total_distance=None,
+        estimated_time=None,
     ):
         self.path = path or []
         self.steps = steps or []
@@ -213,6 +246,13 @@ class SearchResult:
         self.success = success
         self.message = message
         self.visited_order = visited_order or []
+        self.runtime_ms = float(runtime_ms)
+        self.total_distance = (
+            None if total_distance is None else float(total_distance)
+        )
+        self.estimated_time = (
+            None if estimated_time is None else float(estimated_time)
+        )
 
     def to_dict(self):
         """
@@ -224,6 +264,9 @@ class SearchResult:
             "total_cost": self.total_cost,
             "message": getattr(self, "message", ""),
             "visited_order": list(self.visited_order),
+            "runtime_ms": self.runtime_ms,
+            "total_distance": self.total_distance,
+            "estimated_time": self.estimated_time,
 
             # Accept both SearchStep objects and plain dicts (mock steps),
             # so mixed lists still serialize cleanly.
