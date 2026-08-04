@@ -29,11 +29,13 @@ from PyQt5.QtWidgets import (
 )
 
 from src.algorithms.algorithms import get_algorithms, run_algorithm
+from src.algorithms.route_comparison import build_route_comparison
 from src.data.data_loader import get_dataset_options, load_dataset
 from src.gui.algorithm_state_panel import AlgorithmStatePanel
-from src.gui.delivery_panel import ResultSummaryPanel
+from src.gui.delivery_panel import ResultSummaryPanel, RouteComparisonPanel
 from src.gui.graph_widget import GraphWidget
 from src.gui.map_widget import MapWidget
+from src.models.models import ComparisonMode
 
 
 class SearchWorker(QObject):
@@ -42,12 +44,22 @@ class SearchWorker(QObject):
     completed = pyqtSignal(object, float)
     failed = pyqtSignal(str)
 
-    def __init__(self, algorithm, graph, start_id, goal_id):
+    def __init__(
+        self,
+        algorithm,
+        graph,
+        start_id,
+        goal_id,
+        comparison_mode=ComparisonMode.SAME_ALGORITHM_ALTERNATIVE,
+        comparison_algorithm="",
+    ):
         super().__init__()
         self.algorithm = algorithm
         self.graph = graph
         self.start_id = start_id
         self.goal_id = goal_id
+        self.comparison_mode = ComparisonMode.coerce(comparison_mode)
+        self.comparison_algorithm = comparison_algorithm
 
     @pyqtSlot()
     def run(self):
@@ -57,9 +69,64 @@ class SearchWorker(QObject):
                 self.algorithm, self.graph, self.start_id, self.goal_id
             )
             runtime_ms = (time.perf_counter() - started) * 1000
+            result.runtime_ms = runtime_ms
+            result.processing_time_ms = runtime_ms
+            build_route_comparison(
+                self.graph,
+                result,
+                self.algorithm,
+                mode=self.comparison_mode,
+                comparison_algorithm=self.comparison_algorithm,
+                start_id=self.start_id,
+                goal_id=self.goal_id,
+            )
             self.completed.emit(result, runtime_ms)
         except Exception as exc:
             self.failed.emit(str(exc))
+
+
+class ComparisonWorker(QObject):
+    """Recompute a comparison mode without blocking the GUI thread."""
+
+    completed = pyqtSignal(object, str, object)
+    failed = pyqtSignal(str, object)
+
+    def __init__(
+        self,
+        graph,
+        result,
+        algorithm,
+        start_id,
+        goal_id,
+        mode,
+        comparison_algorithm,
+        cache_key,
+    ):
+        super().__init__()
+        self.graph = graph
+        self.result = result
+        self.algorithm = algorithm
+        self.start_id = start_id
+        self.goal_id = goal_id
+        self.mode = ComparisonMode.coerce(mode)
+        self.comparison_algorithm = comparison_algorithm
+        self.cache_key = cache_key
+
+    @pyqtSlot()
+    def run(self):
+        try:
+            comparison = build_route_comparison(
+                self.graph,
+                self.result,
+                self.algorithm,
+                mode=self.mode,
+                comparison_algorithm=self.comparison_algorithm,
+                start_id=self.start_id,
+                goal_id=self.goal_id,
+            )
+            self.completed.emit(comparison, self.cache_key, self.result)
+        except Exception as exc:
+            self.failed.emit(str(exc), self.result)
 
 
 class MainWindow(QMainWindow):
@@ -92,6 +159,9 @@ class MainWindow(QMainWindow):
         self._sidebar_is_drawer = False
         self._search_thread = None
         self._search_worker = None
+        self._comparison_thread = None
+        self._comparison_worker = None
+        self._comparison_cache = {}
         self._node_model = None
         self._pending_load_summary = None
         self._pending_renderers = set()
@@ -452,22 +522,14 @@ class MainWindow(QMainWindow):
         self.event_log.document().setMaximumBlockCount(1200)
         self.info_tabs.addTab(self.event_log, "Event log")
 
-        comparison = QWidget()
-        comparison_layout = QVBoxLayout(comparison)
-        comparison_layout.setContentsMargins(24, 20, 24, 20)
-        comparison_title = QLabel("Comparison View")
-        comparison_title.setObjectName("panelTitle")
-        comparison_text = QLabel(
-            "Coming soon · Single-run metrics and playback are completed first. "
-            "The future table will compare runs using the same dataset, route, "
-            "cost function and conditions."
-        )
-        comparison_text.setObjectName("mutedLabel")
-        comparison_text.setWordWrap(True)
-        comparison_layout.addWidget(comparison_title)
-        comparison_layout.addWidget(comparison_text)
-        comparison_layout.addStretch()
-        self.info_tabs.addTab(comparison, "Comparison · Soon")
+        self.comparison_panel = RouteComparisonPanel(self.available_algorithms)
+        self.comparison_panel.configure(self.algorithm_combo.currentText())
+        self.comparison_scroll = QScrollArea()
+        self.comparison_scroll.setObjectName("comparisonScroll")
+        self.comparison_scroll.setWidgetResizable(True)
+        self.comparison_scroll.setFrameShape(QFrame.NoFrame)
+        self.comparison_scroll.setWidget(self.comparison_panel)
+        self.info_tabs.addTab(self.comparison_scroll, "Comparison")
 
         self.workspace_splitter.addWidget(self.visualization_splitter)
         self.workspace_splitter.addWidget(self.info_tabs)
@@ -505,6 +567,9 @@ class MainWindow(QMainWindow):
         )
         self.graph_widget.graph_render_failed.connect(
             lambda message: self.on_visualization_render_failed("graph", message)
+        )
+        self.comparison_panel.comparison_requested.connect(
+            self.on_comparison_requested
         )
 
         self.sidebar_toggle.clicked.connect(self.toggle_sidebar)
@@ -589,6 +654,8 @@ class MainWindow(QMainWindow):
                 f"{len(node_ids)} nodes · {edge_count} directed edges"
             )
             self.result_panel.reset("Single-route search")
+            self.comparison_panel.reset()
+            self._comparison_cache.clear()
             self.algorithm_state.reset()
             self.algorithm_state.set_algorithm(self.algorithm_combo.currentText())
             self._active_result = None
@@ -706,9 +773,23 @@ class MainWindow(QMainWindow):
             self.show_alert("Choose a valid start, goal and algorithm.", "error")
             return
 
+        self.comparison_panel.configure(algorithm)
+        comparison_mode = self.comparison_panel.current_mode()
+        comparison_algorithm = self.comparison_panel.comparison_algorithm()
+        if (
+            comparison_mode is ComparisonMode.DIFFERENT_ALGORITHMS
+            and not comparison_algorithm
+        ):
+            self.show_alert(
+                "Choose a second algorithm for Comparison.",
+                "error",
+            )
+            return
+
         self._active_algorithm = algorithm
         self._active_start = start_id
         self._active_goal = goal_id
+        self._comparison_cache.clear()
         self._set_execution_state("computing")
         QApplication.processEvents()
 
@@ -717,11 +798,23 @@ class MainWindow(QMainWindow):
         self.algorithm_state.reset()
         self.algorithm_state.set_algorithm(algorithm)
         self.result_panel.set_running(algorithm, start_id, goal_id)
+        self.comparison_panel.set_running(
+            algorithm,
+            start_id,
+            goal_id,
+            mode=comparison_mode,
+            comparison_algorithm=comparison_algorithm,
+        )
         self.log_event("INFO", f"Running {algorithm}: {start_id} → {goal_id}.")
 
         self._search_thread = QThread(self)
         self._search_worker = SearchWorker(
-            algorithm, self.graph, start_id, goal_id
+            algorithm,
+            self.graph,
+            start_id,
+            goal_id,
+            comparison_mode=comparison_mode,
+            comparison_algorithm=comparison_algorithm,
         )
         self._search_worker.moveToThread(self._search_thread)
         self._search_thread.started.connect(self._search_worker.run)
@@ -735,10 +828,22 @@ class MainWindow(QMainWindow):
         self._search_thread.finished.connect(self._search_thread.deleteLater)
         self._search_thread.start()
 
+    @staticmethod
+    def _comparison_cache_key(mode, comparison_algorithm):
+        normalized_mode = ComparisonMode.coerce(mode)
+        return f"{normalized_mode.value}:{comparison_algorithm or ''}"
+
     def _on_search_completed(self, result, runtime_ms):
         result.runtime_ms = runtime_ms
-        self._enrich_result_metrics(result)
+        result.processing_time_ms = runtime_ms
         self._active_result = result
+        comparison = getattr(result, "comparison", None)
+        if comparison is not None:
+            key = self._comparison_cache_key(
+                comparison.mode,
+                comparison.comparison_algorithm,
+            )
+            self._comparison_cache[key] = comparison
         profile = self.current_playback_profile()
         manual_mode = profile.get("manual", False)
         self._set_execution_state("paused" if manual_mode else "running")
@@ -769,30 +874,80 @@ class MainWindow(QMainWindow):
         self._search_worker = None
         self._search_thread = None
 
-    def _enrich_result_metrics(self, result):
-        distance = 0.0
-        estimated_time = 0.0
-        complete = bool(result.path)
-        route_details = []
-        for from_node, to_node in zip(result.path, result.path[1:]):
-            edge = self.graph.get_edge(from_node, to_node)
-            if edge is None:
-                complete = False
-                break
-            distance += edge.distance
-            estimated_time += edge.travel_time
-            route_details.append(
-                {
-                    "from": from_node,
-                    "to": to_node,
-                    "distance": edge.distance,
-                    "travel_time": edge.travel_time,
-                    "road": edge.note or edge.road_type,
-                }
-            )
-        result.total_distance = distance if complete else None
-        result.estimated_time = estimated_time if complete else None
-        result.route_details = route_details if complete else []
+    def on_comparison_requested(self, mode_value, comparison_algorithm):
+        if self._active_result is None or self.graph is None:
+            return
+        if self._comparison_thread is not None:
+            return
+
+        mode = ComparisonMode.coerce(mode_value)
+        second_algorithm = (
+            self._active_algorithm
+            if mode is ComparisonMode.SAME_ALGORITHM_ALTERNATIVE
+            else comparison_algorithm
+        )
+        cache_key = self._comparison_cache_key(mode, second_algorithm)
+        cached = self._comparison_cache.get(cache_key)
+        if cached is not None:
+            self._active_result.comparison = cached
+            self.comparison_panel.set_comparison(cached)
+            return
+
+        self.comparison_panel.set_recomputing()
+        self._comparison_thread = QThread(self)
+        self._comparison_worker = ComparisonWorker(
+            self.graph,
+            self._active_result,
+            self._active_algorithm,
+            self._active_start,
+            self._active_goal,
+            mode,
+            second_algorithm,
+            cache_key,
+        )
+        self._comparison_worker.moveToThread(self._comparison_thread)
+        self._comparison_thread.started.connect(self._comparison_worker.run)
+        self._comparison_worker.completed.connect(
+            self._on_comparison_completed
+        )
+        self._comparison_worker.failed.connect(self._on_comparison_failed)
+        self._comparison_worker.completed.connect(self._comparison_thread.quit)
+        self._comparison_worker.failed.connect(self._comparison_thread.quit)
+        self._comparison_worker.completed.connect(
+            self._comparison_worker.deleteLater
+        )
+        self._comparison_worker.failed.connect(
+            self._comparison_worker.deleteLater
+        )
+        self._comparison_thread.finished.connect(
+            self._on_comparison_thread_finished
+        )
+        self._comparison_thread.finished.connect(
+            self._comparison_thread.deleteLater
+        )
+        self._comparison_thread.start()
+
+    def _on_comparison_completed(self, comparison, cache_key, source_result):
+        if source_result is not self._active_result:
+            return
+        self._comparison_cache[cache_key] = comparison
+        self._active_result.comparison = comparison
+        self.comparison_panel.set_comparison(comparison)
+        self.log_event(
+            "INFO",
+            f"Comparison updated: {comparison.mode.value}.",
+        )
+
+    def _on_comparison_failed(self, message, source_result):
+        if source_result is not self._active_result:
+            return
+        self.comparison_panel.set_error(message)
+        self.show_alert(f"Comparison failed: {message}", "error")
+        self.log_event("ERROR", f"Comparison failed: {message}")
+
+    def _on_comparison_thread_finished(self):
+        self._comparison_worker = None
+        self._comparison_thread = None
 
     def on_pause_resume_clicked(self):
         if self.current_playback_profile().get("manual", False):
@@ -837,6 +992,8 @@ class MainWindow(QMainWindow):
         self.graph_widget.reset_visualization()
         self.algorithm_state.reset()
         self.result_panel.reset("Single-route search")
+        self.comparison_panel.reset()
+        self._comparison_cache.clear()
         self._active_result = None
         self._set_execution_state("ready" if self.graph is not None else "idle")
         self.log_event("INFO", "Visualization reset; graph and route selection preserved.")
@@ -850,6 +1007,9 @@ class MainWindow(QMainWindow):
             self._active_algorithm,
             self._active_start,
             self._active_goal,
+        )
+        self.comparison_panel.set_comparison(
+            getattr(self._active_result, "comparison", None)
         )
         self.info_tabs.setCurrentWidget(self.result_scroll)
         if self._active_result.success:
@@ -895,6 +1055,8 @@ class MainWindow(QMainWindow):
     def on_algorithm_changed(self, algorithm):
         if hasattr(self, "algorithm_state"):
             self.algorithm_state.set_algorithm(algorithm)
+        if hasattr(self, "comparison_panel") and self._active_result is None:
+            self.comparison_panel.configure(algorithm)
         if self.graph is not None and self.execution_state not in {"running", "paused"}:
             self._set_execution_state("ready")
 
@@ -1188,7 +1350,7 @@ class MainWindow(QMainWindow):
             self.info_tabs.removeTab(state_index)
         self.visualization_splitter.addWidget(self.algorithm_state)
         self.info_tabs.setTabText(self.info_tabs.indexOf(self.event_log), "Event log")
-        self.info_tabs.setTabText(self.info_tabs.count() - 1, "Comparison · Soon")
+        self.info_tabs.setTabText(self.info_tabs.count() - 1, "Comparison")
         self.visualization_splitter.setOrientation(Qt.Horizontal)
         self.algorithm_state.setMaximumWidth(680)
         self.algorithm_state.setVisible(not self._state_user_collapsed)

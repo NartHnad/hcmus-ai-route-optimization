@@ -232,3 +232,19 @@ __marimo__/
 
 # Personal files
 PLAN.md
+plan.md
+
+# Local AI / code-intelligence tooling
+.claude/
+AGENTS.md
+CLAUDE.md
+.gitnexus/
+
+# Local environment variants (keep only a sanitized template)
+.env.*
+!.env.example
+
+# Local IDE and operating-system files
+.idea/
+.DS_Store
+Thumbs.db

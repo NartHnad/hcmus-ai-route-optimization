@@ -1,5 +1,10 @@
 # src/models.py
 
+import math
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Dict, List, Optional
+
 
 class Node:
     """
@@ -117,7 +122,142 @@ class Edge:
         return f"Edge({self.from_node} -> {self.to_node}, cost={self.calculate_cost()})"
 
 
-from enum import Enum
+def _finite_float(value, default=0.0):
+    """Return a finite float so route payloads never contain NaN/Infinity."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return float(default)
+    return number if math.isfinite(number) else float(default)
+
+
+@dataclass
+class RouteSegment:
+    """Canonical metrics for one directed edge in a route."""
+
+    from_node: str
+    to_node: str
+    distance: float
+    travel_time: float
+    congestion: int
+    congestion_penalty: float
+    total_cost: float
+    road_name: str = ""
+    road_type: str = ""
+    risk: int = 0
+
+    def to_dict(self):
+        return {
+            "from": self.from_node,
+            "to": self.to_node,
+            "distance": _finite_float(self.distance),
+            "travel_time": _finite_float(self.travel_time),
+            "congestion": int(self.congestion),
+            "congestion_penalty": _finite_float(self.congestion_penalty),
+            "total_cost": _finite_float(self.total_cost),
+            "road": self.road_name or self.road_type or "Unknown road",
+            "road_name": self.road_name or "",
+            "road_type": self.road_type or "",
+            "risk": int(self.risk),
+        }
+
+
+@dataclass
+class RouteMetrics:
+    """Canonical, algorithm-independent measurements for a path."""
+
+    path: List[str] = field(default_factory=list)
+    segments: List[RouteSegment] = field(default_factory=list)
+    total_distance: float = 0.0
+    total_time: float = 0.0
+    congestion_penalty: float = 0.0
+    total_cost: float = 0.0
+    high_congestion_segments: List[RouteSegment] = field(default_factory=list)
+    valid: bool = False
+
+    def to_dict(self):
+        return {
+            "valid": bool(self.valid),
+            "path": list(self.path),
+            "segments": [segment.to_dict() for segment in self.segments],
+            "total_distance": _finite_float(self.total_distance),
+            "total_time": _finite_float(self.total_time),
+            "congestion_penalty": _finite_float(self.congestion_penalty),
+            "total_cost": _finite_float(self.total_cost),
+            "high_congestion_segments": [
+                segment.to_dict() for segment in self.high_congestion_segments
+            ],
+        }
+
+
+@dataclass
+class RouteExplanation:
+    """Rule-based Vietnamese explanation and optimality statement."""
+
+    text: str = ""
+    optimality_statement: str = ""
+
+    def to_dict(self):
+        return {
+            "text": str(self.text or ""),
+            "optimality_statement": str(self.optimality_statement or ""),
+        }
+
+
+class ComparisonMode(Enum):
+    """Supported ways to produce the second route in a comparison."""
+
+    DIFFERENT_ALGORITHMS = "different_algorithms"
+    SAME_ALGORITHM_ALTERNATIVE = "same_algorithm_alternative"
+
+    @classmethod
+    def coerce(cls, value):
+        if isinstance(value, cls):
+            return value
+        try:
+            return cls(str(value))
+        except ValueError as exc:
+            raise ValueError(f"Unsupported comparison mode: {value}") from exc
+
+
+@dataclass
+class RouteComparison:
+    """Canonical metrics and explanation for two comparable routes."""
+
+    algorithm: str
+    selected: RouteMetrics
+    alternative: Optional[RouteMetrics] = None
+    mode: ComparisonMode = ComparisonMode.SAME_ALGORITHM_ALTERNATIVE
+    comparison_algorithm: str = ""
+    cost_mode: str = "optimal"
+    winners: Dict[str, str] = field(default_factory=dict)
+    differences: Dict[str, float] = field(default_factory=dict)
+    explanation: RouteExplanation = field(default_factory=RouteExplanation)
+
+    def to_dict(self):
+        mode = ComparisonMode.coerce(self.mode)
+        alternative = (
+            self.alternative.to_dict() if self.alternative is not None else None
+        )
+        return {
+            "mode": mode.value,
+            "algorithm": str(self.algorithm or ""),
+            "primary_algorithm": str(self.algorithm or ""),
+            "comparison_algorithm": str(
+                self.comparison_algorithm or self.algorithm or ""
+            ),
+            "cost_mode": str(self.cost_mode or "optimal"),
+            "selected": self.selected.to_dict(),
+            "alternative": alternative,
+            "route_a": self.selected.to_dict(),
+            "route_b": alternative,
+            "winners": dict(self.winners),
+            "differences": {
+                key: _finite_float(value)
+                for key, value in self.differences.items()
+            },
+            "explanation": self.explanation.to_dict(),
+        }
 
 
 class StepType(Enum):
@@ -239,20 +379,62 @@ class SearchResult:
         runtime_ms: float = 0.0,
         total_distance=None,
         estimated_time=None,
+        algorithm: str = "",
+        segments=None,
+        total_time=None,
+        congestion_penalty=None,
+        explored_nodes=None,
+        processing_time_ms=None,
+        max_frontier_size=None,
+        comparison=None,
     ):
         self.path = path or []
         self.steps = steps or []
-        self.total_cost = float(total_cost)
+        self.total_cost = _finite_float(total_cost)
         self.success = success
-        self.message = message
+        self.message = str(message or "")
         self.visited_order = visited_order or []
-        self.runtime_ms = float(runtime_ms)
+        self.runtime_ms = _finite_float(runtime_ms)
         self.total_distance = (
-            None if total_distance is None else float(total_distance)
+            None if total_distance is None else _finite_float(total_distance)
         )
         self.estimated_time = (
-            None if estimated_time is None else float(estimated_time)
+            None if estimated_time is None else _finite_float(estimated_time)
         )
+        self.algorithm = str(algorithm or "")
+        self.segments = list(segments or [])
+        self.total_time = (
+            self.estimated_time if total_time is None else _finite_float(total_time)
+        )
+        self.congestion_penalty = (
+            None
+            if congestion_penalty is None
+            else _finite_float(congestion_penalty)
+        )
+        self.explored_nodes = (
+            len(self.visited_order)
+            if explored_nodes is None
+            else max(0, int(explored_nodes))
+        )
+        self.processing_time_ms = (
+            self.runtime_ms
+            if processing_time_ms is None
+            else _finite_float(processing_time_ms)
+        )
+        self.max_frontier_size = (
+            None
+            if max_frontier_size is None
+            else max(0, int(max_frontier_size))
+        )
+        self.comparison = comparison
+        self.route_details = [
+            segment.to_dict() if hasattr(segment, "to_dict") else dict(segment)
+            for segment in self.segments
+        ]
+
+    @property
+    def found(self):
+        return bool(self.success)
 
     def to_dict(self):
         """
@@ -260,13 +442,29 @@ class SearchResult:
         """
         return {
             "success": self.success,
+            "found": self.found,
+            "algorithm": self.algorithm,
             "path": list(self.path),
             "total_cost": self.total_cost,
             "message": getattr(self, "message", ""),
             "visited_order": list(self.visited_order),
             "runtime_ms": self.runtime_ms,
+            "processing_time_ms": self.processing_time_ms,
             "total_distance": self.total_distance,
             "estimated_time": self.estimated_time,
+            "total_time": self.total_time,
+            "congestion_penalty": self.congestion_penalty,
+            "explored_nodes": self.explored_nodes,
+            "max_frontier_size": self.max_frontier_size,
+            "segments": [
+                segment.to_dict() if hasattr(segment, "to_dict") else dict(segment)
+                for segment in self.segments
+            ],
+            "comparison": (
+                self.comparison.to_dict()
+                if hasattr(self.comparison, "to_dict")
+                else self.comparison
+            ),
 
             # Accept both SearchStep objects and plain dicts (mock steps),
             # so mixed lists still serialize cleanly.
