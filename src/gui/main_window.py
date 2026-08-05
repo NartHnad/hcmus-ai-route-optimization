@@ -267,7 +267,7 @@ class MainWindow(QMainWindow):
 
         self.speed_combo = QComboBox()
 
-        self.speed_combo.addItems(["100 ms", "250 ms", "500 ms", "1000 ms"])
+        self.speed_combo.addItems(["0 ms", "100 ms", "250 ms", "500 ms", "1000 ms"])
 
         # self.speed_combo.setCurrentText("500 ms")
 
@@ -354,7 +354,7 @@ class MainWindow(QMainWindow):
             self.map_widget.draw_graph(self.graph)
 
             # Populate node selection boxes
-            node_ids = sorted(list(self.graph.nodes.keys()))
+            node_ids = sorted(self.graph.nodes.keys())
 
             self.start_combo.clear()
             self.start_combo.addItems(node_ids)
@@ -425,6 +425,10 @@ class MainWindow(QMainWindow):
         # Execute search algorithm
         algorithm = self.algorithm_combo.currentText()
         result = run_algorithm(algorithm, self.graph, start_id, goal_id)
+
+        # # For debug
+        # for step in result.steps[:5]:
+        #     print(step.to_dict())
 
         # Get interval from animation speed
         interval = int(self.speed_combo.currentText().split()[0])

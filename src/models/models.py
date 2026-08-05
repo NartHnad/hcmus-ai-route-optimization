@@ -4,7 +4,7 @@
 class Node:
     """
     Represents a physical traffic intersection, landmark, school, hospital, bus station, warehouse, or district.
-    It stores coordinates (lat, lon) 
+    It stores coordinates (lat, lon)
     and computing Heuristic distances (e.g., Euclidean) for informed search algorithms like A* and Greedy BFS.
     """
 
@@ -12,8 +12,8 @@ class Node:
         self,
         node_id: str,
         name: str,
-        lat: float = None,
-        lon: float = None,
+        lat: float,
+        lon: float,
         node_type: str = "intersection",
     ):
         self.id = node_id
@@ -21,7 +21,7 @@ class Node:
 
         self.lat = lat  # latitude: Vi do
         self.lon = lon  # longitude: Kinh do
-        self.node_type = node_type # Giao lộ, Bệnh viện, ...
+        self.node_type = node_type  # Giao lộ, Bệnh viện, ...
 
     # Magic Method: define how a Node object is represented as a string
     def __repr__(self):
@@ -39,7 +39,7 @@ class Edge:
         to_node: str,
         distance: float,
         travel_time: float,
-        road_type: str = None,
+        road_type: str,
         is_one_way: bool = False,
         congestion: int = 0,
         risk: int = 0,
@@ -51,8 +51,8 @@ class Edge:
         # Compulsory Attributes
         self.distance = float(distance)  # Raw physical distance (meters/kilometers)
         self.travel_time = float(travel_time)  # Estimated travel time
-        self.road_type = road_type  
-        self.is_one_way = is_one_way # Traffic direction: 'one-way' or 'two-way'
+        self.road_type = road_type
+        self.is_one_way = is_one_way  # Traffic direction: 'one-way' or 'two-way'
 
         # Traffic traffic level scaled from a to b
         self.congestion = int(congestion)
@@ -62,7 +62,7 @@ class Edge:
 
         self.note = note
 
-    def calculate_cost( #need to be updated
+    def calculate_cost(  # need to be updated
         self,
         alpha: float = 1.0,
         beta: float = 1.0,
@@ -74,11 +74,24 @@ class Edge:
         Dynamically evaluate the edge's weight based on different routing strategies.
 
         Cost = alpha * Distance + beta * Time + gamma * Congestion + delta * Risk
+
+        Mode:
+        Shortest Distance
+        Fastest Route
+        Safest Route
+        Optimal Route
         """
 
         if mode == "shortest":
             return self.distance
 
+        if mode == "fastest":
+            return self.travel_time
+
+        if mode == "safe":
+            return self.travel_time + 5 * self.risk
+
+        # Mode: Optimal
         return (
             (alpha * self.distance)
             + (beta * self.travel_time)
@@ -94,6 +107,7 @@ class Edge:
             distance=self.distance,
             travel_time=self.travel_time,
             road_type=self.road_type,
+            is_one_way=False,
             congestion=self.congestion,
             risk=self.risk,
             note=self.note,
@@ -102,12 +116,14 @@ class Edge:
     def __repr__(self):
         return f"Edge({self.from_node} -> {self.to_node}, cost={self.calculate_cost()})"
 
+
 from enum import Enum
 
+
 class StepType(Enum):
-    EXPAND = "expand"           # Lấy node ra khỏi hàng đợi để xét (Visited)
-    DISCOVER = "discover"       # Tìm thấy node mới lần đầu (Frontier Add)
-    UPDATE = "update"           # Tìm thấy đường đi rẻ hơn đến node đã biết (Relaxation)
+    EXPAND = "expand"  # Lấy node ra khỏi hàng đợi để xét (Visited)
+    DISCOVER = "discover"  # Tìm thấy node mới lần đầu (Frontier Add)
+    UPDATE = "update"  # Tìm thấy đường đi rẻ hơn đến node đã biết (Relaxation)
 
     FINISH = "finish"
 
@@ -173,6 +189,7 @@ class SearchStep:
             parts.append(f"metrics={self.metrics}")
         return f"SearchStep({', '.join(parts)})"
 
+
 class SearchResult:
     """
     Standard return object for search algorithms.
@@ -207,6 +224,7 @@ class SearchResult:
             "total_cost": self.total_cost,
             "message": getattr(self, "message", ""),
             "visited_order": list(self.visited_order),
+
             # Accept both SearchStep objects and plain dicts (mock steps),
             # so mixed lists still serialize cleanly.
             "steps": [
@@ -218,7 +236,8 @@ class SearchResult:
     def __repr__(self):
         return (
             f"SearchResult(success={self.success}, "
-            f"path={self.path}, total_cost={self.total_cost}, "
+            f"path={self.path}, "
+            f"total_cost={self.total_cost})"
         )
 
 
@@ -237,7 +256,7 @@ class Graph:
 
     def add_edge(self, edge: Edge):
         """
-        Establish connectivity between nodes.
+        Add an edge to the graph.
         Automatically handles one-way constraints and creates a reverse edge if the road type direction is specified as 'two-way'.
         """
         # Add the forward edge
@@ -252,13 +271,12 @@ class Graph:
 
             if reverse_edge.from_node not in self.adjacency_list:
                 self.adjacency_list[reverse_edge.from_node] = []
-            
-            self.adjacency_list[reverse_edge.from_node].append(reverse_edge)
 
+            self.adjacency_list[reverse_edge.from_node].append(reverse_edge)
 
     def get_node(self, node_id):
         return self.nodes.get(node_id)
-    
+
     def get_neighbors(self, node_id: str):
         """Return all outgoing edges from a node."""
         return self.adjacency_list.get(node_id, [])
@@ -269,7 +287,7 @@ class Graph:
             if edge.to_node == to_node:
                 return edge
         return None
-    
+
     def clear(self):
         self.nodes.clear()
         self.adjacency_list.clear()
