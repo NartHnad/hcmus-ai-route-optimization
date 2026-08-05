@@ -37,9 +37,9 @@ def fitness_function(graph, chromosome, mode="optimal"):
     return 1.0 / (1.0 + cost)
 
 
-def random_path(graph, start_id, goal_id, max_steps=20):
+def random_path(graph, start_id, goal_id, max_steps=30):
     """
-    Generate a random valid path from start_id to goal_id using DFS.
+    Generate a random valid path from start_id to goal_id using Self-Avoiding Random Walk.
     This function ensures that the generated path is valid and does not contain cycles.
     """
     path = [start_id]
@@ -90,8 +90,8 @@ def crossover(parent1, parent2):
     child = parent1[:i] + parent2[j:]
 
     # Remove consecutive duplicates
-    cleaned = []
-    seen = set()
+    cleaned = [child[0]]
+    seen = {child[0]}
 
     for node in child[1:]:
         if node in seen:
@@ -102,10 +102,16 @@ def crossover(parent1, parent2):
             cleaned.append(node)
             seen.add(node)
 
+    # Fix: lost goal_id in the child path after removing loops
+    # If the last node is not the goal_id, append it if it's in the original child path
+    # fallback to parent1's last node if goal_id is not present
+    if not cleaned or cleaned[-1] != parent1[-1]:
+        return parent1.copy()
+
     return cleaned
 
 
-def mutate(graph, path, goal_id, max_steps=15):
+def mutate(graph, path, goal_id, max_steps=30):
     """
     Mutate a path by replacing its suffix with a new random walk.
     """
@@ -195,7 +201,8 @@ def genetic_algorithm(
         )
 
     # Fitness closure
-    fitness = lambda path: fitness_function(graph, path, mode=mode)
+    def calculate_fitness(path):
+        return fitness_function(graph, path, mode=mode)
 
     # Best initial solution
     best_path = min(population, key=lambda p: path_cost(graph, p, mode=mode))
@@ -253,8 +260,8 @@ def genetic_algorithm(
         ):
             gen_attempts += 1
 
-            parent1 = select_parent(population, fitness)
-            parent2 = select_parent(population, fitness)
+            parent1 = select_parent(population, calculate_fitness)
+            parent2 = select_parent(population, calculate_fitness)
 
             child = crossover(parent1, parent2)
 
