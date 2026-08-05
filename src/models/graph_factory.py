@@ -3,10 +3,25 @@
 import json
 import os
 
+from constants import RoadType, DEFAULT_SPEED_MAP, RiskLevel
+
 try:
     from .models import Graph, Edge, Node
 except ImportError:
     from models import Graph, Edge, Node
+
+
+def _get_road_speed(road_type: str) -> float:
+    """
+    Retrieve the average speed for a given road type.
+    If the road type is not recognized, return a default speed of 30 km/h.
+    """
+    try:
+        road_enum = RoadType(road_type.lower())
+        return DEFAULT_SPEED_MAP.get(road_enum, 30.0)
+    except ValueError:
+        # If the road type is not in the RoadType enum, return default speed
+        return 30.0
 
 
 def _iter_nodes(raw_nodes):
@@ -49,8 +64,8 @@ def build_graph(json_path: str) -> Graph:
             from_node=edge.get("u", edge.get("from")).strip(),
             to_node=edge.get("v", edge.get("to")).strip(),
             distance=float(edge["distance"]),
-            travel_time=float(edge.get("time", edge.get("travel_time"))),
             road_type=edge["road_type"].strip(),
+            travel_time=float(edge.get("time", edge.get("travel_time"))),
             is_one_way=edge.get("is_one_way", False),
             congestion=int(edge.get("congestion", 1)),
             risk=int(edge.get("risk", 0)),
