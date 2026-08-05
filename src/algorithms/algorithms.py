@@ -36,6 +36,14 @@ try:
 except ImportError:
     pass
 
+try:
+    from src.algorithms.simulated_annealing import simulated_annealing
+
+    ALGORITHMS["Simulated Annealing (SA)"] = simulated_annealing
+except ImportError:
+    pass
+
+
 def get_algorithms():
     return sorted(ALGORITHMS.keys())
 
