@@ -1,32 +1,8 @@
 import heapq
-import math
 
 from src.models.models import SearchResult, SearchStep, StepType
+from src.utils.heuristics import geographic_heuristic
 
-
-def haversine_distance(lat1, lon1, lat2, lon2):
-    """
-    Calculate the great circle distance in meters between two points
-    on the earth (specified in decimal degrees)
-    """
-    if None in (lat1, lon1, lat2, lon2):
-        return 0.0
-
-    # Convert decimal degrees to radians
-    lon1, lat1, lon2, lat2 = map(math.radians, [lon1, lat1, lon2, lat2])
-
-    # Haversine formula
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-
-    a = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
-    )
-
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-    return 6371 * c
 
 
 def a_star(graph, start_id, goal_id):
@@ -51,13 +27,6 @@ def a_star(graph, start_id, goal_id):
             message="Graph is not loaded or start/goal node not found.",
         )
 
-    goal_node = graph.get_node(goal_id)
-
-    def heuristic(node_id):
-        node = graph.get_node(node_id)
-        if node and goal_node:
-            return haversine_distance(node.lat, node.lon, goal_node.lat, goal_node.lon)
-        return 0.0
 
     # Priority queue: stores tuples of (f_score, g_score, node_id)
     # Note: We include g_score in the tuple so that in case of an f_score tie,
@@ -133,7 +102,7 @@ def a_star(graph, start_id, goal_id):
                 # Found a new or better path to neighbor
                 came_from[neighbor] = (current, edge)
                 g_score[neighbor] = tentative_g
-                h = heuristic(neighbor)
+                h = geographic_heuristic(neighbor)
                 f = tentative_g + h
 
                 heapq.heappush(open_set, (f, tentative_g, neighbor))
