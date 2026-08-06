@@ -102,7 +102,7 @@ def a_star(graph, start_id, goal_id):
                 # Found a new or better path to neighbor
                 came_from[neighbor] = (current, edge)
                 g_score[neighbor] = tentative_g
-                h = geographic_heuristic(neighbor)
+                h = geographic_heuristic(graph, neighbor, goal_id)
                 f = tentative_g + h
 
                 heapq.heappush(open_set, (f, tentative_g, neighbor))
