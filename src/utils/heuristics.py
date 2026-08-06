@@ -1,7 +1,8 @@
+from src.constants import DEFAULT_ALPHA
 from src.utils.distance import haversine_distance
 
 
-def geographic_heuristic(graph, node_id, goal_id, alpha: float = 0.25) -> float:
+def geographic_heuristic(graph, node_id, goal_id, alpha: float = DEFAULT_ALPHA) -> float:
     """
     Admissible lower bound of the normalized composite edge cost.
 
