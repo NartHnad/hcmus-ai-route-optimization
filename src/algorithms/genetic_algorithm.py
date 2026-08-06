@@ -3,7 +3,7 @@ import random
 from src.models.models import SearchResult, SearchStep, StepType
 
 
-def path_cost(graph, path, mode="optimal"):
+def path_cost(graph, path):
     """ "
     Calculate the total cost of a given path based on the specified mode.
     """
@@ -19,17 +19,17 @@ def path_cost(graph, path, mode="optimal"):
             return float("inf")
 
         # Calculate the cost
-        total += edge.calculate_cost(mode=mode)
+        total += edge.calculate_cost()
 
     return total
 
 
-def fitness_function(graph, chromosome, mode="optimal"):
+def fitness_function(graph, chromosome):
     """
     Fitness function for the genetic algorithm.
     The fitness is inversely proportional to the path cost.
     """
-    cost = path_cost(graph, chromosome, mode=mode)
+    cost = path_cost(graph, chromosome)
 
     if cost == float("inf"):
         return 0.0  # Invalid paths have zero fitness
@@ -37,7 +37,7 @@ def fitness_function(graph, chromosome, mode="optimal"):
     return 1.0 / (1.0 + cost)
 
 
-def random_path(graph, start_id, goal_id, max_steps=20):
+def random_path(graph, start_id, goal_id, max_steps=30):
     """
     Generate a random valid path from start_id to goal_id using DFS.
     This function ensures that the generated path is valid and does not contain cycles.
@@ -141,7 +141,6 @@ def genetic_algorithm(
     population_size=50,
     generations=100,
     mutation_rate: float = 0.2,
-    mode: str = "optimal",
 ):
     """
     Genetic Algorithm for route optimization.
@@ -183,20 +182,18 @@ def genetic_algorithm(
         )
 
     # Fitness closure
-    fitness = lambda path: fitness_function(graph, path, mode=mode)
+    fitness = lambda path: fitness_function(graph, path)
 
     # Best initial solution
-    best_path = min(population, key=lambda p: path_cost(graph, p, mode=mode))
+    best_path = min(population, key=lambda p: path_cost(graph, p))
 
     # Evolution loop
     for genertation in range(generations):
-        population.sort(key=lambda p: path_cost(graph, p, mode=mode))
+        population.sort(key=lambda p: path_cost(graph, p))
 
         current_best = population[0]
 
-        if path_cost(graph, current_best, mode=mode) < path_cost(
-            graph, best_path, mode=mode
-        ):
+        if path_cost(graph, current_best) < path_cost(graph, best_path):
             best_path = current_best
 
         # Emit the current best path
@@ -209,7 +206,7 @@ def genetic_algorithm(
                     edge_to=best_path[i + 1],
                     metrics={
                         "generation": genertation,
-                        "best_cost": round(path_cost(graph, best_path, mode=mode), 2),
+                        "best_cost": round(path_cost(graph, best_path), 2),
                     },
                 )
             )
@@ -233,7 +230,7 @@ def genetic_algorithm(
         population = new_population
 
     # FINAL RESULT
-    total_cost = path_cost(graph, best_path, mode=mode)
+    total_cost = path_cost(graph, best_path)
 
     # EMIT FINAL PATH FOR UI DRAWING
     for i in range(len(best_path) - 1):
