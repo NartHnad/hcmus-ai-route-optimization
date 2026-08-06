@@ -22,6 +22,14 @@ class RoadType(Enum):
     ALLEY = "alley"  # Đường hẹp / Hẻm
 
 
+class CongestionLevel(Enum):
+    CLEAR = 0.0  # Thông thoáng (Xe chạy đúng/vượt tốc độ tối đa)
+    LIGHT = 0.25  # Mật độ đông nhẹ (Di chuyển bình thường)
+    MODERATE = 0.5  # Kẹt xe trung bình (Chậm, nhích từng chút)
+    HEAVY = 0.75  # Kẹt xe nặng (Ún tắc kéo dài)
+    GRIDLOCK = 1.0  # Tắc nghẽn hoàn toàn (Đứng yên)
+
+
 class RiskLevel(Enum):
     """Định nghĩa phân ngưỡng Risk theo yêu cầu thiết kế (0.0 - 1.0)."""
 
@@ -29,7 +37,7 @@ class RiskLevel(Enum):
     NARROW = 0.15  # < 0.2: Đường hẹp / Ngõ
     CONSTRUCTION = 0.35  # 0.2 - 0.5: Đường đang thi công
     FLOODED = 0.7  # > 0.5: Triều cường / Ngập nước
-    HAZARD = 1.0  # Điểm đen tai nạn / Cấm đường
+    HAZARD = 1.0  # Điểm đen tai nạn / Hạn chế tối đa
 
 
 # Bảng tra cứu tốc độ trung bình theo loại đường (Đơn vị: km/h)

@@ -1,6 +1,8 @@
+# src/data/traffic_update.py
+
 import random
 
-from src.models.constants import RiskLevel
+from src.constants import CongestionLevel, RiskLevel
 
 
 def generate_random_traffic_updates(
@@ -33,15 +35,6 @@ def generate_random_traffic_updates(
     num_affected = max(1, int(len(edges) * affected_ratio))
     selected_edges = random.sample(edges, num_affected)
 
-    # 2. Định nghĩa danh sách các mức Risk để random chọn
-    risk_options = [
-        RiskLevel.NONE.value,  # 0.0
-        RiskLevel.NARROW.value,  # 0.15
-        RiskLevel.CONSTRUCTION.value,  # 0.35
-        RiskLevel.FLOODED.value,  # 0.7
-        RiskLevel.HAZARD.value,  # 1.0
-    ]
-
     traffic_updates = {}
 
     for edge in selected_edges:
@@ -50,10 +43,10 @@ def generate_random_traffic_updates(
         edge_key = f"{u}->{v}"
 
         # Random congestion từ 0.3 đến 1.0 (làm tròn 2 chữ số thập phân)
-        random_congestion = round(random.uniform(0.3, 1.0), 2)
+        random_congestion = random.choice(list(CongestionLevel)).value
 
         # Random rủi ro
-        random_risk = random.choice(risk_options)
+        random_risk = random.choice(list(RiskLevel)).value
 
         traffic_updates[edge_key] = {
             "congestion": random_congestion,

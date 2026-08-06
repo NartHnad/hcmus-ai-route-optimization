@@ -1,6 +1,6 @@
 # src/models.py
 
-from src.models.constants import StepType
+from src.constants import StepType
 
 
 class Node:
@@ -59,6 +59,7 @@ class Edge:
         # Normalized Values 0.0 -> 1.0
         self.norm_distance = 0.0
         self.norm_travel_time = 0.0
+
         # Traffic traffic level scaled from a to b
         self.congestion = float(congestion)  # 0.0 -> 1.0
         # Penalty for flooding, construction, difficult intersections, narrow roads, or unsafe areas
@@ -132,9 +133,9 @@ class SearchStep:
         self,
         step_type: StepType,
         node_id: str,
-        edge_from: str,
-        edge_to: str,
-        metrics: dict,  # g, h, f of heuristic function
+        edge_from: str = None,
+        edge_to: str = None,
+        metrics: dict = None,  # g, h, f of heuristic function
     ):
         self.step_type = step_type
         self.node_id = node_id
@@ -233,6 +234,8 @@ class Graph:
 
         # Max distance
         self.max_distance = 1.0
+        # Max time
+        self.max_time = 1.0
 
     def add_node(self, node: Node):
         """Register a node into the graph network and initialize its adjacency list."""

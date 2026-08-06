@@ -3,7 +3,7 @@
 import json
 import os
 
-from src.models.constants import RoadType, DEFAULT_SPEED_MAP, RiskLevel
+from src.constants import RoadType, DEFAULT_SPEED_MAP, CongestionLevel, RiskLevel
 
 try:
     from .models import Graph, Edge, Node
@@ -32,17 +32,11 @@ def _iter_nodes(raw_nodes):
     return raw_nodes or []
 
 
-def build_graph(json_path: str, traffic_updates: dict = None) -> Graph:
+def build_graph(json_path: str) -> Graph:
     """
     FACTORY PATTERN: Reads a JSON dataset containing both Nodes and Edges
     and converts it into a unified Graph structure to serve as the input for AI search algorithms.
     """
-    # ======================
-    # TEST TRAFFIC UPDATES
-    # ======================
-    traffic_updates = generate_random_traffic_updates(json_path, affected_ratio=0.2)
-    # =====================
-
     # Check file exists
     if not os.path.exists(json_path):
         raise FileNotFoundError(f"Not found dataset file {json_path}")
@@ -73,10 +67,9 @@ def build_graph(json_path: str, traffic_updates: dict = None) -> Graph:
     for edge in data.get("edges", []):
         u = str(edge.get("u", edge.get("from"))).strip()
         v = str(edge.get("v", edge.get("to"))).strip()
-        edge_key = f"{u}->{v}"
 
         distance_km = float(edge["distance"])
-        road_type_str = str(edge.get("_str", "primary")).strip()
+        road_type_str = str(edge.get("road_type", "primary")).strip()
 
         # Calculate travel time if not provided,
         # using distance and average speed for the road type
@@ -84,16 +77,11 @@ def build_graph(json_path: str, traffic_updates: dict = None) -> Graph:
             travel_time_min = float(edge.get("time", edge.get("travel_time")))
         else:
             speed_kmh = _get_road_speed(road_type_str)
-            travel_time_min = (distance_km / speed_kmh) * 40.0
+            travel_time_min = (distance_km / speed_kmh) * 60.0
 
-        congestion = float(edge.get("congestion", 1.0))
+        # Base congestion and risk
+        congestion = float(edge.get("congestion", CongestionLevel.CLEAR.value))
         risk = float(edge.get("risk", RiskLevel.NONE.value))
-
-        # Real-time traffic / User overrides
-        if edge_key in traffic_updates:
-            override = traffic_updates[edge_key]
-            congestion = float(override.get("congestion", congestion))
-            risk = float(override.get("risk", risk))
 
         new_edge = Edge(
             from_node=u,
@@ -115,15 +103,14 @@ def build_graph(json_path: str, traffic_updates: dict = None) -> Graph:
 
     # Save max distance to the graph
     graph.max_distance = max_distance if max_distance > 0 else 1.0
-
-    # max time
-    safe_max_time = max_time if max_time > 0 else 1.0
+    # Safer Max time to divide
+    graph.max_time = max_time if max_time > 0 else 1.0
 
     # Normalize distance and travel time for all edges, and calculate their cost
     for edge in temp_edges:
         # Normalize value to [0.0, 1.0]
         edge.norm_distance = edge.distance / graph.max_distance
-        edge.norm_time = edge.travel_time / safe_max_time
+        edge.norm_travel_time = edge.travel_time / graph.max_time
 
         # Calculate normalized cost and store it in edge.weight
         edge.weight = edge.calculate_cost()
