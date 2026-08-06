@@ -32,7 +32,8 @@ def a_star(graph, start_id, goal_id):
     # Note: We include g_score in the tuple so that in case of an f_score tie,
     # the node with the lower g_score (closer to start) is preferred, or just to avoid tuple comparison errors on node_id string
     open_set = []
-    heapq.heappush(open_set, (0.0, 0.0, start_id))
+    start_h = geographic_heuristic(graph, start_id, goal_id)
+    heapq.heappush(open_set, (start_h, 0.0, start_id))
 
     # Track the best known cost to reach each node from the start
     g_score = {start_id: 0.0}
