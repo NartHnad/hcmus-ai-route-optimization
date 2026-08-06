@@ -1,6 +1,6 @@
 # src/models.py
 
-from models.constants import StepType
+from src.models.constants import StepType
 
 
 class Node:
@@ -43,26 +43,30 @@ class Edge:
         travel_time: float,
         road_type: str,
         is_one_way: bool = False,
-        congestion: int = 0,
-        risk: int = 0,
+        congestion: float = 0.0,
+        risk: float = 0.0,
         note: str = "",
     ):
         self.from_node = from_node
         self.to_node = to_node
 
         # Compulsory Attributes
-        self.distance = float(distance)  # Raw physical distance (meters/kilometers)
-        self.travel_time = float(travel_time)  # Estimated travel time
+        self.distance = float(distance)  # Raw physical distance (kilometers)
+        self.travel_time = float(travel_time)  # Estimated travel time (minutes)
         self.road_type = road_type
         self.is_one_way = is_one_way  # Traffic direction: 'one-way' or 'two-way'
 
+        # Normalized Values 0.0 -> 1.0
+        self.norm_distance = 0.0
+        self.norm_travel_time = 0.0
         # Traffic traffic level scaled from a to b
-        self.congestion = int(congestion)
-
+        self.congestion = float(congestion)  # 0.0 -> 1.0
         # Penalty for flooding, construction, difficult intersections, narrow roads, or unsafe areas
-        self.risk = int(risk)
-
+        self.risk = float(risk)  # 0.0 -> 1.0
         self.note = note
+
+        # Cached Cost Value
+        self.weight = 0.0
 
     def calculate_cost(  # need to be updated
         self,
@@ -84,8 +88,8 @@ class Edge:
         Optimal Route
         """
         return (
-            (alpha * self.distance)
-            + (beta * self.travel_time)
+            (alpha * self.norm_distance)
+            + (beta * self.norm_travel_time)
             + (gamma * self.congestion)
             + (delta * self.risk)
         )
@@ -226,6 +230,9 @@ class Graph:
         self.nodes = {}
         # Directed Adjacency List mapping Node ID to its outgoing Edge objects
         self.adjacency_list = {}
+
+        # Max distance
+        self.max_distance = 1.0
 
     def add_node(self, node: Node):
         """Register a node into the graph network and initialize its adjacency list."""
