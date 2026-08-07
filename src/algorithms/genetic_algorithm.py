@@ -3,7 +3,7 @@ import random
 from src.models.models import SearchResult, SearchStep, StepType
 
 
-def path_cost(graph, path, mode="optimal"):
+def path_cost(graph, path):
     """ "
     Calculate the total cost of a given path based on the specified mode.
     """
@@ -19,17 +19,17 @@ def path_cost(graph, path, mode="optimal"):
             return float("inf")
 
         # Calculate the cost
-        total += edge.calculate_cost(mode=mode)
+        total += edge.calculate_cost()
 
     return total
 
 
-def fitness_function(graph, chromosome, mode="optimal"):
+def fitness_function(graph, chromosome):
     """
     Fitness function for the genetic algorithm.
     The fitness is inversely proportional to the path cost.
     """
-    cost = path_cost(graph, chromosome, mode=mode)
+    cost = path_cost(graph, chromosome)
 
     if cost == float("inf"):
         return 0.0  # Invalid paths have zero fitness
@@ -155,7 +155,6 @@ def genetic_algorithm(
     population_size=50,
     generations=100,
     mutation_rate: float = 0.2,
-    mode: str = "optimal",
 ):
     """
     Genetic Algorithm for route optimization.
@@ -278,7 +277,7 @@ def genetic_algorithm(
         population = new_population
 
     # FINAL RESULT
-    total_cost = path_cost(graph, best_path, mode=mode)
+    total_cost = path_cost(graph, best_path)
 
     # EMIT FINAL PATH FOR UI DRAWING
     for i in range(len(best_path) - 1):
