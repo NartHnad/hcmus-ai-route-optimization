@@ -36,10 +36,21 @@ try:
 except ImportError:
     pass
 
+# #NhatHuyChanged: register the multi-location optimizer in the algorithm picker.
 try:
     from src.algorithms.mock3_algorithm import mock3_search
 
     ALGORITHMS["Mock 3 Search"] = mock3_search
+except ImportError:
+    pass
+
+try:
+    from src.algorithms.multi_location import (
+        ALGORITHM_NAME,
+        multi_location_nearest_neighbor_2opt,
+    )
+
+    ALGORITHMS[ALGORITHM_NAME] = multi_location_nearest_neighbor_2opt
 except ImportError:
     pass
 
@@ -57,5 +68,21 @@ def run_algorithm(name, graph, start, goal):
         raise ValueError(f"Unknown algorithm: {name}")
 
     algorithm = ALGORITHMS[name]
+
+    # #NhatHuyChanged: accept multi-location routing options without changing
+    # the legacy start/goal contract for every other method.
+    # The multi-location algorithm accepts a small routing request object so
+    # the legacy start/goal contract remains unchanged for every other method.
+    if name == "Multi-location (Nearest Neighbor + 2-Opt)":
+        if isinstance(goal, dict):
+            return algorithm(
+                graph,
+                start,
+                goal.get("locations", []),
+                end_id=goal.get("end_id"),
+                return_to_start=goal.get("return_to_start", False),
+            )
+        if isinstance(goal, (list, tuple, set)):
+            return algorithm(graph, start, goal)
 
     return algorithm(graph, start, goal)

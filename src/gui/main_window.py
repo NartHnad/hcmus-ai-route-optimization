@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QWidget,
     QPlainTextEdit,  # Using for display searching process (log):
+    QLineEdit,  # #NhatHuyChanged: multi-location stop input
 )
 
 # Import project modules.
@@ -263,6 +264,17 @@ class MainWindow(QMainWindow):
 
         parameter_layout.addWidget(self.goal_combo)
 
+        # Optional stops used by the Multi-location optimizer.  IDs are
+        # comma- or semicolon-separated; the selected Goal remains the fixed
+        # final destination in that mode.
+        parameter_layout.addWidget(QLabel("Intermediate locations (IDs)"))
+        self.multi_locations_input = QLineEdit()
+        self.multi_locations_input.setPlaceholderText("id_1, id_2, id_3")
+        self.multi_locations_input.setToolTip(
+            "Only used by Multi-location (Nearest Neighbor + 2-Opt)."
+        )
+        parameter_layout.addWidget(self.multi_locations_input)
+
         # Animation Speed
         parameter_layout.addWidget(QLabel("Animation Speed"))
 
@@ -368,6 +380,7 @@ class MainWindow(QMainWindow):
 
             self.goal_combo.clear()
             self.goal_combo.addItems(node_ids)
+            self.multi_locations_input.clear()
 
             # Set default start and goal nodes
             if len(node_ids) >= 2:
@@ -433,7 +446,30 @@ class MainWindow(QMainWindow):
 
         # Execute search algorithm
         algorithm = self.algorithm_combo.currentText()
-        result = run_algorithm(algorithm, self.graph, start_id, goal_id)
+        # #NhatHuyChanged: pass optional intermediate stops to the optimizer.
+        if algorithm == "Multi-location (Nearest Neighbor + 2-Opt)":
+            raw_locations = self.multi_locations_input.text().replace(";", ",")
+            intermediate_ids = [
+                value.strip() for value in raw_locations.split(",") if value.strip()
+            ]
+            invalid_ids = [
+                node_id
+                for node_id in intermediate_ids
+                if node_id not in self.graph.nodes or not is_visible_node(self.graph.nodes[node_id])
+            ]
+            if invalid_ids:
+                self.log_status(
+                    f"[ERROR] Unknown or hidden intermediate node(s): {', '.join(invalid_ids)}"
+                )
+                return
+            result = run_algorithm(
+                algorithm,
+                self.graph,
+                start_id,
+                {"locations": intermediate_ids, "end_id": goal_id},
+            )
+        else:
+            result = run_algorithm(algorithm, self.graph, start_id, goal_id)
 
         # # For debug
         # for step in result.steps[:5]:

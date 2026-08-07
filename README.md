@@ -121,6 +121,16 @@ Test hồi quy cho logic ẩn node không tên và cạnh nối tới node đó.
 - A* Search
 - Genetic Algorithm (GA)
 - Mock 3 Search
+- Multi-location (Nearest Neighbor + 2-Opt)
+
+### Multi-location route
+
+Chọn thuật toán `Multi-location (Nearest Neighbor + 2-Opt)`, chọn Start và
+Goal, sau đó nhập các node trung gian vào ô `Intermediate locations (IDs)`
+theo dạng `id_1, id_2, id_3`. Chương trình chạy Dijkstra giữa các địa điểm,
+dùng Nearest Neighbor để tạo thứ tự ban đầu, rồi dùng 2-Opt để giảm tổng chi
+phí. Goal được giữ là điểm kết thúc; các node ẩn/không có tên không được nhận
+từ ô nhập này.
 
 ## Cài đặt
 
