@@ -201,19 +201,19 @@ def genetic_algorithm(
 
     # Fitness closure
     def calculate_fitness(path):
-        return fitness_function(graph, path, mode=mode)
+        return fitness_function(graph, path)
 
     # Best initial solution
-    best_path = min(population, key=lambda p: path_cost(graph, p, mode=mode))
-    best_cost = path_cost(graph, best_path, mode=mode)
+    best_path = min(population, key=lambda p: path_cost(graph, p))
+    best_cost = path_cost(graph, best_path)
 
     # Evolution loop
     for generation in range(generations):
         # Sort population by fitness (lower cost is better)
-        population.sort(key=lambda p: path_cost(graph, p, mode=mode))
+        population.sort(key=lambda p: path_cost(graph, p))
 
         current_best = population[0]
-        current_best_cost = path_cost(graph, current_best, mode=mode)
+        current_best_cost = path_cost(graph, current_best)
 
         if current_best_cost < best_cost:
             best_path = current_best
@@ -270,7 +270,7 @@ def genetic_algorithm(
             if (
                 child
                 and child[-1] == goal_id
-                and path_cost(graph, child, mode=mode) < float("inf")
+                and path_cost(graph, child) < float("inf")
             ):
                 new_population.append(child)
 
