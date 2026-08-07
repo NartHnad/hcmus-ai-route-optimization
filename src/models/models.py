@@ -17,9 +17,11 @@ class Node:
         lat: float,
         lon: float,
         node_type: str = "intersection",
+        name_kind: str = "",  # #NhatHuyChanged: keep node name quality metadata
     ):
         self.id = node_id
         self.name = name
+        self.name_kind = name_kind  # #NhatHuyChanged
 
         self.lat = lat  # latitude: Vi do
         self.lon = lon  # longitude: Kinh do

@@ -125,9 +125,18 @@
             graphData.edges = graphData.edges || [];
 
             clearGraphLayers();
+            // #NhatHuyChanged: draw only nodes marked visible by Python.
+            const visibleNodes = graphData.nodes.filter(node => node.visible !== false);
 
             if (graphData.nodes.length === 0) {
                 setEmptyMessage(true, 'No graph nodes to display.');
+                map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+                return;
+            }
+
+            // #NhatHuyChanged: show an empty state if filtering hides every node.
+            if (visibleNodes.length === 0) {
+                setEmptyMessage(true, 'No named graph nodes to display.');
                 map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
                 return;
             }
@@ -136,10 +145,15 @@
 
             // Draw edges
             graphData.edges.forEach(edge => {
+                // #NhatHuyChanged: do not draw roads connected to hidden nodes.
+                if (edge.visible === false) return;
+
                 const fromNode = nodeById(edge.from);
                 const toNode = nodeById(edge.to);
 
                 if (!fromNode || !toNode) return;
+                // #NhatHuyChanged: defensive check in case old payloads omit edge.visible.
+                if (fromNode.visible === false || toNode.visible === false) return;
 
                 const layer = L.polyline(
                     [[fromNode.lat, fromNode.lon], [toNode.lat, toNode.lon]],
@@ -150,7 +164,8 @@
             });
 
             // Draw nodes
-            graphData.nodes.forEach(node => {
+            // #NhatHuyChanged: hidden unnamed nodes are excluded from Leaflet layers.
+            visibleNodes.forEach(node => {
                 const layer = L.circleMarker(
                     [node.lat, node.lon],
                     NODE_STYLE.default
@@ -168,7 +183,8 @@
             });
 
             const bounds = L.latLngBounds(
-                graphData.nodes.map(node => [node.lat, node.lon])
+                // #NhatHuyChanged: fit map to visible nodes only.
+                visibleNodes.map(node => [node.lat, node.lon])
             );
 
             map.fitBounds(bounds, {

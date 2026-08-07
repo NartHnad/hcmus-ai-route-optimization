@@ -22,6 +22,7 @@ from PyQt5.QtWidgets import (
 from src.algorithms.algorithms import run_algorithm, get_algorithms
 from src.gui.map_widget import MapWidget
 from src.data.data_loader import load_dataset, get_json_datasets
+from src.utils.node_visibility import is_visible_node  # #NhatHuyChanged
 
 from pathlib import Path
 
@@ -354,7 +355,13 @@ class MainWindow(QMainWindow):
             self.map_widget.draw_graph(self.graph)
 
             # Populate node selection boxes
-            node_ids = sorted(self.graph.nodes.keys())
+            # #NhatHuyChanged: only selectable nodes with real display names.
+            node_ids = sorted(
+                node_id
+                for node_id, node in self.graph.nodes.items()
+                if is_visible_node(node)
+            )
+            hidden_nodes = len(self.graph.nodes) - len(node_ids)  # #NhatHuyChanged
 
             self.start_combo.clear()
             self.start_combo.addItems(node_ids)
@@ -368,7 +375,7 @@ class MainWindow(QMainWindow):
                 self.goal_combo.setCurrentIndex(len(node_ids) - 1)
 
             # Enable execution controls
-            self.run_button.setEnabled(True)
+            self.run_button.setEnabled(len(node_ids) >= 2)  # #NhatHuyChanged
 
             self.pause_button.setEnabled(False)
             self.resume_button.setEnabled(False)
@@ -390,6 +397,8 @@ class MainWindow(QMainWindow):
                 "[INFO]\n"
                 f"Successfully loaded {filename}.\n\n"
                 f"Nodes count: {len(self.graph.nodes)}\n"
+                f"Visible named nodes: {len(node_ids)}\n"  # #NhatHuyChanged
+                f"Hidden unnamed nodes: {hidden_nodes}\n"  # #NhatHuyChanged
                 f"Edges count: {total_edges}\n"
                 f"Algorithms count: {total_algorithms}"
             )

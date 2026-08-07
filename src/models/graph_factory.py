@@ -56,6 +56,7 @@ def build_graph(json_path: str) -> Graph:
             lat=float(node.get("lat", node.get("x"))),
             lon=float(node.get("lon", node.get("y"))),
             node_type=node.get("type", "intersection"),
+            name_kind=node.get("name_kind", ""),  # #NhatHuyChanged
         )
         graph.add_node(new_node)
 

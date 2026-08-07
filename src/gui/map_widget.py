@@ -8,6 +8,7 @@ from PyQt5.QtCore import QTimer, QUrl, pyqtSignal
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 
 from src.models.models import SearchResult
+from src.utils.node_visibility import is_visible_node  # #NhatHuyChanged
 
 
 class MapWidget(QWebEngineView):
@@ -71,6 +72,11 @@ class MapWidget(QWebEngineView):
         self.page().runJavaScript(script)
 
     def _serialize_graph(self, graph):
+        # #NhatHuyChanged: compute which nodes are allowed to be drawn.
+        visible_node_ids = {
+            node.id for node in graph.nodes.values() if is_visible_node(node)
+        }
+
         nodes = []
         for node in graph.nodes.values():
             nodes.append(
@@ -79,13 +85,20 @@ class MapWidget(QWebEngineView):
                     "name": node.name,
                     "lat": node.lat,
                     "lon": node.lon,
-                    "type": getattr(node, "type", "intersection"),
+                    "type": getattr(node, "node_type", "intersection"),
+                    "name_kind": getattr(node, "name_kind", ""),  # #NhatHuyChanged
+                    "visible": node.id in visible_node_ids,  # #NhatHuyChanged
                 }
             )
 
         edges = []
         for outgoing_edges in graph.adjacency_list.values():
             for edge in outgoing_edges:
+                # #NhatHuyChanged: hide edges connected to hidden nodes.
+                visible = (
+                    edge.from_node in visible_node_ids
+                    and edge.to_node in visible_node_ids
+                )
                 edges.append(
                     {
                         "from": edge.from_node,
@@ -97,12 +110,15 @@ class MapWidget(QWebEngineView):
                         "congestion": edge.congestion,
                         "risk": edge.risk,
                         "note": edge.note,
+                        "visible": visible,  # #NhatHuyChanged
                     }
                 )
 
         return {
             "nodes": nodes,
             "edges": edges,
+            "visible_nodes": len(visible_node_ids),  # #NhatHuyChanged
+            "hidden_nodes": len(nodes) - len(visible_node_ids),  # #NhatHuyChanged
         }
 
     # ========================
