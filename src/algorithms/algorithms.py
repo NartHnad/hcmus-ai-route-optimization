@@ -28,18 +28,10 @@ try:
 except ImportError:
     pass
 
-
 try:
     from src.algorithms.genetic_algorithm import genetic_algorithm
 
     ALGORITHMS["Genetic Algorithm (GA)"] = genetic_algorithm
-except ImportError:
-    pass
-
-try:
-    from src.algorithms.mock3_algorithm import mock3_search
-
-    ALGORITHMS["Mock 3 Search"] = mock3_search
 except ImportError:
     pass
 
