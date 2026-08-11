@@ -68,7 +68,6 @@ class Edge:
         beta: float = 1.0,
         gamma: float = 1.0,
         delta: float = 1.0,
-        mode: str = "optimal",
     ):
         """
         Dynamically evaluate the edge's weight based on different routing strategies.
@@ -81,16 +80,6 @@ class Edge:
         Safest Route
         Optimal Route
         """
-
-        if mode == "shortest":
-            return self.distance
-
-        if mode == "fastest":
-            return self.travel_time
-
-        if mode == "safe":
-            return self.travel_time + 5 * self.risk
-
         # Mode: Optimal
         return (
             (alpha * self.distance)
