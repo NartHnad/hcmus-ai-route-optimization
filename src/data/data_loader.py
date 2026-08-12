@@ -13,7 +13,7 @@ DATA_DIR = PROJECT_ROOT / "data"
 def get_json_datasets() -> list[str]:
     """
     Automatic scan the .json files in data folder.
-    """ 
+    """
     # Just get .json file
     json_files = [file.name for file in DATA_DIR.glob("*.json")]
 

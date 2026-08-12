@@ -28,13 +28,13 @@ try:
 except ImportError:
     pass
 
-
 try:
     from src.algorithms.genetic_algorithm import genetic_algorithm
 
     ALGORITHMS["Genetic Algorithm (GA)"] = genetic_algorithm
 except ImportError:
     pass
+
 
 def get_algorithms():
     return sorted(ALGORITHMS.keys())
