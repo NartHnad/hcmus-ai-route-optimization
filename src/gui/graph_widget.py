@@ -20,7 +20,9 @@ class GraphWidget(QWebEngineView):
         self._pending_graph_data = None
         self._graph_generation = 0
         self._current_start = None
-        self._current_goal = None
+        self._current_goals = []
+        self._display_goal_order = []
+        self._preview_goal = None
         self._theme = "light"
         self._render_enabled = False
 
@@ -146,13 +148,41 @@ class GraphWidget(QWebEngineView):
         self._update_selection()
 
     def set_goal_node(self, node_id):
-        self._current_goal = node_id or None
+        self._current_goals = [node_id] if node_id else []
+        self._display_goal_order = list(self._current_goals)
+        self._update_selection()
+
+    def set_route_locations(
+        self,
+        start_id,
+        goal_ids,
+        display_order=None,
+        preview_goal=None,
+    ):
+        self._current_start = start_id or None
+        self._current_goals = list(goal_ids or [])
+        requested_order = list(display_order or self._current_goals)
+        selected = set(self._current_goals)
+        self._display_goal_order = [
+            goal_id for goal_id in requested_order if goal_id in selected
+        ]
+        self._display_goal_order.extend(
+            goal_id
+            for goal_id in self._current_goals
+            if goal_id not in self._display_goal_order
+        )
+        self._preview_goal = preview_goal or None
         self._update_selection()
 
     def _update_selection(self):
         self._run_js_function(
             "updateSelection",
-            {"start": self._current_start, "goal": self._current_goal},
+            {
+                "start": self._current_start,
+                "goals": list(self._current_goals),
+                "display_order": list(self._display_goal_order),
+                "preview_goal": self._preview_goal,
+            },
         )
 
     def set_theme(self, theme_name):

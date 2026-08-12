@@ -138,7 +138,7 @@ class SearchStep:
     def __init__(
         self,
         step_type: StepType,
-        node_id: str,
+        node_id: str = None,
         edge_from: str = None,
         edge_to: str = None,
         metrics: dict = None,  # g, h, f of heuristic function
@@ -224,6 +224,7 @@ class SearchResult:
         runtime_ms: float = 0.0,
         total_distance=None,
         estimated_time=None,
+        goal_visit_order=None,
     ):
         self.path = path or []
         self.steps = steps or []
@@ -238,6 +239,10 @@ class SearchResult:
         self.estimated_time = (
             None if estimated_time is None else float(estimated_time)
         )
+        # Ordered delivery destinations for multi-location searches. This is
+        # intentionally separate from ``visited_order``, which records graph
+        # nodes expanded by the search algorithm.
+        self.goal_visit_order = list(goal_visit_order or [])
 
     def to_dict(self):
         """
@@ -252,6 +257,7 @@ class SearchResult:
             "runtime_ms": self.runtime_ms,
             "total_distance": self.total_distance,
             "estimated_time": self.estimated_time,
+            "goal_visit_order": list(self.goal_visit_order),
 
             # Accept both SearchStep objects and plain dicts (mock steps),
             # so mixed lists still serialize cleanly.

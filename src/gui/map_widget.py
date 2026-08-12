@@ -40,7 +40,9 @@ class MapWidget(QWebEngineView):
         self._manual_mode = False
         self._finished_emitted = False
         self._current_start = None
-        self._current_goal = None
+        self._current_goals = []
+        self._display_goal_order = []
+        self._preview_goal = None
         self._theme = "light"
         self._js_step_in_flight = False
         self._playback_generation = 0
@@ -183,6 +185,11 @@ class MapWidget(QWebEngineView):
                     self.graph_render_failed.emit(str(error))
                     return
                 if state.get("ready"):
+                    # initMap rebuilds the Leaflet layer/index state
+                    # asynchronously. Re-apply the latest route selection
+                    # before consumers treat this renderer as ready so an
+                    # earlier Start/Goal update cannot be lost.
+                    self._update_selection()
                     self.graph_ready.emit()
                     return
             QTimer.singleShot(100, lambda: self._poll_graph_render(token))
@@ -593,13 +600,41 @@ class MapWidget(QWebEngineView):
         self._update_selection()
 
     def set_goal_node(self, node_id):
-        self._current_goal = node_id or None
+        self._current_goals = [node_id] if node_id else []
+        self._display_goal_order = list(self._current_goals)
+        self._update_selection()
+
+    def set_route_locations(
+        self,
+        start_id,
+        goal_ids,
+        display_order=None,
+        preview_goal=None,
+    ):
+        self._current_start = start_id or None
+        self._current_goals = list(goal_ids or [])
+        requested_order = list(display_order or self._current_goals)
+        selected = set(self._current_goals)
+        self._display_goal_order = [
+            goal_id for goal_id in requested_order if goal_id in selected
+        ]
+        self._display_goal_order.extend(
+            goal_id
+            for goal_id in self._current_goals
+            if goal_id not in self._display_goal_order
+        )
+        self._preview_goal = preview_goal or None
         self._update_selection()
 
     def _update_selection(self):
         self._run_js_function(
             "updateSelection",
-            {"start": self._current_start, "goal": self._current_goal},
+            {
+                "start": self._current_start,
+                "goals": list(self._current_goals),
+                "display_order": list(self._display_goal_order),
+                "preview_goal": self._preview_goal,
+            },
         )
 
     def set_theme(self, theme_name):

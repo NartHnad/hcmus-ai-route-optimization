@@ -109,7 +109,9 @@
         let pathNodes = new Set();
         let pathEdges = new Set();
         let startNode = null;
-        let goalNode = null;
+        let goalNodes = new Set();
+        let goalOrder = new Map();
+        let previewGoal = null;
         let renderEnabled = false;
         let drawQueued = false;
         let theme = 'light';
@@ -246,7 +248,21 @@
         function updateSelection(rawSelection) {
             const selection = normalizeInput(rawSelection);
             startNode = selection.start || null;
-            goalNode = selection.goal || null;
+            const goals = Array.isArray(selection.goals)
+                ? selection.goals
+                : (selection.goal ? [selection.goal] : []);
+            const displayOrder = Array.isArray(selection.display_order)
+                ? selection.display_order
+                : goals;
+            goalNodes = new Set(goals);
+            goalOrder = new Map();
+            displayOrder.forEach((nodeId, index) => {
+                if (goalNodes.has(nodeId)) goalOrder.set(nodeId, index + 1);
+            });
+            goals.forEach(nodeId => {
+                if (!goalOrder.has(nodeId)) goalOrder.set(nodeId, goalOrder.size + 1);
+            });
+            previewGoal = selection.preview_goal || null;
             scheduleDraw();
         }
 
@@ -396,7 +412,9 @@
         function drawNodeLabel(node, point, radius, colors, important) {
             const metrics = nodeMetrics.get(node.id) || {};
             const metricParts = ['g','h','f'].filter(key => metrics[key] !== undefined).map(key => `${key}:${formatNumber(metrics[key])}`);
-            const title = node.name || node.id;
+            const order = goalOrder.get(node.id);
+            const prefix = node.id === startNode ? 'S · ' : order ? `${order} · ` : '';
+            const title = prefix + (node.name || node.id);
             const detail = metricParts.join('  ');
             ctx.font = important ? '600 11px Segoe UI' : '10px Segoe UI';
             const width = Math.max(ctx.measureText(title).width, detail ? ctx.measureText(detail).width : 0) + 10;
@@ -409,6 +427,26 @@
             ctx.globalAlpha = 1; ctx.textAlign = 'left'; ctx.fillStyle = colors.text;
             ctx.fillText(title, x + 5, y + 11);
             if (detail) { ctx.font = '10px Segoe UI'; ctx.fillStyle = colors.muted; ctx.fillText(detail, x + 5, y + 24); }
+        }
+
+        function drawEndpointBadge(node, point, radius) {
+            const order = goalOrder.get(node.id);
+            const label = node.id === startNode ? 'S' : (order ? String(order) : (node.id === previewGoal ? '+' : ''));
+            if (!label) return;
+            ctx.save();
+            ctx.fillStyle = node.id === startNode ? COLORS.start : COLORS.goal;
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, Math.max(radius + 2, 9), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '800 10px Segoe UI';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, point.x, point.y + .5);
+            ctx.restore();
         }
 
         function draw() {
@@ -440,13 +478,21 @@
                 const point = position(node);
                 if (point.x < -80 || point.y < -80 || point.x > width + 80 || point.y > height + 80) return;
                 const state = nodeState(node.id);
-                const important = state !== 'node' || node.id === startNode || node.id === goalNode;
+                const important = state !== 'node' || node.id === startNode || goalNodes.has(node.id) || node.id === previewGoal;
                 const radius = important ? 7 : smallGraph ? 5 : Math.max(1.8, Math.min(4, 2.2 * Math.sqrt(zoom)));
                 ctx.beginPath(); ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
-                ctx.fillStyle = COLORS[state]; ctx.fill();
+                ctx.fillStyle = node.id === startNode
+                    ? COLORS.start
+                    : goalNodes.has(node.id) || node.id === previewGoal
+                        ? COLORS.goal
+                        : COLORS[state];
+                ctx.fill();
                 ctx.lineWidth = important ? 2 : 1;
-                ctx.strokeStyle = node.id === startNode ? COLORS.start : node.id === goalNode ? COLORS.goal : colors.label;
+                ctx.strokeStyle = node.id === startNode || goalNodes.has(node.id) || node.id === previewGoal
+                    ? '#ffffff'
+                    : colors.label;
                 ctx.stroke();
+                drawEndpointBadge(node, point, radius);
                 const showLabel = labelMode === 'all' || important || (labelMode === 'auto' && (smallGraph || zoom >= 3));
                 if (showLabel) drawNodeLabel(node, point, radius, colors, important);
             });

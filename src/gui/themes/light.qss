@@ -121,6 +121,19 @@ QComboBox QAbstractItemView {
     selection-color: #ffffff;
     selection-background-color: #315efb;
 }
+QListWidget#goalList {
+    padding: 4px;
+    border: 1px solid #cfd8e6;
+    border-radius: 7px;
+    color: #172033;
+    background: #ffffff;
+    alternate-background-color: #f6f8fb;
+    selection-color: #ffffff;
+    selection-background-color: #315efb;
+}
+QListWidget#goalList:disabled { color: #98a2b3; background: #f2f4f7; }
+QCheckBox { color: #27364c; spacing: 7px; }
+QCheckBox:disabled { color: #98a2b3; }
 
 QSplitter::handle { background: transparent; }
 QSplitter::handle:hover { background: #dbe7ff; }

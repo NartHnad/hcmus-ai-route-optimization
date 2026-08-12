@@ -8,7 +8,9 @@ from pathlib import Path
 from PyQt5.QtCore import QObject, Qt, QThread, QTimer, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QStandardItem, QStandardItemModel
 from PyQt5.QtWidgets import (
+    QAbstractItemView,
     QApplication,
+    QCheckBox,
     QComboBox,
     QCompleter,
     QFrame,
@@ -16,6 +18,8 @@ from PyQt5.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QListWidget,
+    QListWidgetItem,
     QMainWindow,
     QTextEdit,
     QPushButton,
@@ -28,7 +32,11 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-from src.algorithms.algorithms import get_algorithms, run_algorithm
+from src.algorithms.algorithms import (
+    get_algorithms,
+    run_algorithm,
+    run_multi_location_algorithm,
+)
 from src.data.data_loader import get_dataset_options, load_dataset
 from src.gui.algorithm_state_panel import AlgorithmStatePanel
 from src.gui.delivery_panel import ResultSummaryPanel
@@ -42,20 +50,30 @@ class SearchWorker(QObject):
     completed = pyqtSignal(object, float)
     failed = pyqtSignal(str)
 
-    def __init__(self, algorithm, graph, start_id, goal_id):
+    def __init__(self, algorithm, graph, route_request):
         super().__init__()
         self.algorithm = algorithm
         self.graph = graph
-        self.start_id = start_id
-        self.goal_id = goal_id
+        self.route_request = dict(route_request)
 
     @pyqtSlot()
     def run(self):
         try:
             started = time.perf_counter()
-            result = run_algorithm(
-                self.algorithm, self.graph, self.start_id, self.goal_id
-            )
+            start_id = self.route_request["start_node"]
+            goals = list(self.route_request.get("delivery_nodes") or [])
+            if len(goals) == 1:
+                result = run_algorithm(
+                    self.algorithm, self.graph, start_id, goals[0]
+                )
+            else:
+                result = run_multi_location_algorithm(
+                    self.algorithm,
+                    self.graph,
+                    start_id,
+                    goals,
+                    self.route_request.get("respect_goal_order", False),
+                )
             runtime_ms = (time.perf_counter() - started) * 1000
             self.completed.emit(result, runtime_ms)
         except Exception as exc:
@@ -66,6 +84,7 @@ class MainWindow(QMainWindow):
     """Responsive Map View for route-search algorithm visualization."""
 
     COMPACT_BREAKPOINT = 880
+    MAX_GOALS = 100
     EXECUTION_STATES = {
         "idle",
         "loading",
@@ -82,10 +101,12 @@ class MainWindow(QMainWindow):
         self.current_theme = "light"
         self.execution_state = "idle"
         self.delivery_nodes = []
+        self._preview_goal_id = None
         self._active_result = None
         self._active_algorithm = ""
         self._active_start = ""
-        self._active_goal = ""
+        self._active_goals = []
+        self._active_respect_goal_order = False
         self._compact_mode = False
         self._sidebar_user_collapsed = False
         self._state_user_collapsed = False
@@ -275,7 +296,7 @@ class MainWindow(QMainWindow):
         self.algorithm_combo = QComboBox()
         self.algorithm_combo.setObjectName("fieldInput")
         self.configure_resizable_combo(self.algorithm_combo, 16)
-        self.available_algorithms = get_algorithms()
+        self.available_algorithms = get_algorithms("single")
         self.algorithm_combo.addItems(self.available_algorithms)
         if not self.available_algorithms:
             self.algorithm_combo.addItem("No algorithms available")
@@ -297,12 +318,39 @@ class MainWindow(QMainWindow):
         self.start_combo = self.searchable_combo()
         layout.addWidget(self.start_combo)
 
-        layout.addWidget(self.field_label("Goal location"))
-        self.goal_combo = self.searchable_combo()
-        layout.addWidget(self.goal_combo)
+        layout.addWidget(self.field_label("Add goal"))
+        add_goal_row = QHBoxLayout()
+        add_goal_row.setSpacing(7)
+        self.add_goal_combo = self.searchable_combo()
+        self.add_goal_button = QPushButton("Add")
+        self.add_goal_button.setObjectName("secondaryButton")
+        add_goal_row.addWidget(self.add_goal_combo, 1)
+        add_goal_row.addWidget(self.add_goal_button)
+        layout.addLayout(add_goal_row)
+
+        layout.addWidget(self.field_label("Delivery goals"))
+        self.goal_list = QListWidget()
+        self.goal_list.setObjectName("goalList")
+        self.goal_list.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.goal_list.setDragDropMode(QAbstractItemView.InternalMove)
+        self.goal_list.setDefaultDropAction(Qt.MoveAction)
+        self.goal_list.setMinimumHeight(86)
+        self.goal_list.setMaximumHeight(180)
+        layout.addWidget(self.goal_list)
+
+        self.remove_goal_button = QPushButton("Remove selected goal")
+        self.remove_goal_button.setObjectName("tertiaryButton")
+        layout.addWidget(self.remove_goal_button)
+
+        self.respect_goal_order_checkbox = QCheckBox("Follow goal list order")
+        self.respect_goal_order_checkbox.setChecked(False)
+        self.respect_goal_order_checkbox.setToolTip(
+            "Unchecked: the multi-location algorithm chooses the goal order."
+        )
+        layout.addWidget(self.respect_goal_order_checkbox)
 
         self.route_scope_label = QLabel(
-            "Start–goal mode · input architecture is ready for future delivery stops."
+            "One goal uses standard search; two or more goals use multi-location search."
         )
         self.route_scope_label.setObjectName("mutedLabel")
         self.route_scope_label.setWordWrap(True)
@@ -481,7 +529,16 @@ class MainWindow(QMainWindow):
         self.load_button.clicked.connect(self.on_load_graph_clicked)
         self.algorithm_combo.currentTextChanged.connect(self.on_algorithm_changed)
         self.start_combo.currentIndexChanged.connect(self.on_start_changed)
-        self.goal_combo.currentIndexChanged.connect(self.on_goal_changed)
+        self.add_goal_combo.currentIndexChanged.connect(
+            self.on_add_goal_preview_changed
+        )
+        self.add_goal_button.clicked.connect(self.on_add_goal_clicked)
+        self.remove_goal_button.clicked.connect(self.on_remove_goal_clicked)
+        self.goal_list.itemSelectionChanged.connect(self._update_remove_goal_button)
+        self.goal_list.model().rowsMoved.connect(self.on_goal_rows_moved)
+        self.respect_goal_order_checkbox.toggled.connect(
+            self.on_respect_goal_order_changed
+        )
         self.speed_combo.currentIndexChanged.connect(self.on_speed_changed)
 
         self.run_button.clicked.connect(self.on_run_search_clicked)
@@ -557,13 +614,159 @@ class MainWindow(QMainWindow):
         return self.start_combo.currentData() or ""
 
     def current_goal_id(self):
-        return self.goal_combo.currentData() or ""
+        """Compatibility helper for code that expects a single goal."""
+        return self.delivery_nodes[0] if self.delivery_nodes else ""
 
     def route_request(self):
         return {
             "start_node": self.current_start_id(),
             "delivery_nodes": list(self.delivery_nodes),
+            "respect_goal_order": self.respect_goal_order_checkbox.isChecked(),
         }
+
+    def _goal_item_text(self, node_id):
+        node = self.graph.get_node(node_id) if self.graph is not None else None
+        return f"{node.id} — {node.name}" if node is not None else str(node_id)
+
+    def _append_goal_item(self, node_id):
+        item = QListWidgetItem(self._goal_item_text(node_id))
+        item.setData(Qt.UserRole, node_id)
+        self.goal_list.addItem(item)
+
+    def _sync_delivery_nodes(self, update_markers=True):
+        self.delivery_nodes = [
+            self.goal_list.item(index).data(Qt.UserRole)
+            for index in range(self.goal_list.count())
+        ]
+        self._update_add_goal_button()
+        self._update_remove_goal_button()
+        self._refresh_algorithm_options()
+        if update_markers:
+            self._update_route_locations()
+
+    def _update_remove_goal_button(self):
+        if not hasattr(self, "remove_goal_button"):
+            return
+        unlocked = self.execution_state not in {
+            "loading", "computing", "running", "paused"
+        }
+        self.remove_goal_button.setEnabled(
+            unlocked and self.graph is not None and self.goal_list.count() > 1
+        )
+
+    def _update_add_goal_button(self):
+        if not hasattr(self, "add_goal_button"):
+            return
+        unlocked = self.execution_state not in {
+            "loading", "computing", "running", "paused"
+        }
+        self.add_goal_button.setEnabled(
+            unlocked
+            and self.graph is not None
+            and len(self.delivery_nodes) < self.MAX_GOALS
+        )
+
+    def _refresh_algorithm_options(self):
+        if not hasattr(self, "algorithm_combo"):
+            return
+        route_mode = "multi" if len(self.delivery_nodes) >= 2 else "single"
+        algorithms = get_algorithms(route_mode)
+        previous = self.algorithm_combo.currentText()
+        self.algorithm_combo.blockSignals(True)
+        self.algorithm_combo.clear()
+        self.algorithm_combo.addItems(algorithms)
+        if previous in algorithms:
+            self.algorithm_combo.setCurrentText(previous)
+        self.algorithm_combo.blockSignals(False)
+        self.available_algorithms = algorithms
+        is_multi = route_mode == "multi"
+        self.respect_goal_order_checkbox.setEnabled(
+            is_multi
+            and self.execution_state not in {
+                "loading", "computing", "running", "paused"
+            }
+        )
+        self.route_scope_label.setText(
+            f"Multi-location mode · {len(self.delivery_nodes)} goals · mock search only."
+            if is_multi
+            else "Single-route mode · all standard search algorithms are available."
+        )
+        self.algorithm_hint.setText(
+            "The mock returns a deterministic demo order; it does not prove global optimality."
+            if is_multi
+            else "Frontier and explored state updates at every step."
+        )
+        if hasattr(self, "subtitle_label"):
+            view_name = "Graph" if self._active_view == "graph" else "Map"
+            self.subtitle_label.setText(
+                f"{view_name} View · {self._route_mode_label()}"
+            )
+        if algorithms:
+            self.algorithm_state.set_algorithm(self.algorithm_combo.currentText())
+
+    def _update_route_locations(self, display_order=None, preview_goal=None):
+        start_id = self.current_start_id()
+        order = list(display_order or self.delivery_nodes)
+        preview = self._preview_goal_id if preview_goal is None else preview_goal
+        self.map_widget.set_route_locations(
+            start_id, self.delivery_nodes, order, preview
+        )
+        self.graph_widget.set_route_locations(
+            start_id, self.delivery_nodes, order, preview
+        )
+
+    def on_add_goal_preview_changed(self, _index):
+        node_id = self.add_goal_combo.currentData() or ""
+        self._preview_goal_id = (
+            node_id
+            if node_id
+            and node_id != self.current_start_id()
+            and node_id not in self.delivery_nodes
+            else None
+        )
+        if self.graph is not None:
+            self._update_route_locations()
+
+    def on_add_goal_clicked(self):
+        node_id = self.add_goal_combo.currentData() or ""
+        if not node_id:
+            self.show_alert("Choose a valid goal to add.", "error")
+            return
+        if len(self.delivery_nodes) >= self.MAX_GOALS:
+            self.show_alert(f"A route can contain at most {self.MAX_GOALS} goals.", "error")
+            return
+        if node_id == self.current_start_id():
+            self.show_alert("The start node cannot also be a goal.", "error")
+            return
+        if node_id in self.delivery_nodes:
+            self.show_alert("That goal is already in the delivery list.", "error")
+            return
+        self._append_goal_item(node_id)
+        self.goal_list.setCurrentRow(self.goal_list.count() - 1)
+        self._preview_goal_id = None
+        self._sync_delivery_nodes()
+        self.log_event("INFO", f"Added goal {node_id}.")
+
+    def on_remove_goal_clicked(self):
+        if self.goal_list.count() <= 1:
+            self.show_alert("A route must keep at least one goal.", "error")
+            return
+        row = self.goal_list.currentRow()
+        if row < 0:
+            row = self.goal_list.count() - 1
+        item = self.goal_list.takeItem(row)
+        removed_id = item.data(Qt.UserRole) if item is not None else ""
+        self._sync_delivery_nodes()
+        self.log_event("INFO", f"Removed goal {removed_id}.")
+
+    def on_goal_rows_moved(self, *_args):
+        self._sync_delivery_nodes()
+        self.log_event("INFO", "Goal visit order changed.")
+
+    def on_respect_goal_order_changed(self, checked):
+        if len(self.delivery_nodes) >= 2:
+            mode = "list order" if checked else "algorithm-selected order"
+            self.log_event("INFO", f"Multi-location routing uses {mode}.")
 
     def on_load_graph_clicked(self):
         filename = self.dataset_combo.currentData()
@@ -583,12 +786,11 @@ class MainWindow(QMainWindow):
             self._populate_node_combos(node_ids)
 
             self.on_start_changed(self.start_combo.currentIndex())
-            self.on_goal_changed(self.goal_combo.currentIndex())
             edge_count = sum(len(edges) for edges in self.graph.adjacency_list.values())
             self.graph_summary_label.setText(
                 f"{len(node_ids)} nodes · {edge_count} directed edges"
             )
-            self.result_panel.reset("Single-route search")
+            self.result_panel.reset(self._route_mode_label())
             self.algorithm_state.reset()
             self.algorithm_state.set_algorithm(self.algorithm_combo.currentText())
             self._active_result = None
@@ -612,7 +814,7 @@ class MainWindow(QMainWindow):
             self.log_event("ERROR", f"Failed to load {filename}: {exc}")
 
     def _populate_node_combos(self, node_ids):
-        """Populate both selectors from one batch-built shared item model."""
+        """Populate start/add selectors and create the required default goal."""
         model = QStandardItemModel(self)
         items = []
         for node_id in node_ids:
@@ -624,25 +826,50 @@ class MainWindow(QMainWindow):
             model.invisibleRootItem().appendRows(items)
 
         self.start_combo.blockSignals(True)
-        self.goal_combo.blockSignals(True)
+        self.add_goal_combo.blockSignals(True)
         self.start_combo.setModel(model)
-        self.goal_combo.setModel(model)
+        self.add_goal_combo.setModel(model)
         if node_ids:
             self.start_combo.setCurrentIndex(0)
-            self.goal_combo.setCurrentIndex(len(node_ids) - 1)
+            self.add_goal_combo.setCurrentIndex(len(node_ids) - 1)
         self.start_combo.blockSignals(False)
-        self.goal_combo.blockSignals(False)
+        self.add_goal_combo.blockSignals(False)
+
+        self.goal_list.clear()
+        self._preview_goal_id = None
+        self.respect_goal_order_checkbox.blockSignals(True)
+        self.respect_goal_order_checkbox.setChecked(False)
+        self.respect_goal_order_checkbox.blockSignals(False)
+        start_id = node_ids[0] if node_ids else None
+        default_goal = next(
+            (node_id for node_id in reversed(node_ids) if node_id != start_id),
+            None,
+        )
+        if default_goal is not None:
+            self._append_goal_item(default_goal)
+        self._sync_delivery_nodes(update_markers=False)
 
         old_model = self._node_model
         self._node_model = model
         if old_model is not None:
             old_model.deleteLater()
 
+    def _route_mode_label(self):
+        return (
+            f"Multi-location search · {len(self.delivery_nodes)} goals"
+            if len(self.delivery_nodes) >= 2
+            else "Single-route search"
+        )
+
     def on_visualization_render_ready(self, renderer):
         if self.graph is None:
             return
         self._pending_renderers.discard(renderer)
         self._ready_renderers.add(renderer)
+        # The WebEngine render is asynchronous. Re-send the selection only
+        # after the renderer has rebuilt its node index/layers so Start/Goal
+        # badges are not lost during graph initialization.
+        self._update_route_locations()
         if (
             self.execution_state != "loading"
             or self._active_view not in self._ready_renderers
@@ -699,16 +926,18 @@ class MainWindow(QMainWindow):
             self.show_alert(f"{title} View is still rendering. Please wait.", "warning")
             return
 
-        start_id = self.current_start_id()
-        goal_id = self.current_goal_id()
+        request = self.route_request()
+        start_id = request["start_node"]
+        goals = request["delivery_nodes"]
         algorithm = self.algorithm_combo.currentText()
-        if not start_id or not goal_id or not algorithm:
-            self.show_alert("Choose a valid start, goal and algorithm.", "error")
+        if not start_id or not goals or not algorithm:
+            self.show_alert("Choose a valid start, at least one goal and an algorithm.", "error")
             return
 
         self._active_algorithm = algorithm
         self._active_start = start_id
-        self._active_goal = goal_id
+        self._active_goals = list(goals)
+        self._active_respect_goal_order = request["respect_goal_order"]
         self._set_execution_state("computing")
         QApplication.processEvents()
 
@@ -716,13 +945,14 @@ class MainWindow(QMainWindow):
         self.graph_widget.reset_visualization()
         self.algorithm_state.reset()
         self.algorithm_state.set_algorithm(algorithm)
-        self.result_panel.set_running(algorithm, start_id, goal_id)
-        self.log_event("INFO", f"Running {algorithm}: {start_id} → {goal_id}.")
+        self.result_panel.set_running(algorithm, start_id, goals)
+        self.log_event(
+            "INFO",
+            f"Running {algorithm}: {start_id} → {' → '.join(goals)}.",
+        )
 
         self._search_thread = QThread(self)
-        self._search_worker = SearchWorker(
-            algorithm, self.graph, start_id, goal_id
-        )
+        self._search_worker = SearchWorker(algorithm, self.graph, request)
         self._search_worker.moveToThread(self._search_thread)
         self._search_thread.started.connect(self._search_worker.run)
         self._search_worker.completed.connect(self._on_search_completed)
@@ -739,6 +969,10 @@ class MainWindow(QMainWindow):
         result.runtime_ms = runtime_ms
         self._enrich_result_metrics(result)
         self._active_result = result
+        if len(self._active_goals) >= 2 and not self._active_respect_goal_order:
+            result_order = list(getattr(result, "goal_visit_order", []) or [])
+            if result_order:
+                self._update_route_locations(result_order)
         profile = self.current_playback_profile()
         manual_mode = profile.get("manual", False)
         self._set_execution_state("paused" if manual_mode else "running")
@@ -822,7 +1056,7 @@ class MainWindow(QMainWindow):
         self.algorithm_state.reset()
         self.graph_widget.reset_visualization()
         self.result_panel.set_running(
-            self._active_algorithm, self._active_start, self._active_goal
+            self._active_algorithm, self._active_start, self._active_goals
         )
         self.map_widget.replay_animation()
         if self.current_playback_profile().get("manual", False):
@@ -836,7 +1070,7 @@ class MainWindow(QMainWindow):
         self.map_widget.reset()
         self.graph_widget.reset_visualization()
         self.algorithm_state.reset()
-        self.result_panel.reset("Single-route search")
+        self.result_panel.reset(self._route_mode_label())
         self._active_result = None
         self._set_execution_state("ready" if self.graph is not None else "idle")
         self.log_event("INFO", "Visualization reset; graph and route selection preserved.")
@@ -849,7 +1083,7 @@ class MainWindow(QMainWindow):
             self._active_result,
             self._active_algorithm,
             self._active_start,
-            self._active_goal,
+            self._active_goals,
         )
         self.info_tabs.setCurrentWidget(self.result_scroll)
         if self._active_result.success:
@@ -901,19 +1135,25 @@ class MainWindow(QMainWindow):
     def on_start_changed(self, _index):
         node_id = self.current_start_id()
         if node_id:
-            self.map_widget.set_start_node(node_id)
-            self.graph_widget.set_start_node(node_id)
+            for row in range(self.goal_list.count() - 1, -1, -1):
+                if self.goal_list.item(row).data(Qt.UserRole) == node_id:
+                    self.goal_list.takeItem(row)
+            if self.goal_list.count() == 0 and self.graph is not None:
+                candidates = sorted(self.graph.nodes, key=self.natural_node_key)
+                fallback = next(
+                    (candidate for candidate in reversed(candidates) if candidate != node_id),
+                    None,
+                )
+                if fallback is not None:
+                    self._append_goal_item(fallback)
+                else:
+                    self.show_alert(
+                        "This dataset needs at least two distinct nodes for routing.",
+                        "error",
+                    )
+            self._sync_delivery_nodes()
             if self.graph is not None:
                 self.log_event("INFO", f"Start location: {node_id}.")
-
-    def on_goal_changed(self, _index):
-        node_id = self.current_goal_id()
-        self.delivery_nodes = [node_id] if node_id else []
-        if node_id:
-            self.map_widget.set_goal_node(node_id)
-            self.graph_widget.set_goal_node(node_id)
-            if self.graph is not None:
-                self.log_event("INFO", f"Goal location: {node_id}.")
 
     def on_speed_changed(self, _index):
         profile = self.current_playback_profile()
@@ -982,9 +1222,7 @@ class MainWindow(QMainWindow):
         self.map_widget.set_visual_updates_enabled(not graph_active)
         self.graph_widget.set_render_enabled(graph_active)
         self.subtitle_label.setText(
-            "Graph View · Node-edge search"
-            if graph_active
-            else "Map View · Single-route search"
+            f"{'Graph' if graph_active else 'Map'} View · {self._route_mode_label()}"
         )
         if changed:
             self.log_event(
@@ -1005,7 +1243,13 @@ class MainWindow(QMainWindow):
             return
         self.execution_state = state
         manual_mode = self.current_playback_profile().get("manual", False)
-        self.run_button.setEnabled(state in {"ready", "finished"})
+        self.run_button.setEnabled(
+            state in {"ready", "finished"}
+            and self.graph is not None
+            and bool(self.current_start_id())
+            and bool(self.delivery_nodes)
+            and bool(self.available_algorithms)
+        )
         self.pause_button.setEnabled(
             not manual_mode and state in {"running", "paused"}
         )
@@ -1029,7 +1273,15 @@ class MainWindow(QMainWindow):
         )
         route_enabled = not controls_locked and self.graph is not None
         self.start_combo.setEnabled(route_enabled)
-        self.goal_combo.setEnabled(route_enabled)
+        self.add_goal_combo.setEnabled(route_enabled)
+        self.add_goal_button.setEnabled(
+            route_enabled and len(self.delivery_nodes) < self.MAX_GOALS
+        )
+        self.goal_list.setEnabled(route_enabled)
+        self.respect_goal_order_checkbox.setEnabled(
+            route_enabled and len(self.delivery_nodes) >= 2
+        )
+        self._update_remove_goal_button()
         self.speed_combo.setEnabled(state not in {"loading", "computing"})
 
         labels = {
