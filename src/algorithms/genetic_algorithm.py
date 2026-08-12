@@ -189,6 +189,9 @@ def genetic_algorithm(
                         edge_from=candidate[i],
                         edge_to=candidate[i + 1],
                         metrics={"path_length": len(candidate)},
+                        frontier=candidate[i + 1 :],
+                        explored=candidate[: i + 1],
+                        visited_order=candidate[: i + 1],
                     )
                 )
 
@@ -198,6 +201,8 @@ def genetic_algorithm(
             message="Unable to generate any valid path",
             steps=steps,
         )
+
+    population_target = len(population)
 
     # Fitness closure
     def calculate_fitness(path):
@@ -231,6 +236,9 @@ def genetic_algorithm(
                         "generation": generation,
                         "best_cost": round(best_cost, 2),
                     },
+                    frontier=best_path[i + 1 :],
+                    explored=best_path[: i + 1],
+                    visited_order=best_path[: i + 1],
                 )
             )
 
@@ -249,13 +257,13 @@ def genetic_algorithm(
         )
 
         # Elitism: keep top 20%
-        elite_count = max(1, population_size // 5)
+        elite_count = max(1, population_target // 5)
         new_population = population[:elite_count].copy()
 
         # Generate new generation
         gen_attempts = 0
         while (
-            len(new_population) < population_size and gen_attempts < population_size * 5
+            len(new_population) < population_target and gen_attempts < population_target * 5
         ):
             gen_attempts += 1
 
@@ -274,6 +282,9 @@ def genetic_algorithm(
             ):
                 new_population.append(child)
 
+        if len(new_population) < population_target:
+            new_population.extend(population[: population_target - len(new_population)])
+
         population = new_population
 
     # FINAL RESULT
@@ -288,6 +299,9 @@ def genetic_algorithm(
                 edge_from=best_path[i],
                 edge_to=best_path[i + 1],
                 metrics={"final_path": True},
+                frontier=best_path[i + 1 :],
+                explored=best_path[: i + 1],
+                visited_order=best_path[: i + 1],
             )
         )
 
@@ -299,6 +313,9 @@ def genetic_algorithm(
                 "total_cost": round(total_cost, 2),
                 "path_length": len(best_path),
             },
+            frontier=[],
+            explored=list(best_path),
+            visited_order=list(best_path),
         )
     )
 

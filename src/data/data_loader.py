@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+import json
 
 from src.models.graph_factory import build_graph
 
@@ -18,6 +19,22 @@ def get_json_datasets() -> list[str]:
 
     # Return a sorted list
     return sorted(json_files)
+
+
+def get_dataset_options():
+    """Return lightweight display metadata without constructing every graph."""
+    options = []
+    for filename in get_json_datasets():
+        path = DATA_DIR / filename
+        node_count = None
+        try:
+            with open(path, "r", encoding="utf-8") as file:
+                raw_nodes = json.load(file).get("nodes", [])
+            node_count = len(raw_nodes)
+        except (OSError, ValueError, TypeError):
+            pass
+        options.append({"filename": filename, "node_count": node_count})
+    return options
 
 
 def load_dataset(filename):
