@@ -15,6 +15,9 @@ def test_map_html_uses_qt_webengine_compatible_string_replacement():
 
     assert ".replaceAll(" not in map_html
     assert ".replace(/&/g, '&amp;')" in map_html
+    assert "function getEndpointMarkerState()" in map_html
+    assert "startMarkerVisible" in map_html
+    assert "goalMarkerCount" in map_html
 
 
 class _SignalRecorder:
@@ -28,10 +31,12 @@ class _SignalRecorder:
 
 def _selection_harness(widget_type):
     harness = SimpleNamespace(
-        _current_start=None,
-        _current_goals=[],
-        _display_goal_order=[],
-        _preview_goal=None,
+        _selection_payload={
+            "start": None,
+            "goals": [],
+            "display_order": [],
+            "preview_goal": None,
+        },
         calls=[],
     )
 
@@ -65,6 +70,37 @@ def test_map_and_graph_widgets_share_the_multi_location_selection_payload():
         )
 
         assert harness.calls[-1] == ("updateSelection", expected_payload)
+
+
+def test_empty_display_order_is_not_replaced_by_a_falsey_default():
+    for widget_type in (MapWidget, GraphWidget):
+        harness = _selection_harness(widget_type)
+        widget_type.set_route_locations(harness, "S", ["G1"], [])
+        assert harness.calls[-1][1]["display_order"] == []
+
+
+def test_map_exposes_endpoint_marker_diagnostics_through_python_wrapper():
+    diagnostics = {
+        "start": "S",
+        "goals": ["G2", "G1"],
+        "displayOrder": ["G1", "G2"],
+        "startMarkerVisible": True,
+        "goalMarkerCount": 3,
+        "previewGoal": "G3",
+    }
+    received = []
+    harness = SimpleNamespace(
+        _run_js_function=lambda name, payload=None, callback=None: (
+            callback(diagnostics) if callback else None
+        ) or name == "getEndpointMarkerState"
+    )
+
+    assert MapWidget.get_endpoint_marker_state(harness, received.append)
+    assert received == [diagnostics]
+    assert received[0]["startMarkerVisible"]
+    assert received[0]["goalMarkerCount"] == 3
+    assert received[0]["displayOrder"] == ["G1", "G2"]
+    assert received[0]["previewGoal"] == "G3"
 
 
 def test_map_reapplies_selection_before_emitting_graph_ready():

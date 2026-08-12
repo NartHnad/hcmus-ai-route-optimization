@@ -1,6 +1,22 @@
 # src/models.py
 
+from dataclasses import dataclass
+
 from src.constants import StepType
+
+
+@dataclass(frozen=True)
+class RouteRequest:
+    """An immutable snapshot of the locations selected for a route search."""
+
+    start_node: str
+    delivery_nodes: tuple[str, ...]
+    respect_goal_order: bool = False
+
+    @property
+    def route_mode(self) -> str:
+        """Return the algorithm registry mode required by this request."""
+        return "multi" if len(self.delivery_nodes) >= 2 else "single"
 
 
 class Node:

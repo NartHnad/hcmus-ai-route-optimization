@@ -1,3 +1,6 @@
+from src.models.models import RouteRequest
+
+
 ALGORITHMS = {}
 MULTI_LOCATION_ALGORITHMS = {}
 
@@ -83,4 +86,21 @@ def run_multi_location_algorithm(
         start,
         list(goals or []),
         respect_goal_order=bool(respect_goal_order),
+    )
+
+
+def run_route_request(name, graph, request: RouteRequest):
+    """Dispatch an immutable route request to its compatible registry."""
+    if request.route_mode == "single":
+        if not request.delivery_nodes:
+            raise ValueError("A route request requires at least one goal node.")
+        return run_algorithm(
+            name, graph, request.start_node, request.delivery_nodes[0]
+        )
+    return run_multi_location_algorithm(
+        name,
+        graph,
+        request.start_node,
+        request.delivery_nodes,
+        respect_goal_order=request.respect_goal_order,
     )

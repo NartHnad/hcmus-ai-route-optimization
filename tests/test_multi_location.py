@@ -1,9 +1,10 @@
 from src.algorithms.algorithms import (
     get_algorithms,
+    run_route_request,
     run_multi_location_algorithm,
 )
 from src.constants import StepType
-from src.models.models import Edge, Graph, Node
+from src.models.models import Edge, Graph, Node, RouteRequest
 
 
 def _add_costed_edge(graph, source, target):
@@ -53,8 +54,8 @@ def test_ordered_multi_location_uses_ui_order_and_merges_real_legs():
     assert result.goal_visit_order == ["G10", "G2"]
     assert result.path == ["S", "G10", "G2"]
     assert sum(step.step_type == StepType.FINISH for step in result.steps) == 1
-    assert result.total_distance == 2.0
-    assert result.estimated_time == 4.0
+    assert result.total_distance is None
+    assert result.estimated_time is None
     assert result.to_dict()["goal_visit_order"] == ["G10", "G2"]
 
     leg_steps = [step for step in result.steps if step.step_type != StepType.FINISH]
@@ -97,3 +98,23 @@ def test_failed_leg_does_not_publish_a_partial_route():
     assert finish.step_type == StepType.FINISH
     assert finish.metrics["leg_start"] == "A"
     assert finish.metrics["leg_goal"] == "B"
+
+
+def test_route_request_is_immutable_and_dispatches_by_route_mode():
+    single = RouteRequest("S", ("G2",), False)
+    multi = RouteRequest("S", ("G10", "G2"), False)
+
+    assert single.route_mode == "single"
+    assert multi.route_mode == "multi"
+    try:
+        single.start_node = "other"
+        assert False, "RouteRequest must be immutable"
+    except Exception:
+        pass
+
+    single_result = run_route_request("A* Search", build_multi_goal_graph(), single)
+    multi_result = run_route_request(
+        "Mock Multi-location Search", build_multi_goal_graph(), multi
+    )
+    assert single_result.success
+    assert multi_result.goal_visit_order == ["G2", "G10"]

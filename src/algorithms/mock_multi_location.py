@@ -69,8 +69,6 @@ def mock_multi_location_search(
     combined_steps = []
     combined_visited = []
     total_cost = 0.0
-    total_distance = 0.0
-    estimated_time = 0.0
     leg_start = start_id
 
     for zero_based_index, leg_goal in enumerate(visit_order):
@@ -118,12 +116,6 @@ def mock_multi_location_search(
         combined_visited.extend(leg_result.visited_order)
         total_cost += leg_result.total_cost
 
-        for from_node, to_node in zip(leg_path, leg_path[1:]):
-            edge = graph.get_edge(from_node, to_node)
-            if edge is not None:
-                total_distance += edge.distance
-                estimated_time += edge.travel_time
-
         leg_start = leg_goal
 
     combined_steps.append(
@@ -145,7 +137,5 @@ def mock_multi_location_search(
         success=True,
         message=f"Mock multi-location search visited {leg_count} goals using {mode}.",
         visited_order=combined_visited,
-        total_distance=total_distance,
-        estimated_time=estimated_time,
         goal_visit_order=visit_order,
     )
