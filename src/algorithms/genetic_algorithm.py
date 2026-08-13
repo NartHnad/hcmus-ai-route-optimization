@@ -3,7 +3,7 @@ import random
 from src.models.models import SearchResult, SearchStep, StepType
 
 
-def path_cost(graph, path, mode="optimal"):
+def path_cost(graph, path):
     """ "
     Calculate the total cost of a given path based on the specified mode.
     """
@@ -19,17 +19,17 @@ def path_cost(graph, path, mode="optimal"):
             return float("inf")
 
         # Calculate the cost
-        total += edge.calculate_cost(mode=mode)
+        total += edge.calculate_cost()
 
     return total
 
 
-def fitness_function(graph, chromosome, mode="optimal"):
+def fitness_function(graph, chromosome):
     """
     Fitness function for the genetic algorithm.
     The fitness is inversely proportional to the path cost.
     """
-    cost = path_cost(graph, chromosome, mode=mode)
+    cost = path_cost(graph, chromosome)
 
     if cost == float("inf"):
         return 0.0  # Invalid paths have zero fitness
@@ -37,9 +37,9 @@ def fitness_function(graph, chromosome, mode="optimal"):
     return 1.0 / (1.0 + cost)
 
 
-def random_path(graph, start_id, goal_id, max_steps=20):
+def random_path(graph, start_id, goal_id, max_steps=30):
     """
-    Generate a random valid path from start_id to goal_id using DFS.
+    Generate a random valid path from start_id to goal_id using Self-Avoiding Random Walk.
     This function ensures that the generated path is valid and does not contain cycles.
     """
     path = [start_id]
@@ -59,13 +59,13 @@ def random_path(graph, start_id, goal_id, max_steps=20):
         if not neighbors:
             break
 
-        next = random.choice(neighbors)
+        next_node = random.choice(neighbors)
 
-        path.append(next)
-        visited.add(next)
-        current = next
+        path.append(next_node)
+        visited.add(next_node)
+        current = next_node
 
-    return path
+    return path if path[-1] == goal_id else None
 
 
 def select_parent(population, fitness):
@@ -75,6 +75,7 @@ def select_parent(population, fitness):
 
 
 def crossover(parent1, parent2):
+    # Find the common nodes between parents
     common = set(parent1[1:-1]) & set(parent2[1:-1])
 
     if not common:
@@ -85,19 +86,32 @@ def crossover(parent1, parent2):
     i = parent1.index(cross_node)
     j = parent2.index(cross_node)
 
-    child = parent1[:i] + parent2[:j]
+    # Combine the two parents at the crossover point
+    child = parent1[:i] + parent2[j:]
 
     # Remove consecutive duplicates
     cleaned = [child[0]]
+    seen = {child[0]}
 
     for node in child[1:]:
-        if node != cleaned[-1]:
+        if node in seen:
+            # Remove nodes in loop
+            while cleaned and cleaned[-1] != node:
+                seen.remove(cleaned.pop())
+        else:
             cleaned.append(node)
+            seen.add(node)
+
+    # Fix: lost goal_id in the child path after removing loops
+    # If the last node is not the goal_id, append it if it's in the original child path
+    # fallback to parent1's last node if goal_id is not present
+    if not cleaned or cleaned[-1] != parent1[-1]:
+        return parent1.copy()
 
     return cleaned
 
 
-def mutate(graph, path, goal_id, max_steps=15):
+def mutate(graph, path, goal_id, max_steps=30):
     """
     Mutate a path by replacing its suffix with a new random walk.
     """
@@ -131,7 +145,7 @@ def mutate(graph, path, goal_id, max_steps=15):
         visited.add(nxt)
         current = nxt
 
-    return new_path
+    return new_path if new_path[-1] == goal_id else path
 
 
 def genetic_algorithm(
@@ -141,7 +155,6 @@ def genetic_algorithm(
     population_size=50,
     generations=100,
     mutation_rate: float = 0.2,
-    mode: str = "optimal",
 ):
     """
     Genetic Algorithm for route optimization.
@@ -156,9 +169,13 @@ def genetic_algorithm(
 
     # Initial Population
     population = []
+    max_attempts = population_size * 20
+    attempts = 0
 
-    while len(population) < population_size:
-        candidate = random_path(graph, start_id, goal_id, max_steps=20)
+    while len(population) < population_size and attempts < max_attempts:
+        attempts += 1
+
+        candidate = random_path(graph, start_id, goal_id, max_steps=30)
 
         if candidate and candidate[-1] == goal_id:
             population.append(candidate)
@@ -172,6 +189,9 @@ def genetic_algorithm(
                         edge_from=candidate[i],
                         edge_to=candidate[i + 1],
                         metrics={"path_length": len(candidate)},
+                        frontier=candidate[i + 1 :],
+                        explored=candidate[: i + 1],
+                        visited_order=candidate[: i + 1],
                     )
                 )
 
@@ -182,22 +202,27 @@ def genetic_algorithm(
             steps=steps,
         )
 
+    population_target = len(population)
+
     # Fitness closure
-    fitness = lambda path: fitness_function(graph, path, mode=mode)
+    def calculate_fitness(path):
+        return fitness_function(graph, path)
 
     # Best initial solution
-    best_path = min(population, key=lambda p: path_cost(graph, p, mode=mode))
+    best_path = min(population, key=lambda p: path_cost(graph, p))
+    best_cost = path_cost(graph, best_path)
 
     # Evolution loop
-    for genertation in range(generations):
-        population.sort(key=lambda p: path_cost(graph, p, mode=mode))
+    for generation in range(generations):
+        # Sort population by fitness (lower cost is better)
+        population.sort(key=lambda p: path_cost(graph, p))
 
         current_best = population[0]
+        current_best_cost = path_cost(graph, current_best)
 
-        if path_cost(graph, current_best, mode=mode) < path_cost(
-            graph, best_path, mode=mode
-        ):
+        if current_best_cost < best_cost:
             best_path = current_best
+            best_cost = current_best_cost
 
         # Emit the current best path
         for i in range(len(best_path) - 1):
@@ -208,32 +233,62 @@ def genetic_algorithm(
                     edge_from=best_path[i],
                     edge_to=best_path[i + 1],
                     metrics={
-                        "generation": genertation,
-                        "best_cost": round(path_cost(graph, best_path, mode=mode), 2),
+                        "generation": generation,
+                        "best_cost": round(best_cost, 2),
                     },
+                    frontier=best_path[i + 1 :],
+                    explored=best_path[: i + 1],
+                    visited_order=best_path[: i + 1],
                 )
             )
 
-        # Elitism: keep top 20%
-        elite_count = max(1, population_size // 5)
-        new_population = population[:elite_count]
+        # Add EXPAND step representing the current population
+        sample_node = current_best[min(generation, len(current_best) - 1)]
+        steps.append(
+            SearchStep(
+                StepType.EXPAND,
+                node_id=sample_node,
+                metrics={
+                    "generation": generation,
+                    "population_size": len(population),
+                    "current_cost": round(current_best_cost, 2),
+                },
+            )
+        )
 
-        while len(new_population) < population_size:
-            parent1 = select_parent(population, fitness)
-            parent2 = select_parent(population, fitness)
+        # Elitism: keep top 20%
+        elite_count = max(1, population_target // 5)
+        new_population = population[:elite_count].copy()
+
+        # Generate new generation
+        gen_attempts = 0
+        while (
+            len(new_population) < population_target and gen_attempts < population_target * 5
+        ):
+            gen_attempts += 1
+
+            parent1 = select_parent(population, calculate_fitness)
+            parent2 = select_parent(population, calculate_fitness)
 
             child = crossover(parent1, parent2)
 
             if random.random() < mutation_rate:
                 child = mutate(graph, child, goal_id)
 
-            if child and child[-1] == goal_id:
+            if (
+                child
+                and child[-1] == goal_id
+                and path_cost(graph, child) < float("inf")
+            ):
                 new_population.append(child)
+
+        if len(new_population) < population_target:
+            new_population.extend(population[: population_target - len(new_population)])
 
         population = new_population
 
     # FINAL RESULT
-    total_cost = path_cost(graph, best_path, mode=mode)
+    total_cost = path_cost(graph, best_path)
 
     # EMIT FINAL PATH FOR UI DRAWING
     for i in range(len(best_path) - 1):
@@ -244,6 +299,9 @@ def genetic_algorithm(
                 edge_from=best_path[i],
                 edge_to=best_path[i + 1],
                 metrics={"final_path": True},
+                frontier=best_path[i + 1 :],
+                explored=best_path[: i + 1],
+                visited_order=best_path[: i + 1],
             )
         )
 
@@ -255,6 +313,9 @@ def genetic_algorithm(
                 "total_cost": round(total_cost, 2),
                 "path_length": len(best_path),
             },
+            frontier=[],
+            explored=list(best_path),
+            visited_order=list(best_path),
         )
     )
 

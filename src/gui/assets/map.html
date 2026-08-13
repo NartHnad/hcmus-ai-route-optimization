@@ -4,14 +4,28 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Route Optimization Map</title>
-
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
     <style>
-        html,
-        body,
-        #map {
+        :root {
+            --surface: rgba(255, 255, 255, 0.96);
+            --surface-muted: #f8fafc;
+            --text: #0f172a;
+            --muted: #64748b;
+            --border: #dbe3ef;
+            --shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+        }
+
+        body[data-theme="dark"] {
+            --surface: rgba(23, 31, 46, 0.96);
+            --surface-muted: #111827;
+            --text: #f8fafc;
+            --muted: #cbd5e1;
+            --border: #43516a;
+            --shadow: 0 10px 28px rgba(0, 0, 0, 0.34);
+        }
+
+        html, body, #map {
             width: 100%;
             height: 100%;
             margin: 0;
@@ -20,284 +34,646 @@
 
         body {
             overflow: hidden;
-            font-family: Arial, Helvetica, sans-serif;
+            font-family: Inter, "Segoe UI", Arial, sans-serif;
+            color: var(--text);
+            background: var(--surface-muted);
         }
 
-        .map-empty-message {
+        #map { background: #e8eef5; }
+
+        .map-message {
             position: absolute;
             z-index: 1000;
-            top: 16px;
+            top: 18px;
             left: 50%;
+            width: min(360px, calc(100% - 40px));
             transform: translateX(-50%);
-            padding: 8px 12px;
-            border-radius: 8px;
-            color: #334155;
-            background: rgba(255, 255, 255, 0.92);
-            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.18);
+            box-sizing: border-box;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text);
+            background: var(--surface);
+            box-shadow: var(--shadow);
             font-size: 13px;
+            line-height: 1.45;
+            text-align: center;
+        }
+
+        .map-message strong { display: block; margin-bottom: 3px; font-size: 14px; }
+        .map-message[data-level="error"] { border-color: #ef4444; }
+        .map-message[data-level="success"] { border-color: #22c55e; }
+
+        .legend {
+            position: absolute;
+            z-index: 1000;
+            left: 14px;
+            bottom: 26px;
+            min-width: 168px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text);
+            background: var(--surface);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            font-size: 12px;
+        }
+
+        .legend__toggle {
+            width: 100%;
+            border: 0;
+            padding: 9px 11px;
+            color: inherit;
+            background: transparent;
+            font: inherit;
+            font-weight: 700;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .legend__toggle::after { content: "−"; float: right; }
+        .legend.is-collapsed .legend__toggle::after { content: "+"; }
+        .legend.is-collapsed .legend__body { display: none; }
+
+        .legend__body {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px 12px;
+            padding: 4px 11px 11px;
+            border-top: 1px solid var(--border);
+        }
+
+        .legend__item { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+        .legend__dot {
+            width: 10px;
+            height: 10px;
+            box-sizing: border-box;
+            border: 2px solid currentColor;
+            border-radius: 50%;
+            background: currentColor;
+        }
+        .legend__dot--start { color: #16a34a; }
+        .legend__dot--goal { color: #dc2626; }
+        .legend__dot--current { color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.25); }
+        .legend__dot--frontier { color: #8b5cf6; }
+        .legend__dot--explored { color: #64748b; }
+        .legend__line { width: 18px; height: 0; border-top: 4px solid #16a34a; border-radius: 4px; }
+
+        .endpoint-marker {
+            display: grid;
+            width: 24px;
+            height: 24px;
+            place-items: center;
+            box-sizing: border-box;
+            border: 3px solid #fff;
+            border-radius: 50% 50% 50% 0;
+            box-shadow: 0 3px 9px rgba(15,23,42,.35);
+            color: #fff;
+            font: 800 11px/1 Inter, "Segoe UI", sans-serif;
+            transform: rotate(-45deg);
+            pointer-events: auto;
+        }
+        .endpoint-marker span { transform: rotate(45deg); }
+        .endpoint-marker--start { background: #16a34a; }
+        .endpoint-marker--goal { background: #dc2626; }
+        .endpoint-marker-wrapper {
+            background: transparent;
+            border: 0;
+        }
+
+        .leaflet-control-zoom a,
+        .leaflet-control-attribution {
+            color: var(--text) !important;
+            background: var(--surface) !important;
+        }
+
+        @media (max-width: 620px) {
+            .legend { left: 10px; bottom: 20px; min-width: 118px; }
+            .legend__body { grid-template-columns: 1fr; }
+            .legend:not(.is-collapsed) { max-height: 190px; overflow: auto; }
         }
     </style>
 </head>
-<body>
+<body data-theme="light">
     <div id="map"></div>
-    <div id="empty-message" class="map-empty-message">Waiting for graph data...</div>
+    <div id="map-message" class="map-message" data-level="info">
+        <strong>Map View is ready</strong>
+        Choose a dataset → load the graph → select start and goal.
+    </div>
+    <div id="legend" class="legend" aria-label="Map legend">
+        <button id="legend-toggle" class="legend__toggle" type="button">Map legend</button>
+        <div class="legend__body">
+            <div class="legend__item"><span class="legend__dot legend__dot--start"></span>Start</div>
+            <div class="legend__item"><span class="legend__dot legend__dot--goal"></span>Goal</div>
+            <div class="legend__item"><span class="legend__dot legend__dot--current"></span>Current</div>
+            <div class="legend__item"><span class="legend__dot legend__dot--frontier"></span>Frontier</div>
+            <div class="legend__item"><span class="legend__dot legend__dot--explored"></span>Explored</div>
+            <div class="legend__item"><span class="legend__line"></span>Final path</div>
+        </div>
+    </div>
 
     <script>
         const DEFAULT_CENTER = [10.7741, 106.6782];
         const DEFAULT_ZOOM = 14;
 
         const NODE_STYLE = {
-            default: { radius: 8, color: '#2563eb', weight: 2, fillColor: '#60a5fa', fillOpacity: 0.9 },
-            visit: { radius: 10, color: '#ca8a04', weight: 3, fillColor: '#facc15', fillOpacity: 1.0 },
-            path: { radius: 11, color: '#15803d', weight: 3, fillColor: '#22c55e', fillOpacity: 1.0 },
-        
-            start: {
-                radius: 12,
-                color: "#16a34a",
-                weight: 4,
-                fillColor: "#22c55e",
-                fillOpacity: 1
-            },
-            goal: {
-                radius: 12,
-                color: "#dc2626",
-                weight: 4,
-                fillColor: "#ef4444",
-                fillOpacity: 1
-            },
+            default:  { radius: 7,  color: '#2563eb', weight: 2, fillColor: '#60a5fa', fillOpacity: 0.90 },
+            frontier: { radius: 9,  color: '#7c3aed', weight: 3, fillColor: '#a78bfa', fillOpacity: 0.95 },
+            explored: { radius: 8,  color: '#475569', weight: 2, fillColor: '#94a3b8', fillOpacity: 0.86 },
+            current:  { radius: 11, color: '#b45309', weight: 5, fillColor: '#fbbf24', fillOpacity: 1.00 },
+            path:     { radius: 10, color: '#15803d', weight: 3, fillColor: '#22c55e', fillOpacity: 1.00 },
         };
 
         const EDGE_STYLE = {
-            default: { color: '#64748b', weight: 3, opacity: 0.65 },
-            inspect: { color: '#f97316', weight: 5, opacity: 0.95 },
-            path: { color: '#16a34a', weight: 6, opacity: 1.0 },
+            default: { color: '#64748b', weight: 3, opacity: 0.56, dashArray: null },
+            inspect: { color: '#f97316', weight: 4, opacity: 0.88, dashArray: '6 5' },
+            relaxed: { color: '#7c3aed', weight: 4, opacity: 0.84, dashArray: '3 5' },
+            path:    { color: '#16a34a', weight: 6, opacity: 1.00, dashArray: null },
         };
 
-        let map = L.map('map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
-        let nodeLayers = {};
-        let edgeLayers = {};
-        let graphData = { nodes: [], edges: [] };
-
-        // Control Node State: Start and Goal
-        let currentStart = null;
-        let currentGoal = null;
-
-        let defaultTooltips = {};
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        const canvasRenderer = L.canvas({ padding: 0.5, tolerance: 4 });
+        const map = L.map('map', {
+            zoomControl: true,
+            preferCanvas: true,
+            renderer: canvasRenderer,
+        }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+        const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; OpenStreetMap contributors',
         }).addTo(map);
+        const edgeLayerGroup = L.layerGroup().addTo(map);
+        const nodeLayerGroup = L.layerGroup().addTo(map);
+        const endpointPane = map.createPane('endpointPane');
+        endpointPane.style.zIndex = 650;
+        const endpointLayerGroup = L.layerGroup([], { pane: 'endpointPane' }).addTo(map);
 
-        function edgeKey(fromNode, toNode) {
-            return `${fromNode}->${toNode}`;
+        let graphData = { nodes: [], edges: [] };
+        let nodeIndex = new Map();
+        let nodeLayers = {};
+        let edgeLayers = {};
+        let defaultTooltips = {};
+        let nodeStates = {};
+        let currentNode = null;
+        let currentStart = null;
+        let currentGoals = [];
+        let currentDisplayOrder = [];
+        let currentPreviewGoal = null;
+        let startMarker = null;
+        let goalMarkers = [];
+        let historyRendering = false;
+        let messageTimer = null;
+        let styledNodes = new Set();
+        let styledEdges = new Set();
+        let frontierNodes = new Set();
+        let exploredNodes = new Set();
+        let largeGraphMode = false;
+        let graphRenderState = { token: 0, ready: true, progress: 1, error: null };
+
+        let legendTouched = false;
+        document.getElementById('legend-toggle').addEventListener('click', () => {
+            legendTouched = true;
+            document.getElementById('legend').classList.toggle('is-collapsed');
+        });
+        function syncLegendToViewport() {
+            if (!legendTouched) {
+                document.getElementById('legend').classList.toggle(
+                    'is-collapsed', window.innerWidth <= 620
+                );
+            }
         }
+        window.addEventListener('resize', syncLegendToViewport);
+        syncLegendToViewport();
 
         function normalizeInput(data) {
-            if (typeof data === 'string') {
-                return JSON.parse(data);
-            }
-            return data || { nodes: [], edges: [] };
+            if (typeof data === 'string') return JSON.parse(data);
+            return data || {};
         }
 
-        function clearGraphLayers() {
-            Object.values(nodeLayers).forEach(layer => map.removeLayer(layer));
-            Object.values(edgeLayers).forEach(layer => map.removeLayer(layer));
-            nodeLayers = {};
-            edgeLayers = {};
+        function edgeKey(fromNode, toNode) { return `${fromNode}->${toNode}`; }
+        function nodeById(nodeId) { return nodeIndex.get(nodeId); }
+        function getGraphRenderState() { return { ...graphRenderState }; }
+
+        function setTheme(payload) {
+            const theme = normalizeInput(payload).theme === 'dark' ? 'dark' : 'light';
+            document.body.dataset.theme = theme;
         }
 
-        function nodeById(nodeId) {
-            return graphData.nodes.find(node => node.id === nodeId);
-        }
-
-        function setEmptyMessage(visible, text = 'Waiting for graph data...') {
-            const element = document.getElementById('empty-message');
-            element.textContent = text;
+        function setMapMessage(visible, html, level = 'info') {
+            const element = document.getElementById('map-message');
+            if (messageTimer) window.clearTimeout(messageTimer);
+            element.dataset.level = level;
+            element.innerHTML = html;
             element.style.display = visible ? 'block' : 'none';
         }
 
+        function showMapMessage(payload) {
+            const data = normalizeInput(payload);
+            const element = document.getElementById('map-message');
+            if (messageTimer) window.clearTimeout(messageTimer);
+            element.textContent = data.text || '';
+            element.dataset.level = data.level || 'info';
+            element.style.display = 'block';
+            messageTimer = window.setTimeout(() => { element.style.display = 'none'; }, 3600);
+        }
+
+        function clearGraphLayers() {
+            nodeLayerGroup.clearLayers();
+            edgeLayerGroup.clearLayers();
+            endpointLayerGroup.clearLayers();
+            nodeIndex = new Map();
+            nodeLayers = {};
+            edgeLayers = {};
+            nodeStates = {};
+            defaultTooltips = {};
+            startMarker = null;
+            goalMarkers = [];
+            currentNode = null;
+            styledNodes.clear();
+            styledEdges.clear();
+            frontierNodes.clear();
+            exploredNodes.clear();
+            largeGraphMode = false;
+        }
+
         function initMap(data) {
+            const incoming = normalizeInput(data);
+            const token = Number(incoming.render_token || (graphRenderState.token + 1));
+            graphRenderState = { token, ready: false, progress: 0, error: null };
             map.invalidateSize();
-
-            graphData = normalizeInput(data);
-            graphData.nodes = graphData.nodes || [];
-            graphData.edges = graphData.edges || [];
-
+            graphData = {
+                nodes: incoming.nodes || [],
+                edges: incoming.edges || [],
+            };
             clearGraphLayers();
 
-            if (graphData.nodes.length === 0) {
-                setEmptyMessage(true, 'No graph nodes to display.');
-                map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
-                return;
-            }
+            try {
+                if (!graphData.nodes.length) {
+                    setMapMessage(true, '<strong>No graph nodes</strong>Select another dataset and try again.', 'error');
+                    map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+                    graphRenderState = { token, ready: true, progress: 1, error: null };
+                    return;
+                }
 
-            setEmptyMessage(false);
+                nodeIndex = new Map(graphData.nodes.map(node => [node.id, node]));
+                const bounds = L.latLngBounds(graphData.nodes.map(node => [node.lat, node.lon]));
+                map.fitBounds(bounds, { padding: [38, 38], maxZoom: 16 });
 
-            // Draw edges
-            graphData.edges.forEach(edge => {
-                const fromNode = nodeById(edge.from);
-                const toNode = nodeById(edge.to);
+                const largeGraph = graphData.nodes.length > 2000 || graphData.edges.length > 10000;
+                largeGraphMode = largeGraph;
+                // In large-graph mode the base network is rendered first and
+                // node markers are materialized only for algorithm state or a
+                // sufficiently close viewport. Thousands of overlapping
+                // markers at district-level zoom add no useful information.
+                const total = graphData.edges.length + (largeGraph ? 0 : graphData.nodes.length);
+                const edgeBatchSize = largeGraph ? 900 : 450;
+                const nodeBatchSize = largeGraph ? 700 : 350;
+                let edgeOffset = 0;
+                let nodeOffset = 0;
 
-                if (!fromNode || !toNode) return;
+                const updateProgress = processed => {
+                    const progress = total ? Math.min(1, processed / total) : 1;
+                    graphRenderState.progress = progress;
+                    setMapMessage(
+                        true,
+                        `<strong>Rendering graph</strong>${Math.round(progress * 100)}% · controls remain responsive`,
+                        'info'
+                    );
+                };
 
-                const layer = L.polyline(
-                    [[fromNode.lat, fromNode.lon], [toNode.lat, toNode.lon]],
-                    EDGE_STYLE.default
-                ).addTo(map);
+                const finishGraphRender = () => {
+                    graphRenderState = { token, ready: true, progress: 1, error: null };
+                    setMapMessage(false, '');
+                    updateSelection({
+                        start: currentStart,
+                        goals: currentGoals,
+                        display_order: currentDisplayOrder,
+                        preview_goal: currentPreviewGoal,
+                    });
+                    syncVisibleNodes();
+                };
 
-                edgeLayers[edgeKey(edge.from, edge.to)] = layer;
-            });
+                const renderNodeBatch = () => {
+                    if (graphRenderState.token !== token) return;
+                    const end = Math.min(graphData.nodes.length, nodeOffset + nodeBatchSize);
+                    for (; nodeOffset < end; nodeOffset += 1) {
+                        ensureNodeLayer(graphData.nodes[nodeOffset].id);
+                    }
+                    updateProgress(graphData.edges.length + nodeOffset);
+                    if (nodeOffset < graphData.nodes.length) {
+                        window.requestAnimationFrame(renderNodeBatch);
+                        return;
+                    }
+                    finishGraphRender();
+                };
 
-            // Draw nodes
-            graphData.nodes.forEach(node => {
-                const layer = L.circleMarker(
-                    [node.lat, node.lon],
-                    NODE_STYLE.default
-                ).addTo(map);
-
-                const tooltip = `${node.id} - ${node.name}`;
-                defaultTooltips[node.id] = tooltip;
-
-                layer.bindTooltip(tooltip, {
-                    direction: 'top',
-                    offset: [0, -8],
-                });
-
-                nodeLayers[node.id] = layer;
-            });
-
-            const bounds = L.latLngBounds(
-                graphData.nodes.map(node => [node.lat, node.lon])
-            );
-
-            map.fitBounds(bounds, {
-                padding: [40, 40],
-                maxZoom: 16,
-            });
-        }
-
-        function applyStep(step) {
-            const currentStep = normalizeInput(step);
-            if (!currentStep || !currentStep.type) {
-                return;
-            }
-
-            if (currentStep.type === 'expand') {
-                const layer = nodeLayers[currentStep.node];
-
-                if (layer) {
-                    layer.setStyle(NODE_STYLE.visit);
-
-                    // Only pan the map if the node is outside the current view bounds
-                    if (!map.getBounds().contains(layer.getLatLng())) {
-                        map.panTo(layer.getLatLng(), {
-                            animate: true,
-                            duration: 0.25,
+                const renderEdgeBatch = () => {
+                    if (graphRenderState.token !== token) return;
+                    const end = Math.min(graphData.edges.length, edgeOffset + edgeBatchSize);
+                    for (; edgeOffset < end; edgeOffset += 1) {
+                        const edge = graphData.edges[edgeOffset];
+                        const fromNode = nodeById(edge.from);
+                        const toNode = nodeById(edge.to);
+                        if (!fromNode || !toNode) continue;
+                        const layer = L.polyline(
+                            [[fromNode.lat, fromNode.lon], [toNode.lat, toNode.lon]],
+                            {
+                                ...EDGE_STYLE.default,
+                                renderer: canvasRenderer,
+                                interactive: !largeGraph,
+                            }
+                        ).addTo(edgeLayerGroup);
+                        if (!largeGraph) {
+                            const details = [
+                                edge.note || `${edge.from} → ${edge.to}`,
+                                `${Number(edge.distance).toFixed(2)} km`,
+                                `${Number(edge.travel_time).toFixed(1)} min`,
+                            ].join(' · ');
+                            layer.bindTooltip(details);
+                        }
+                        const directions = edge.directions || [[edge.from, edge.to]];
+                        directions.forEach(direction => {
+                            edgeLayers[edgeKey(direction[0], direction[1])] = layer;
                         });
                     }
-                }
-                return;
-            }
-
-            if (currentStep.type === 'discover') {
-                const layer = edgeLayers[edgeKey(currentStep.from, currentStep.to)];
-                if (layer) {
-                    layer.setStyle(EDGE_STYLE.inspect);
-                }
-                return;
-            }
-
-            if (currentStep.type === 'update') {
-                const layer = edgeLayers[edgeKey(currentStep.from, currentStep.to)];
-                if (layer) {
-                    layer.setStyle(EDGE_STYLE.path);
-                    layer.bringToFront();
-                }
-                return;
-            }
-
-            if (currentStep.type === 'finish') {
-                const path = currentStep.path || [];
-                path.forEach(nodeId => {
-                    const nodeLayer = nodeLayers[nodeId];
-                    if (nodeLayer) {
-                        nodeLayer.setStyle(NODE_STYLE.path);
+                    updateProgress(edgeOffset);
+                    if (edgeOffset < graphData.edges.length) {
+                        window.requestAnimationFrame(renderEdgeBatch);
+                    } else if (largeGraph) {
+                        finishGraphRender();
+                    } else {
+                        window.requestAnimationFrame(renderNodeBatch);
                     }
-                });
+                };
 
-                for (let i = 0; i < path.length - 1; i += 1) {
-                    const layer = edgeLayers[edgeKey(path[i], path[i + 1])];
-                    if (layer) {
-                        layer.setStyle(EDGE_STYLE.path);
-                        layer.bringToFront();
+                setMapMessage(true, '<strong>Rendering graph</strong>Preparing map layers…', 'info');
+                window.requestAnimationFrame(renderEdgeBatch);
+            } catch (error) {
+                graphRenderState = {
+                    token,
+                    ready: false,
+                    progress: 0,
+                    error: String(error && error.message ? error.message : error),
+                };
+                setMapMessage(true, '<strong>Map rendering failed</strong>See Event log for details.', 'error');
+            }
+        }
+
+        function ensureNodeLayer(nodeId) {
+            if (nodeLayers[nodeId]) return nodeLayers[nodeId];
+            const node = nodeById(nodeId);
+            if (!node) return null;
+            const layer = L.circleMarker(
+                [node.lat, node.lon],
+                { ...NODE_STYLE.default, renderer: canvasRenderer }
+            ).addTo(nodeLayerGroup);
+            const tooltip = `${node.id} — ${node.name}`;
+            defaultTooltips[node.id] = tooltip;
+            nodeStates[node.id] = 'default';
+            layer.bindTooltip(tooltip, { direction: 'top', offset: [0, -8] });
+            nodeLayers[node.id] = layer;
+            return layer;
+        }
+
+        function syncVisibleNodes() {
+            if (!largeGraphMode || !graphData.nodes.length) return;
+            const visible = new Set();
+            if (map.getZoom() >= 16) {
+                const bounds = map.getBounds();
+                for (const node of graphData.nodes) {
+                    if (visible.size >= 1500) break;
+                    if (bounds.contains([node.lat, node.lon])) {
+                        visible.add(node.id);
+                        ensureNodeLayer(node.id);
                     }
+                }
+            }
+            Object.keys(nodeLayers).forEach(nodeId => {
+                if (styledNodes.has(nodeId) || visible.has(nodeId)) return;
+                nodeLayerGroup.removeLayer(nodeLayers[nodeId]);
+                delete nodeLayers[nodeId];
+                delete nodeStates[nodeId];
+                delete defaultTooltips[nodeId];
+            });
+        }
+
+        map.on('zoomend moveend', syncVisibleNodes);
+
+        function styleNode(nodeId, state) {
+            const layer = nodeLayers[nodeId] || (state !== 'default' ? ensureNodeLayer(nodeId) : null);
+            if (!layer || !NODE_STYLE[state]) return;
+            nodeStates[nodeId] = state;
+            layer.setStyle(NODE_STYLE[state]);
+            if (state === 'default') styledNodes.delete(nodeId);
+            else styledNodes.add(nodeId);
+            if (state === 'current' || state === 'path') layer.bringToFront();
+        }
+
+        function styleEdge(fromNode, toNode, state) {
+            const layer = edgeLayers[edgeKey(fromNode, toNode)];
+            if (!layer || !EDGE_STYLE[state]) return;
+            layer.setStyle(EDGE_STYLE[state]);
+            if (state === 'default') styledEdges.delete(layer);
+            else styledEdges.add(layer);
+            if (state !== 'default') layer.bringToFront();
+        }
+
+        function applyStep(rawStep) {
+            const step = normalizeInput(rawStep);
+            if (!step.type) return;
+
+            if (step.type === 'expand') {
+                if (currentNode && currentNode !== step.node && nodeStates[currentNode] !== 'path') {
+                    exploredNodes.add(currentNode);
+                    styleNode(currentNode, 'explored');
+                }
+                currentNode = step.node || null;
+                if (currentNode) {
+                    frontierNodes.delete(currentNode);
+                    exploredNodes.add(currentNode);
+                    styleNode(currentNode, 'current');
+                    const layer = nodeLayers[currentNode];
+                    if (!historyRendering && layer && !map.getBounds().contains(layer.getLatLng())) {
+                        map.panTo(layer.getLatLng(), { animate: true, duration: 0.25 });
+                    }
+                }
+            } else if (step.type === 'discover') {
+                if (step.node && step.node !== currentNode && !exploredNodes.has(step.node)) {
+                    frontierNodes.add(step.node);
+                    styleNode(step.node, 'frontier');
+                }
+                styleEdge(step.from, step.to, 'inspect');
+            } else if (step.type === 'update') {
+                if (step.node && step.node !== currentNode && !exploredNodes.has(step.node)) {
+                    frontierNodes.add(step.node);
+                    styleNode(step.node, 'frontier');
+                }
+                styleEdge(step.from, step.to, 'relaxed');
+            } else if (step.type === 'finish') {
+                if (currentNode && nodeStates[currentNode] !== 'path') {
+                    exploredNodes.add(currentNode);
+                    styleNode(currentNode, 'explored');
+                }
+                currentNode = null;
+                const path = step.path || [];
+                path.forEach(nodeId => styleNode(nodeId, 'path'));
+                for (let index = 0; index < path.length - 1; index += 1) {
+                    styleEdge(path[index], path[index + 1], 'path');
                 }
             }
         }
 
-        function resetMap() {
-            Object.values(nodeLayers).forEach(layer => {
-                layer.setStyle(NODE_STYLE.default);
-            });
+        function resetVisualization() {
+            currentNode = null;
+            Array.from(styledNodes).forEach(nodeId => styleNode(nodeId, 'default'));
+            Array.from(styledEdges).forEach(layer => setLayerStyle(layer, EDGE_STYLE.default));
+            styledNodes.clear();
+            styledEdges.clear();
+            frontierNodes.clear();
+            exploredNodes.clear();
+            syncVisibleNodes();
+        }
 
-            Object.values(edgeLayers).forEach(layer => {
-                layer.setStyle(EDGE_STYLE.default);
-            });
+        function setLayerStyle(layer, style) { if (layer) layer.setStyle(style); }
 
-            updateSelection({
+        function renderSteps(rawSteps) {
+            const steps = normalizeInput(rawSteps);
+            resetVisualization();
+            historyRendering = true;
+            (Array.isArray(steps) ? steps : []).forEach(applyStep);
+            historyRendering = false;
+        }
+
+        function applySteps(rawSteps) {
+            const steps = normalizeInput(rawSteps);
+            (Array.isArray(steps) ? steps : []).forEach(applyStep);
+        }
+
+        function highlightPath(path) {
+            (path || []).forEach(nodeId => styleNode(nodeId, 'path'));
+            for (let index = 0; index < (path || []).length - 1; index += 1) {
+                styleEdge(path[index], path[index + 1], 'path');
+            }
+        }
+
+        function renderInstantResult(rawStep) {
+            const step = normalizeInput(rawStep);
+            resetVisualization();
+            highlightPath(step.path || []);
+        }
+
+        function renderSnapshot(rawSnapshot) {
+            const snapshot = normalizeInput(rawSnapshot);
+            resetVisualization();
+            (snapshot.explored || []).forEach(nodeId => {
+                exploredNodes.add(nodeId);
+                styleNode(nodeId, 'explored');
+            });
+            (snapshot.frontier || []).forEach(nodeId => {
+                frontierNodes.add(nodeId);
+                styleNode(nodeId, 'frontier');
+            });
+            (snapshot.edges || []).forEach(edge => {
+                styleEdge(edge.from, edge.to, edge.state || 'inspect');
+            });
+            currentNode = snapshot.current || null;
+            if (currentNode) styleNode(currentNode, 'current');
+            highlightPath(snapshot.path || []);
+        }
+
+        function endpointIcon(kind, label) {
+            return L.divIcon({
+                // Keep Leaflet's positioning class. Without it, QWebEngine
+                // renders the custom pin without Leaflet's absolute placement.
+                className: 'leaflet-marker-icon endpoint-marker-wrapper',
+                html: `<div class="endpoint-marker endpoint-marker--${kind}"><span>${label}</span></div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 24],
+            });
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function refreshEndpointMarkers() {
+            endpointLayerGroup.clearLayers();
+            startMarker = null;
+            goalMarkers = [];
+            const start = nodeById(currentStart);
+            if (start) {
+                startMarker = L.marker(
+                    [start.lat, start.lon],
+                    {
+                        icon: endpointIcon('start', 'S'),
+                        pane: 'endpointPane',
+                        zIndexOffset: 1000,
+                    }
+                ).bindTooltip(`<strong>Start</strong><br>${escapeHtml(start.id)} · ${escapeHtml(start.name || '')}`)
+                    .addTo(endpointLayerGroup);
+            }
+            const selected = new Set(currentGoals);
+            const orderedGoals = currentDisplayOrder.filter(goalId => selected.has(goalId));
+            currentGoals.forEach(goalId => {
+                if (!orderedGoals.includes(goalId)) orderedGoals.push(goalId);
+            });
+            orderedGoals.forEach((goalId, index) => {
+                const goal = nodeById(goalId);
+                if (!goal) return;
+                const marker = L.marker(
+                    [goal.lat, goal.lon],
+                    {
+                        icon: endpointIcon('goal', String(index + 1)),
+                        pane: 'endpointPane',
+                        zIndexOffset: 1000 + index,
+                    }
+                ).bindTooltip(
+                    `<strong>Goal ${index + 1}</strong><br>${escapeHtml(goal.id)} · ${escapeHtml(goal.name || '')}`
+                ).addTo(endpointLayerGroup);
+                goalMarkers.push(marker);
+            });
+            const preview = nodeById(currentPreviewGoal);
+            if (preview && !selected.has(currentPreviewGoal) && currentPreviewGoal !== currentStart) {
+                const marker = L.marker(
+                    [preview.lat, preview.lon],
+                    {
+                        icon: endpointIcon('goal', '+'),
+                        pane: 'endpointPane',
+                        zIndexOffset: 2000,
+                    }
+                ).bindTooltip(
+                    `<strong>Goal preview</strong><br>${escapeHtml(preview.id)} · ${escapeHtml(preview.name || '')}`
+                ).addTo(endpointLayerGroup);
+                goalMarkers.push(marker);
+            }
+        }
+
+        function getEndpointMarkerState() {
+            return {
                 start: currentStart,
-                goal: currentGoal,
-            });
+                goals: currentGoals.slice(),
+                displayOrder: currentDisplayOrder.slice(),
+                startMarkerVisible: Boolean(startMarker),
+                goalMarkerCount: goalMarkers.length,
+                previewGoal: currentPreviewGoal,
+            };
         }
 
-        function updateSelection(selection) {
-            selection = normalizeInput(selection);
-
-            currentStart = selection.start;
-            currentGoal = selection.goal;
-
-            // Reset all nodes
-            graphData.nodes.forEach(node => {
-                const layer = nodeLayers[node.id];
-                if (!layer) return;
-
-                layer.setStyle(NODE_STYLE.default);
-
-                layer.unbindTooltip();
-                layer.bindTooltip(defaultTooltips[node.id], {
-                    direction: 'top',
-                    offset: [0, -8],
-                });
-            });
-
-            // Start
-            if (currentStart && nodeLayers[currentStart]) {
-                nodeLayers[currentStart].setStyle(NODE_STYLE.start);
-
-                nodeLayers[currentStart].unbindTooltip();
-                nodeLayers[currentStart].bindTooltip(
-                    `START<br>${defaultTooltips[currentStart]}`,
-                    {
-                        direction: 'top',
-                        offset: [0, -8],
-                    }
-                );
-            }
-
-            // Goal
-            if (currentGoal && nodeLayers[currentGoal]) {
-                nodeLayers[currentGoal].setStyle(NODE_STYLE.goal);
-
-                nodeLayers[currentGoal].unbindTooltip();
-                nodeLayers[currentGoal].bindTooltip(
-                    `GOAL<br>${defaultTooltips[currentGoal]}`,
-                    {
-                        direction: 'top',
-                        offset: [0, -8],
-                    }
-                );
-            }
+        function updateSelection(rawSelection) {
+            const selection = normalizeInput(rawSelection);
+            currentStart = selection.start || null;
+            currentGoals = Array.isArray(selection.goals)
+                ? selection.goals.slice()
+                : (selection.goal ? [selection.goal] : []);
+            currentDisplayOrder = Array.isArray(selection.display_order)
+                ? selection.display_order.slice()
+                : currentGoals.slice();
+            currentPreviewGoal = selection.preview_goal || null;
+            refreshEndpointMarkers();
         }
     </script>
 </body>
