@@ -131,10 +131,15 @@
             color: #fff;
             font: 800 11px/1 Inter, "Segoe UI", sans-serif;
             transform: rotate(-45deg);
+            pointer-events: auto;
         }
         .endpoint-marker span { transform: rotate(45deg); }
         .endpoint-marker--start { background: #16a34a; }
         .endpoint-marker--goal { background: #dc2626; }
+        .endpoint-marker-wrapper {
+            background: transparent;
+            border: 0;
+        }
 
         .leaflet-control-zoom a,
         .leaflet-control-attribution {
@@ -198,6 +203,9 @@
         }).addTo(map);
         const edgeLayerGroup = L.layerGroup().addTo(map);
         const nodeLayerGroup = L.layerGroup().addTo(map);
+        const endpointPane = map.createPane('endpointPane');
+        endpointPane.style.zIndex = 650;
+        const endpointLayerGroup = L.layerGroup([], { pane: 'endpointPane' }).addTo(map);
 
         let graphData = { nodes: [], edges: [] };
         let nodeIndex = new Map();
@@ -207,9 +215,11 @@
         let nodeStates = {};
         let currentNode = null;
         let currentStart = null;
-        let currentGoal = null;
+        let currentGoals = [];
+        let currentDisplayOrder = [];
+        let currentPreviewGoal = null;
         let startMarker = null;
-        let goalMarker = null;
+        let goalMarkers = [];
         let historyRendering = false;
         let messageTimer = null;
         let styledNodes = new Set();
@@ -269,15 +279,14 @@
         function clearGraphLayers() {
             nodeLayerGroup.clearLayers();
             edgeLayerGroup.clearLayers();
-            if (startMarker) map.removeLayer(startMarker);
-            if (goalMarker) map.removeLayer(goalMarker);
+            endpointLayerGroup.clearLayers();
             nodeIndex = new Map();
             nodeLayers = {};
             edgeLayers = {};
             nodeStates = {};
             defaultTooltips = {};
             startMarker = null;
-            goalMarker = null;
+            goalMarkers = [];
             currentNode = null;
             styledNodes.clear();
             styledEdges.clear();
@@ -334,7 +343,12 @@
                 const finishGraphRender = () => {
                     graphRenderState = { token, ready: true, progress: 1, error: null };
                     setMapMessage(false, '');
-                    updateSelection({ start: currentStart, goal: currentGoal });
+                    updateSelection({
+                        start: currentStart,
+                        goals: currentGoals,
+                        display_order: currentDisplayOrder,
+                        preview_goal: currentPreviewGoal,
+                    });
                     syncVisibleNodes();
                 };
 
@@ -568,30 +582,97 @@
 
         function endpointIcon(kind, label) {
             return L.divIcon({
-                className: '',
+                // Keep Leaflet's positioning class. Without it, QWebEngine
+                // renders the custom pin without Leaflet's absolute placement.
+                className: 'leaflet-marker-icon endpoint-marker-wrapper',
                 html: `<div class="endpoint-marker endpoint-marker--${kind}"><span>${label}</span></div>`,
                 iconSize: [24, 24],
                 iconAnchor: [12, 24],
             });
         }
 
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         function refreshEndpointMarkers() {
-            if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
-            if (goalMarker) { map.removeLayer(goalMarker); goalMarker = null; }
+            endpointLayerGroup.clearLayers();
+            startMarker = null;
+            goalMarkers = [];
             const start = nodeById(currentStart);
-            const goal = nodeById(currentGoal);
             if (start) {
-                startMarker = L.marker([start.lat, start.lon], { icon: endpointIcon('start', 'S'), interactive: false }).addTo(map);
+                startMarker = L.marker(
+                    [start.lat, start.lon],
+                    {
+                        icon: endpointIcon('start', 'S'),
+                        pane: 'endpointPane',
+                        zIndexOffset: 1000,
+                    }
+                ).bindTooltip(`<strong>Start</strong><br>${escapeHtml(start.id)} · ${escapeHtml(start.name || '')}`)
+                    .addTo(endpointLayerGroup);
             }
-            if (goal) {
-                goalMarker = L.marker([goal.lat, goal.lon], { icon: endpointIcon('goal', 'G'), interactive: false }).addTo(map);
+            const selected = new Set(currentGoals);
+            const orderedGoals = currentDisplayOrder.filter(goalId => selected.has(goalId));
+            currentGoals.forEach(goalId => {
+                if (!orderedGoals.includes(goalId)) orderedGoals.push(goalId);
+            });
+            orderedGoals.forEach((goalId, index) => {
+                const goal = nodeById(goalId);
+                if (!goal) return;
+                const marker = L.marker(
+                    [goal.lat, goal.lon],
+                    {
+                        icon: endpointIcon('goal', String(index + 1)),
+                        pane: 'endpointPane',
+                        zIndexOffset: 1000 + index,
+                    }
+                ).bindTooltip(
+                    `<strong>Goal ${index + 1}</strong><br>${escapeHtml(goal.id)} · ${escapeHtml(goal.name || '')}`
+                ).addTo(endpointLayerGroup);
+                goalMarkers.push(marker);
+            });
+            const preview = nodeById(currentPreviewGoal);
+            if (preview && !selected.has(currentPreviewGoal) && currentPreviewGoal !== currentStart) {
+                const marker = L.marker(
+                    [preview.lat, preview.lon],
+                    {
+                        icon: endpointIcon('goal', '+'),
+                        pane: 'endpointPane',
+                        zIndexOffset: 2000,
+                    }
+                ).bindTooltip(
+                    `<strong>Goal preview</strong><br>${escapeHtml(preview.id)} · ${escapeHtml(preview.name || '')}`
+                ).addTo(endpointLayerGroup);
+                goalMarkers.push(marker);
             }
+        }
+
+        function getEndpointMarkerState() {
+            return {
+                start: currentStart,
+                goals: currentGoals.slice(),
+                displayOrder: currentDisplayOrder.slice(),
+                startMarkerVisible: Boolean(startMarker),
+                goalMarkerCount: goalMarkers.length,
+                previewGoal: currentPreviewGoal,
+            };
         }
 
         function updateSelection(rawSelection) {
             const selection = normalizeInput(rawSelection);
             currentStart = selection.start || null;
-            currentGoal = selection.goal || null;
+            currentGoals = Array.isArray(selection.goals)
+                ? selection.goals.slice()
+                : (selection.goal ? [selection.goal] : []);
+            currentDisplayOrder = Array.isArray(selection.display_order)
+                ? selection.display_order.slice()
+                : currentGoals.slice();
+            currentPreviewGoal = selection.preview_goal || null;
             refreshEndpointMarkers();
         }
     </script>

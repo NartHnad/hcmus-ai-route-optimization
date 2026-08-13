@@ -77,6 +77,13 @@ class ResultSummaryPanel(QGroupBox):
         self.route_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         layout.addWidget(self.route_label)
 
+        self.goal_order_label = QLabel("Goal order: —")
+        self.goal_order_label.setObjectName("routeText")
+        self.goal_order_label.setWordWrap(True)
+        self.goal_order_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.goal_order_label.hide()
+        layout.addWidget(self.goal_order_label)
+
         self.route_table = QTableWidget(0, 4)
         self.route_table.setObjectName("routeTable")
         self.route_table.setHorizontalHeaderLabels(
@@ -110,23 +117,30 @@ class ResultSummaryPanel(QGroupBox):
         ):
             card.set_value("—")
         self.route_label.setText("Route: —")
+        self.goal_order_label.setText("Goal order: —")
+        self.goal_order_label.hide()
         self.route_table.setRowCount(0)
         self.route_table.hide()
         self.message_label.setText("Run an algorithm to see its result.")
         self._refresh_style(self.status_label)
 
-    def set_running(self, algorithm, start, goal):
+    @staticmethod
+    def _route_context(algorithm, start, goals):
+        destinations = list(goals) if isinstance(goals, (list, tuple)) else [goals]
+        return f"{algorithm} · {start} → {' → '.join(str(goal) for goal in destinations)}"
+
+    def set_running(self, algorithm, start, goals):
         self.status_label.setText("Running")
         self.status_label.setProperty("resultState", "running")
-        self.context_label.setText(f"{algorithm} · {start} → {goal}")
+        self.context_label.setText(self._route_context(algorithm, start, goals))
         self.message_label.setText("Result metrics will appear when playback finishes.")
         self._refresh_style(self.status_label)
 
-    def set_result(self, result, algorithm, start, goal):
+    def set_result(self, result, algorithm, start, goals):
         success = bool(getattr(result, "success", False))
         self.status_label.setText("Route found" if success else "No route found")
         self.status_label.setProperty("resultState", "success" if success else "error")
-        self.context_label.setText(f"{algorithm} · {start} → {goal}")
+        self.context_label.setText(self._route_context(algorithm, start, goals))
 
         distance = getattr(result, "total_distance", None)
         estimated = getattr(result, "estimated_time", None)
@@ -140,6 +154,11 @@ class ResultSummaryPanel(QGroupBox):
 
         path = list(getattr(result, "path", []) or [])
         self.route_label.setText("Route: " + (" → ".join(path) if path else "—"))
+        goal_order = list(getattr(result, "goal_visit_order", []) or [])
+        self.goal_order_label.setText(
+            "Goal order: " + (" → ".join(goal_order) if goal_order else "—")
+        )
+        self.goal_order_label.setVisible(bool(goal_order))
         route_details = list(getattr(result, "route_details", []) or [])
         self.route_table.setRowCount(len(route_details))
         for row, detail in enumerate(route_details):
