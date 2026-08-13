@@ -49,3 +49,11 @@ DEFAULT_SPEED_MAP = {
     RoadType.RESIDENTIAL: 20.0,
     RoadType.ALLEY: 15.0,
 }
+
+# Default composite edge-cost weights, shared by Edge.calculate_cost()
+# and the A* heuristic. Cost = alpha*d_norm + beta*t_norm + gamma*congestion + delta*risk.
+# The heuristic MUST use the same alpha as calculate_cost() to stay admissible.
+DEFAULT_ALPHA = 0.25
+DEFAULT_BETA = 0.45
+DEFAULT_GAMMA = 0.20
+DEFAULT_DELTA = 0.10
