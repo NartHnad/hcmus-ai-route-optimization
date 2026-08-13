@@ -1,0 +1,95 @@
+import os
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+from PyQt5.QtWidgets import QApplication
+
+from src.gui.route_setup_widget import RouteSetupWidget
+from src.models.models import Graph, Node
+
+
+def _widget(node_ids):
+    app = QApplication.instance() or QApplication([])
+    graph = Graph()
+    for node_id in node_ids:
+        graph.add_node(Node(node_id, node_id, 10.0, 106.0))
+    widget = RouteSetupWidget()
+    widget.set_graph(graph, node_ids)
+    return app, widget
+
+
+def _goals(widget):
+    return list(widget.route_request().delivery_nodes)
+
+
+def test_route_setup_initializes_one_goal_and_switches_route_mode():
+    _app, widget = _widget(["N1", "N2", "N10"])
+    try:
+        assert _goals(widget) == ["N10"]
+        assert widget.route_request().route_mode == "single"
+        assert not widget.remove_goal_button.isEnabled()
+        assert not widget.route_request().respect_goal_order
+
+        widget.add_goal_combo.setCurrentIndex(1)
+        assert widget.preview_goal_id() == "N2"
+        widget.add_goal_button.click()
+
+        assert _goals(widget) == ["N10", "N2"]
+        assert widget.route_request().route_mode == "multi"
+        assert widget.remove_goal_button.isEnabled()
+        assert widget.preview_goal_id() is None
+    finally:
+        widget.close()
+
+
+def test_route_setup_keeps_one_goal_when_start_conflicts_and_remove_is_locked():
+    _app, widget = _widget(["N1", "N2", "N10"])
+    try:
+        widget.set_start_node("N10")
+        assert widget.route_request().start_node == "N10"
+        assert _goals(widget) == ["N2"]
+        assert not widget.remove_goal_button.isEnabled()
+    finally:
+        widget.close()
+
+
+def test_route_setup_reorders_goals_and_emits_preview_selection():
+    _app, widget = _widget(["N1", "N2", "N10"])
+    try:
+        snapshots = []
+        widget.selection_changed.connect(snapshots.append)
+        widget.add_goal_combo.setCurrentIndex(1)
+        assert snapshots[-1].delivery_nodes == ("N10",)
+        assert widget.preview_goal_id() == "N2"
+        widget.add_goal_button.click()
+
+        first = widget.goal_list.takeItem(0)
+        widget.goal_list.insertItem(1, first)
+        widget._on_goal_order_changed()
+        assert _goals(widget) == ["N2", "N10"]
+    finally:
+        widget.close()
+
+
+def test_route_setup_rejects_duplicate_start_and_goal_101():
+    node_ids = [f"N{index}" for index in range(102)]
+    _app, widget = _widget(node_ids)
+    errors = []
+    widget.validation_error.connect(errors.append)
+    try:
+        for node_id in node_ids[1:100]:
+            widget.add_goal_combo.setCurrentIndex(widget.add_goal_combo.findData(node_id))
+            widget.add_goal_button.click()
+        assert len(_goals(widget)) == 100
+        assert not widget.add_goal_button.isEnabled()
+
+        widget.add_goal_combo.setCurrentIndex(widget.add_goal_combo.findData("N100"))
+        widget._on_add_goal()
+        assert len(_goals(widget)) == 100
+        assert errors[-1] == "Có thể thêm tối đa 100 Goal."
+
+        widget.add_goal_combo.setCurrentIndex(widget.add_goal_combo.findData("N0"))
+        widget._on_add_goal()
+        assert widget.route_request().start_node not in _goals(widget)
+    finally:
+        widget.close()

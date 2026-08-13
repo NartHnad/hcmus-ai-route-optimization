@@ -57,7 +57,12 @@ def bfs(graph, start_id, goal_id):
     while queue:
         current = queue.popleft()
         visited_order.append(current)
-        steps.append(SearchStep(StepType.EXPAND, node_id=current))
+        steps.append(
+            SearchStep(
+                StepType.EXPAND,
+                node_id=current,
+            )
+        )
 
         if current == goal_id:
             path = []
@@ -82,7 +87,12 @@ def bfs(graph, start_id, goal_id):
             for edge in path_edges:
                 total_cost += edge.calculate_cost()
             # The map frontend automatically highlights the final path, so we just emit FINISH.
-            steps.append(SearchStep(StepType.FINISH, node_id=goal_id))
+            steps.append(
+                SearchStep(
+                    StepType.FINISH,
+                    node_id=goal_id,
+                )
+            )
 
             return SearchResult(
                 path=path,
@@ -98,13 +108,6 @@ def bfs(graph, start_id, goal_id):
         for edge in graph.get_neighbors(current):
             neighbor = edge.to_node
 
-            steps.append(SearchStep(
-                StepType.DISCOVER,
-                node_id=neighbor,
-                edge_from=current,
-                edge_to=neighbor,
-            ))
-
             if neighbor in visited:
                 continue
 
@@ -112,9 +115,20 @@ def bfs(graph, start_id, goal_id):
             visited.add(neighbor)
             came_from[neighbor] = (current, edge)
             queue.append(neighbor)
+            steps.append(
+                SearchStep(
+                    StepType.DISCOVER,
+                    node_id=neighbor,
+                    edge_from=current,
+                    edge_to=neighbor,
+                    frontier_position="back",
+                )
+            )
 
     # The queue is empty, so the goal is not reachable from the start.
-    steps.append(SearchStep(StepType.FINISH))
+    steps.append(
+        SearchStep(StepType.FINISH)
+    )
     return SearchResult(
         path=[],
         steps=steps,
