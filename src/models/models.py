@@ -1,5 +1,12 @@
 # src/models.py
 
+from src.constants import (
+    DEFAULT_ALPHA,
+    DEFAULT_BETA,
+    DEFAULT_DELTA,
+    DEFAULT_GAMMA,
+    StepType,
+)
 from dataclasses import dataclass
 
 from src.constants import StepType
@@ -86,12 +93,12 @@ class Edge:
         # Cached Cost Value
         self.weight = 0.0
 
-    def calculate_cost(  # need to be updated
+    def calculate_cost(
         self,
-        alpha: float = 0.25,
-        beta: float = 0.45,
-        gamma: float = 0.2,
-        delta: float = 0.1,
+        alpha: float = DEFAULT_ALPHA,
+        beta: float = DEFAULT_BETA,
+        gamma: float = DEFAULT_GAMMA,
+        delta: float = DEFAULT_DELTA,
     ) -> float:
         """
         Dynamically evaluate the edge's weight based on different routing strategies.
