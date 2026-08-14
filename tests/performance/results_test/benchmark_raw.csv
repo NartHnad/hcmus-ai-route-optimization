@@ -1,0 +1,49 @@
+algorithm,group,scenario,run,seed,success,time_ms,path_length,total_cost,distance_km,visited_nodes,expanded_nodes,peak_memory_kb,error_type,error_msg
+BFS,search,S1_Short,1,,True,0.00760000011723605,2,0.8,1.8,2,2,2.73046875,,
+BFS,search,S1_Short,2,,True,0.009999999747378752,2,0.8,1.8,2,2,2.51953125,,
+BFS,search,S2_Medium,1,,False,0.002000000222324161,0,0.0,0.0,0,0,0.927734375,,path is empty
+BFS,search,S2_Medium,2,,False,0.0018999999156221747,0,0.0,0.0,0,0,0.912109375,,path is empty
+BFS,search,S3_Long,1,,False,0.0266000001829525,0,0.0,0.0,16,16,10.2705078125,,node 'N5' missing
+BFS,search,S3_Long,2,,False,0.029400000130408444,0,0.0,0.0,16,16,8.4423828125,,node 'N5' missing
+DFS,search,S1_Short,1,,True,0.0054000001910026185,2,0.8,1.8,2,2,1.5712890625,,
+DFS,search,S1_Short,2,,True,0.00560000034965924,2,0.8,1.8,2,2,1.5947265625,,
+DFS,search,S2_Medium,1,,False,0.001500000053056283,0,0.0,0.0,0,0,0.5390625,,path is empty
+DFS,search,S2_Medium,2,,False,0.0018000000636675395,0,0.0,0.0,0,0,0.5390625,,path is empty
+DFS,search,S3_Long,1,,False,0.028899999961140566,0,0.0,0.0,14,14,7.1572265625,,node 'N5' missing
+DFS,search,S3_Long,2,,False,0.02949999998236308,0,0.0,0.0,14,14,7.1572265625,,node 'N5' missing
+UCS,search,S1_Short,1,,True,0.006100000064179767,2,0.8,1.8,2,2,1.6396484375,,
+UCS,search,S1_Short,2,,True,0.0064000000747910235,2,0.8,1.8,2,2,1.6396484375,,
+UCS,search,S2_Medium,1,,False,0.001500000053056283,0,0.0,0.0,0,0,0.7734375,,path is empty
+UCS,search,S2_Medium,2,,False,0.001500000053056283,0,0.0,0.0,0,0,0.7734375,,path is empty
+UCS,search,S3_Long,1,,False,0.03239999978177366,0,0.0,0.0,15,15,11.0859375,,node 'N5' missing
+UCS,search,S3_Long,2,,False,0.03509999987727497,0,0.0,0.0,15,15,7.453125,,node 'N5' missing
+A*,search,S1_Short,1,,True,0.011199999789823778,2,0.8,1.8,2,2,1.623046875,,
+A*,search,S1_Short,2,,True,0.011900000117748277,2,0.8,1.8,2,2,1.623046875,,
+A*,search,S2_Medium,1,,False,0.0015999999050109182,0,0.0,0.0,0,0,0.7734375,,path is empty
+A*,search,S2_Medium,2,,False,0.0015999999050109182,0,0.0,0.0,0,0,0.7734375,,path is empty
+A*,search,S3_Long,1,,False,0.05909999981668079,0,0.0,0.0,15,15,8.7333984375,,node 'N5' missing
+A*,search,S3_Long,2,,False,0.06209999992279336,0,0.0,0.0,15,15,7.8427734375,,node 'N5' missing
+BeamSearch,search,S1_Short,1,,False,0.0,0,0.0,0.0,0,0,0.0,TypeError,Edge.calculate_cost() got an unexpected keyword argument 'mode'
+BeamSearch,search,S1_Short,2,,False,0.0,0,0.0,0.0,0,0,0.0,TypeError,Edge.calculate_cost() got an unexpected keyword argument 'mode'
+BeamSearch,search,S2_Medium,1,,False,0.002099999619531445,0,0.0,0.0,0,0,1.0859375,,path is empty
+BeamSearch,search,S2_Medium,2,,False,0.0022999997781880666,0,0.0,0.0,0,0,1.0859375,,path is empty
+BeamSearch,search,S3_Long,1,,False,0.0,0,0.0,0.0,0,0,0.0,TypeError,Edge.calculate_cost() got an unexpected keyword argument 'mode'
+BeamSearch,search,S3_Long,2,,False,0.0,0,0.0,0.0,0,0,0.0,TypeError,Edge.calculate_cost() got an unexpected keyword argument 'mode'
+GeneticAlgo,search,S1_Short,1,0,True,41.979499999797554,2,0.8,1.8,2,100,123.9912109375,,
+GeneticAlgo,search,S1_Short,2,1,True,44.75719999982175,2,0.8,1.8,2,100,125.2412109375,,
+GeneticAlgo,search,S1_Short,3,2,True,41.72160000007352,2,0.8,1.8,2,100,125.2412109375,,
+GeneticAlgo,search,S2_Medium,1,0,False,73.3553000000029,0,0.0,0.0,4,100,309.5859375,,node 'N4' missing
+GeneticAlgo,search,S2_Medium,2,1,False,75.36230000005162,0,0.0,0.0,4,100,309.6171875,,node 'N4' missing
+GeneticAlgo,search,S2_Medium,3,2,False,73.7370000001647,0,0.0,0.0,4,100,309.6640625,,node 'N4' missing
+GeneticAlgo,search,S3_Long,1,0,False,114.42779999970298,0,0.0,0.0,7,100,670.8125,,node 'N5' missing
+GeneticAlgo,search,S3_Long,2,1,False,104.5880000001489,0,0.0,0.0,7,100,635.53125,,node 'N5' missing
+GeneticAlgo,search,S3_Long,3,2,False,96.48269999979675,0,0.0,0.0,7,100,619.5859375,,node 'N5' missing
+SimulatedAnnealing,optimization,M3,1,0,False,11.242699999911565,0,0.0,0.0,4,0,3.529296875,,goal 'N5' not visited
+SimulatedAnnealing,optimization,M3,2,1,False,11.164800000187824,0,0.0,0.0,4,0,3.529296875,,goal 'N5' not visited
+SimulatedAnnealing,optimization,M3,3,2,False,10.433299999931478,0,0.0,0.0,4,0,3.529296875,,goal 'N5' not visited
+SimulatedAnnealing,optimization,M5,1,0,False,13.293399999838584,0,0.0,0.0,6,0,28.123046875,,starts at 'N23'
+SimulatedAnnealing,optimization,M5,2,1,False,14.005300000007992,0,0.0,0.0,6,0,28.123046875,,starts at 'N23'
+SimulatedAnnealing,optimization,M5,3,2,False,13.170700000046054,0,0.0,0.0,6,0,28.123046875,,starts at 'N23'
+SimulatedAnnealing,optimization,M8,1,0,False,16.274500000236003,0,0.0,0.0,9,0,32.130859375,,goal 'N12' not visited
+SimulatedAnnealing,optimization,M8,2,1,False,17.823800000314804,0,0.0,0.0,9,0,32.130859375,,goal 'N12' not visited
+SimulatedAnnealing,optimization,M8,3,2,False,17.14429999992717,0,0.0,0.0,9,0,32.130859375,,goal 'N12' not visited

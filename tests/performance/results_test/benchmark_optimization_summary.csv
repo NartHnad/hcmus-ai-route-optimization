@@ -1,0 +1,4 @@
+Algorithm,Scenario,Locations,Total_Runs,Successful_Runs,Success_Rate_%,Best_Cost,Avg_Cost,Median_Cost,Worst_Cost,Std_Cost,Avg_Distance_km,Avg_Time_ms,Median_Time_ms,Std_Time_ms,Avg_Peak_Memory_KB,Max_Peak_Memory_KB
+SimulatedAnnealing,M3,3,3,0,0.0,0,0,0,0,0,0,0,0,0,0,0
+SimulatedAnnealing,M5,5,3,0,0.0,0,0,0,0,0,0,0,0,0,0,0
+SimulatedAnnealing,M8,8,3,0,0.0,0,0,0,0,0,0,0,0,0,0,0
