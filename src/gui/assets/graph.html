@@ -76,6 +76,9 @@
             <span><i class="dot" style="background:#8b5cf6"></i>Frontier</span>
             <span><i class="dot" style="background:#94a3b8"></i>Explored</span>
             <span><i class="dot" style="background:#f59e0b"></i>Current</span>
+            <!-- #NhatHuyChanged: legend entries for the two Bidirectional frontiers. -->
+            <span><i class="dot" style="background:#2563eb"></i>Start-side search</span>
+            <span><i class="dot" style="background:#db2777"></i>Goal-side search</span>
             <span><i class="dot" style="background:#22c55e"></i>Final path</span>
             <span><i class="line" style="background:#f97316"></i>Inspect edge</span>
         </div>
@@ -96,6 +99,11 @@
             dark:  { bg:'#0f172a', grid:'#1e293b', text:'#e2e8f0', muted:'#94a3b8', edge:'#475569', label:'#111827' },
             node: '#3b82f6', frontier:'#8b5cf6', explored:'#94a3b8', current:'#f59e0b', path:'#22c55e',
             inspect:'#f97316', relaxed:'#8b5cf6', start:'#16a34a', goal:'#dc2626',
+            frontier_forward:'#60a5fa', frontier_backward:'#f472b6',
+            explored_forward:'#93c5fd', explored_backward:'#f9a8d4',
+            current_forward:'#2563eb', current_backward:'#db2777',
+            inspect_forward:'#2563eb', inspect_backward:'#db2777',
+            relaxed_forward:'#1d4ed8', relaxed_backward:'#be185d',
         };
 
         let graphData = { nodes: [], edges: [] };
@@ -104,6 +112,7 @@
         let frontier = new Set();
         let explored = new Set();
         let nodeMetrics = new Map();
+        let nodeDirections = new Map();
         let edgeStates = new Map();
         let currentNode = null;
         let pathNodes = new Set();
@@ -270,6 +279,7 @@
             frontier = new Set();
             explored = new Set();
             nodeMetrics = new Map();
+            nodeDirections = new Map();
             edgeStates = new Map();
             currentNode = null;
             pathNodes = new Set();
@@ -282,6 +292,12 @@
             const type = step.type;
             const node = step.node;
             if (!type) return;
+            // #NhatHuyChanged: keep side metadata without changing legacy events.
+            const rawDirection = step.metrics && step.metrics.search_direction;
+            const direction = rawDirection === 'forward' || rawDirection === 'backward'
+                ? rawDirection
+                : null;
+            if (node && direction) nodeDirections.set(node, direction);
 
             if (Array.isArray(step.frontier)) frontier = new Set(step.frontier);
             if (Array.isArray(step.explored)) explored = new Set(step.explored);
@@ -303,7 +319,11 @@
                 }
             } else if (type === 'discover' || type === 'update') {
                 if (step.from && step.to) {
-                    edgeStates.set(edgeKey(step.from, step.to), type === 'update' ? 'relaxed' : 'inspect');
+                    const baseState = type === 'update' ? 'relaxed' : 'inspect';
+                    edgeStates.set(
+                        edgeKey(step.from, step.to),
+                        direction ? `${baseState}_${direction}` : baseState
+                    );
                 }
             } else if (type === 'finish') {
                 if (currentNode) explored.add(currentNode);
@@ -368,13 +388,18 @@
         }
 
         function edgeVisualState(edge) {
-            for (const direction of (edge.directions || [[edge.from, edge.to]])) {
+            const directions = edge.directions || [[edge.from, edge.to]];
+            for (const direction of directions) {
                 const key = edgeKey(direction[0], direction[1]);
                 if (pathEdges.has(key)) return 'path';
-                if (edgeStates.get(key) === 'relaxed') return 'relaxed';
-                if (edgeStates.get(key) === 'inspect') return 'inspect';
             }
-            return 'default';
+            let inspected = 'default';
+            for (const direction of directions) {
+                const state = edgeStates.get(edgeKey(direction[0], direction[1]));
+                if (state && state.startsWith('relaxed')) return state;
+                if (state && state.startsWith('inspect')) inspected = state;
+            }
+            return inspected;
         }
 
         function drawArrow(from, to, color) {
@@ -403,9 +428,10 @@
 
         function nodeState(nodeId) {
             if (pathNodes.has(nodeId)) return 'path';
-            if (nodeId === currentNode) return 'current';
-            if (frontier.has(nodeId)) return 'frontier';
-            if (explored.has(nodeId)) return 'explored';
+            const direction = nodeDirections.get(nodeId);
+            if (nodeId === currentNode) return direction ? `current_${direction}` : 'current';
+            if (frontier.has(nodeId)) return direction ? `frontier_${direction}` : 'frontier';
+            if (explored.has(nodeId)) return direction ? `explored_${direction}` : 'explored';
             return 'node';
         }
 
@@ -464,7 +490,7 @@
                 const from = position(fromNode), to = position(toNode);
                 if ((from.x < -40 && to.x < -40) || (from.y < -40 && to.y < -40) || (from.x > width + 40 && to.x > width + 40) || (from.y > height + 40 && to.y > height + 40)) return;
                 const state = edgeVisualState(edge);
-                const color = state === 'path' ? COLORS.path : state === 'relaxed' ? COLORS.relaxed : state === 'inspect' ? COLORS.inspect : colors.edge;
+                const color = state === 'default' ? colors.edge : (COLORS[state] || colors.edge);
                 ctx.strokeStyle = color;
                 ctx.globalAlpha = state === 'default' ? (smallGraph ? .52 : .25) : .95;
                 ctx.lineWidth = state === 'path' ? 4 : state === 'default' ? 1 : 2.5;

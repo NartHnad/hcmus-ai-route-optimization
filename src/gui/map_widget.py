@@ -532,16 +532,25 @@ class MapWidget(QWebEngineView):
         frontier = {}
         explored = {}
         current = None
+        # #NhatHuyChanged: retain the side of each Bidirectional Search event.
+        current_direction = None
+        node_directions = {}
         edge_states = {}
         path = []
 
         for step in steps:
             step_type = step.get("type")
             node = step.get("node")
+            direction = (step.get("metrics") or {}).get("search_direction")
+            if direction not in {"forward", "backward"}:
+                direction = None
+            if node and direction:
+                node_directions[node] = direction
             if step_type == "expand":
                 if current:
                     explored[current] = None
                 current = node
+                current_direction = direction
                 frontier.pop(node, None)
                 if node:
                     explored[node] = None
@@ -552,13 +561,17 @@ class MapWidget(QWebEngineView):
                 if source and target:
                     key = (source, target)
                     edge_states.pop(key, None)
-                    edge_states[key] = (
+                    base_state = (
                         "relaxed" if step_type == "update" else "inspect"
+                    )
+                    edge_states[key] = (
+                        f"{base_state}_{direction}" if direction else base_state
                     )
             elif step_type == "finish":
                 if current:
                     explored[current] = None
                 current = None
+                current_direction = None
                 path = list(step.get("path") or [])
 
         explored_nodes = list(explored)
@@ -573,10 +586,21 @@ class MapWidget(QWebEngineView):
             explored_nodes = explored_nodes[-1000:]
             edges = edges[-1200:]
 
+        visible_state_nodes = set(frontier) | set(explored_nodes)
+        if current:
+            visible_state_nodes.add(current)
+        node_directions = {
+            node_id: direction
+            for node_id, direction in node_directions.items()
+            if node_id in visible_state_nodes
+        }
+
         return {
             "frontier": list(frontier),
             "explored": explored_nodes,
             "current": current,
+            "current_direction": current_direction,
+            "node_directions": node_directions,
             "edges": edges,
             "path": path,
         }
