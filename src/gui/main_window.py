@@ -6,11 +6,9 @@ from datetime import datetime
 from pathlib import Path
 
 from PyQt5.QtCore import QObject, Qt, QThread, QTimer, pyqtSignal, pyqtSlot
-from PyQt5.QtGui import QStandardItem, QStandardItemModel
 from PyQt5.QtWidgets import (
     QApplication,
     QComboBox,
-    QCompleter,
     QFrame,
     QGridLayout,
     QGroupBox,
@@ -28,12 +26,16 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-from src.algorithms.algorithms import get_algorithms, run_algorithm
+from src.algorithms.algorithms import (
+    get_algorithms,
+    run_route_request,
+)
 from src.data.data_loader import get_dataset_options, load_dataset
 from src.gui.algorithm_state_panel import AlgorithmStatePanel
 from src.gui.delivery_panel import ResultSummaryPanel
 from src.gui.graph_widget import GraphWidget
 from src.gui.map_widget import MapWidget
+from src.gui.route_setup_widget import RouteSetupWidget
 
 
 class SearchWorker(QObject):
@@ -42,19 +44,18 @@ class SearchWorker(QObject):
     completed = pyqtSignal(object, float)
     failed = pyqtSignal(str)
 
-    def __init__(self, algorithm, graph, start_id, goal_id):
+    def __init__(self, algorithm, graph, route_request):
         super().__init__()
         self.algorithm = algorithm
         self.graph = graph
-        self.start_id = start_id
-        self.goal_id = goal_id
+        self.route_request = route_request
 
     @pyqtSlot()
     def run(self):
         try:
             started = time.perf_counter()
-            result = run_algorithm(
-                self.algorithm, self.graph, self.start_id, self.goal_id
+            result = run_route_request(
+                self.algorithm, self.graph, self.route_request
             )
             runtime_ms = (time.perf_counter() - started) * 1000
             self.completed.emit(result, runtime_ms)
@@ -81,18 +82,18 @@ class MainWindow(QMainWindow):
         self.graph = None
         self.current_theme = "light"
         self.execution_state = "idle"
-        self.delivery_nodes = []
         self._active_result = None
         self._active_algorithm = ""
         self._active_start = ""
-        self._active_goal = ""
+        self._active_goals = []
+        self._active_respect_goal_order = False
         self._compact_mode = False
         self._sidebar_user_collapsed = False
         self._state_user_collapsed = False
         self._sidebar_is_drawer = False
         self._search_thread = None
         self._search_worker = None
-        self._node_model = None
+        self._algorithm_route_mode = "single"
         self._pending_load_summary = None
         self._pending_renderers = set()
         self._ready_renderers = set()
@@ -275,7 +276,7 @@ class MainWindow(QMainWindow):
         self.algorithm_combo = QComboBox()
         self.algorithm_combo.setObjectName("fieldInput")
         self.configure_resizable_combo(self.algorithm_combo, 16)
-        self.available_algorithms = get_algorithms()
+        self.available_algorithms = get_algorithms("single")
         self.algorithm_combo.addItems(self.available_algorithms)
         if not self.available_algorithms:
             self.algorithm_combo.addItem("No algorithms available")
@@ -293,16 +294,18 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(12, 16, 12, 12)
         layout.setSpacing(8)
 
-        layout.addWidget(self.field_label("Start location"))
-        self.start_combo = self.searchable_combo()
-        layout.addWidget(self.start_combo)
-
-        layout.addWidget(self.field_label("Goal location"))
-        self.goal_combo = self.searchable_combo()
-        layout.addWidget(self.goal_combo)
+        self.route_setup = RouteSetupWidget()
+        self.route_setup.goal_list.setMinimumHeight(86)
+        self.route_setup.goal_list.setMaximumHeight(180)
+        self.route_setup.add_goal_button.setObjectName("secondaryButton")
+        self.route_setup.remove_goal_button.setObjectName("tertiaryButton")
+        self.route_setup.respect_goal_order_checkbox.setToolTip(
+            "Unchecked: the multi-location algorithm chooses the goal order."
+        )
+        layout.addWidget(self.route_setup)
 
         self.route_scope_label = QLabel(
-            "Start–goal mode · input architecture is ready for future delivery stops."
+            "One goal uses standard search; two or more goals use multi-location search."
         )
         self.route_scope_label.setObjectName("mutedLabel")
         self.route_scope_label.setWordWrap(True)
@@ -480,8 +483,13 @@ class MainWindow(QMainWindow):
     def connect_signals(self):
         self.load_button.clicked.connect(self.on_load_graph_clicked)
         self.algorithm_combo.currentTextChanged.connect(self.on_algorithm_changed)
-        self.start_combo.currentIndexChanged.connect(self.on_start_changed)
-        self.goal_combo.currentIndexChanged.connect(self.on_goal_changed)
+        self.route_setup.selection_changed.connect(self.on_route_selection_changed)
+        self.route_setup.validation_error.connect(
+            lambda message: self.show_alert(message, "error")
+        )
+        self.route_setup.route_event.connect(
+            lambda message: self.log_event("INFO", message)
+        )
         self.speed_combo.currentIndexChanged.connect(self.on_speed_changed)
 
         self.run_button.clicked.connect(self.on_run_search_clicked)
@@ -521,19 +529,6 @@ class MainWindow(QMainWindow):
         return label
 
     @staticmethod
-    def searchable_combo():
-        combo = QComboBox()
-        combo.setObjectName("fieldInput")
-        MainWindow.configure_resizable_combo(combo, 14)
-        combo.setEditable(True)
-        combo.setInsertPolicy(QComboBox.NoInsert)
-        completer = combo.completer()
-        completer.setCompletionMode(QCompleter.PopupCompletion)
-        completer.setFilterMode(Qt.MatchContains)
-        completer.setCaseSensitivity(Qt.CaseInsensitive)
-        return combo
-
-    @staticmethod
     def configure_resizable_combo(combo, minimum_characters=14):
         """Allow combo boxes to shrink and grow with the draggable sidebar."""
         combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
@@ -554,16 +549,71 @@ class MainWindow(QMainWindow):
         return [int(part) if part.isdigit() else part.lower() for part in re.split(r"(\d+)", node_id)]
 
     def current_start_id(self):
-        return self.start_combo.currentData() or ""
+        return self.route_setup.route_request().start_node
 
     def current_goal_id(self):
-        return self.goal_combo.currentData() or ""
+        """Deprecated: compatibility helper for code that expects one goal."""
+        goals = self.route_setup.route_request().delivery_nodes
+        return goals[0] if goals else ""
 
     def route_request(self):
-        return {
-            "start_node": self.current_start_id(),
-            "delivery_nodes": list(self.delivery_nodes),
-        }
+        return self.route_setup.route_request()
+
+    # RouteSetupWidget is the only mutable source of Start/Goal selection.
+    def _refresh_algorithm_options(self, route_mode):
+        """Refresh the algorithm menu only when its registry mode changes."""
+        if route_mode == self._algorithm_route_mode:
+            return
+        algorithms = get_algorithms(route_mode)
+        previous = self.algorithm_combo.currentText()
+        self.algorithm_combo.blockSignals(True)
+        self.algorithm_combo.clear()
+        self.algorithm_combo.addItems(algorithms)
+        if previous in algorithms:
+            self.algorithm_combo.setCurrentText(previous)
+        self.algorithm_combo.blockSignals(False)
+        self.available_algorithms = algorithms
+        self._algorithm_route_mode = route_mode
+        if algorithms:
+            self.algorithm_state.set_algorithm(self.algorithm_combo.currentText())
+
+    def _update_route_context(self, request):
+        is_multi = request.route_mode == "multi"
+        self.route_scope_label.setText(
+            f"Multi-location mode · {len(request.delivery_nodes)} goals · mock search only."
+            if is_multi
+            else "Single-route mode · all standard search algorithms are available."
+        )
+        self.algorithm_hint.setText(
+            "The mock returns a deterministic demo order; it does not prove global optimality."
+            if is_multi
+            else "Frontier and explored state updates at every step."
+        )
+        if hasattr(self, "subtitle_label"):
+            view_name = "Graph" if self._active_view == "graph" else "Map"
+            self.subtitle_label.setText(f"{view_name} View · {self._route_mode_label()}")
+
+    def _update_route_locations(self, request=None, display_order=None):
+        request = request or self.route_request()
+        order = (
+            list(request.delivery_nodes)
+            if display_order is None
+            else list(display_order)
+        )
+        preview = self.route_setup.preview_goal_id()
+        self.map_widget.set_route_locations(
+            request.start_node, request.delivery_nodes, order, preview
+        )
+        self.graph_widget.set_route_locations(
+            request.start_node, request.delivery_nodes, order, preview
+        )
+
+    def on_route_selection_changed(self, request):
+        self._refresh_algorithm_options(request.route_mode)
+        self._update_route_context(request)
+        if self.graph is not None:
+            self._update_route_locations(request)
+        self._set_execution_state(self.execution_state)
 
     def on_load_graph_clicked(self):
         filename = self.dataset_combo.currentData()
@@ -580,15 +630,12 @@ class MainWindow(QMainWindow):
             self.map_widget.draw_graph(self.graph)
             self.graph_widget.draw_graph(self.graph)
             node_ids = sorted(self.graph.nodes, key=self.natural_node_key)
-            self._populate_node_combos(node_ids)
-
-            self.on_start_changed(self.start_combo.currentIndex())
-            self.on_goal_changed(self.goal_combo.currentIndex())
+            self.route_setup.set_graph(self.graph, node_ids)
             edge_count = sum(len(edges) for edges in self.graph.adjacency_list.values())
             self.graph_summary_label.setText(
                 f"{len(node_ids)} nodes · {edge_count} directed edges"
             )
-            self.result_panel.reset("Single-route search")
+            self.result_panel.reset(self._route_mode_label())
             self.algorithm_state.reset()
             self.algorithm_state.set_algorithm(self.algorithm_combo.currentText())
             self._active_result = None
@@ -611,44 +658,25 @@ class MainWindow(QMainWindow):
             self.map_widget.show_message("Graph data could not be loaded.", "error")
             self.log_event("ERROR", f"Failed to load {filename}: {exc}")
 
-    def _populate_node_combos(self, node_ids):
-        """Populate both selectors from one batch-built shared item model."""
-        model = QStandardItemModel(self)
-        items = []
-        for node_id in node_ids:
-            node = self.graph.nodes[node_id]
-            item = QStandardItem(f"{node.id} — {node.name}")
-            item.setData(node.id, Qt.UserRole)
-            items.append(item)
-        if items:
-            model.invisibleRootItem().appendRows(items)
-
-        self.start_combo.blockSignals(True)
-        self.goal_combo.blockSignals(True)
-        self.start_combo.setModel(model)
-        self.goal_combo.setModel(model)
-        if node_ids:
-            self.start_combo.setCurrentIndex(0)
-            self.goal_combo.setCurrentIndex(len(node_ids) - 1)
-        self.start_combo.blockSignals(False)
-        self.goal_combo.blockSignals(False)
-
-        old_model = self._node_model
-        self._node_model = model
-        if old_model is not None:
-            old_model.deleteLater()
+    def _route_mode_label(self):
+        goal_count = len(self.route_setup.route_request().delivery_nodes)
+        return (
+            f"Multi-location search · {goal_count} goals"
+            if goal_count >= 2
+            else "Single-route search"
+        )
 
     def on_visualization_render_ready(self, renderer):
+        """Record renderer readiness; renderers reapply their own selection."""
         if self.graph is None:
             return
         self._pending_renderers.discard(renderer)
         self._ready_renderers.add(renderer)
         if (
-            self.execution_state != "loading"
-            or self._active_view not in self._ready_renderers
+            self.execution_state == "loading"
+            and self._active_view in self._ready_renderers
         ):
-            return
-        self._finish_visualization_load()
+            self._finish_visualization_load()
 
     def _finish_visualization_load(self):
         self._set_execution_state("ready")
@@ -699,16 +727,18 @@ class MainWindow(QMainWindow):
             self.show_alert(f"{title} View is still rendering. Please wait.", "warning")
             return
 
-        start_id = self.current_start_id()
-        goal_id = self.current_goal_id()
+        request = self.route_request()
+        start_id = request.start_node
+        goals = request.delivery_nodes
         algorithm = self.algorithm_combo.currentText()
-        if not start_id or not goal_id or not algorithm:
-            self.show_alert("Choose a valid start, goal and algorithm.", "error")
+        if not start_id or not goals or not algorithm:
+            self.show_alert("Choose a valid start, at least one goal and an algorithm.", "error")
             return
 
         self._active_algorithm = algorithm
         self._active_start = start_id
-        self._active_goal = goal_id
+        self._active_goals = list(goals)
+        self._active_respect_goal_order = request.respect_goal_order
         self._set_execution_state("computing")
         QApplication.processEvents()
 
@@ -716,13 +746,14 @@ class MainWindow(QMainWindow):
         self.graph_widget.reset_visualization()
         self.algorithm_state.reset()
         self.algorithm_state.set_algorithm(algorithm)
-        self.result_panel.set_running(algorithm, start_id, goal_id)
-        self.log_event("INFO", f"Running {algorithm}: {start_id} → {goal_id}.")
+        self.result_panel.set_running(algorithm, start_id, goals)
+        self.log_event(
+            "INFO",
+            f"Running {algorithm}: {start_id} → {' → '.join(goals)}.",
+        )
 
         self._search_thread = QThread(self)
-        self._search_worker = SearchWorker(
-            algorithm, self.graph, start_id, goal_id
-        )
+        self._search_worker = SearchWorker(algorithm, self.graph, request)
         self._search_worker.moveToThread(self._search_thread)
         self._search_thread.started.connect(self._search_worker.run)
         self._search_worker.completed.connect(self._on_search_completed)
@@ -739,6 +770,10 @@ class MainWindow(QMainWindow):
         result.runtime_ms = runtime_ms
         self._enrich_result_metrics(result)
         self._active_result = result
+        if len(self._active_goals) >= 2 and not self._active_respect_goal_order:
+            result_order = list(getattr(result, "goal_visit_order", []) or [])
+            if result_order:
+                self._update_route_locations(display_order=result_order)
         profile = self.current_playback_profile()
         manual_mode = profile.get("manual", False)
         self._set_execution_state("paused" if manual_mode else "running")
@@ -822,7 +857,7 @@ class MainWindow(QMainWindow):
         self.algorithm_state.reset()
         self.graph_widget.reset_visualization()
         self.result_panel.set_running(
-            self._active_algorithm, self._active_start, self._active_goal
+            self._active_algorithm, self._active_start, self._active_goals
         )
         self.map_widget.replay_animation()
         if self.current_playback_profile().get("manual", False):
@@ -836,7 +871,7 @@ class MainWindow(QMainWindow):
         self.map_widget.reset()
         self.graph_widget.reset_visualization()
         self.algorithm_state.reset()
-        self.result_panel.reset("Single-route search")
+        self.result_panel.reset(self._route_mode_label())
         self._active_result = None
         self._set_execution_state("ready" if self.graph is not None else "idle")
         self.log_event("INFO", "Visualization reset; graph and route selection preserved.")
@@ -849,7 +884,7 @@ class MainWindow(QMainWindow):
             self._active_result,
             self._active_algorithm,
             self._active_start,
-            self._active_goal,
+            self._active_goals,
         )
         self.info_tabs.setCurrentWidget(self.result_scroll)
         if self._active_result.success:
@@ -897,23 +932,6 @@ class MainWindow(QMainWindow):
             self.algorithm_state.set_algorithm(algorithm)
         if self.graph is not None and self.execution_state not in {"running", "paused"}:
             self._set_execution_state("ready")
-
-    def on_start_changed(self, _index):
-        node_id = self.current_start_id()
-        if node_id:
-            self.map_widget.set_start_node(node_id)
-            self.graph_widget.set_start_node(node_id)
-            if self.graph is not None:
-                self.log_event("INFO", f"Start location: {node_id}.")
-
-    def on_goal_changed(self, _index):
-        node_id = self.current_goal_id()
-        self.delivery_nodes = [node_id] if node_id else []
-        if node_id:
-            self.map_widget.set_goal_node(node_id)
-            self.graph_widget.set_goal_node(node_id)
-            if self.graph is not None:
-                self.log_event("INFO", f"Goal location: {node_id}.")
 
     def on_speed_changed(self, _index):
         profile = self.current_playback_profile()
@@ -982,9 +1000,7 @@ class MainWindow(QMainWindow):
         self.map_widget.set_visual_updates_enabled(not graph_active)
         self.graph_widget.set_render_enabled(graph_active)
         self.subtitle_label.setText(
-            "Graph View · Node-edge search"
-            if graph_active
-            else "Map View · Single-route search"
+            f"{'Graph' if graph_active else 'Map'} View · {self._route_mode_label()}"
         )
         if changed:
             self.log_event(
@@ -1005,7 +1021,13 @@ class MainWindow(QMainWindow):
             return
         self.execution_state = state
         manual_mode = self.current_playback_profile().get("manual", False)
-        self.run_button.setEnabled(state in {"ready", "finished"})
+        self.run_button.setEnabled(
+            state in {"ready", "finished"}
+            and self.graph is not None
+            and bool(self.current_start_id())
+            and bool(self.route_request().delivery_nodes)
+            and bool(self.available_algorithms)
+        )
         self.pause_button.setEnabled(
             not manual_mode and state in {"running", "paused"}
         )
@@ -1028,8 +1050,7 @@ class MainWindow(QMainWindow):
             not controls_locked and bool(self.available_algorithms)
         )
         route_enabled = not controls_locked and self.graph is not None
-        self.start_combo.setEnabled(route_enabled)
-        self.goal_combo.setEnabled(route_enabled)
+        self.route_setup.set_controls_enabled(route_enabled)
         self.speed_combo.setEnabled(state not in {"loading", "computing"})
 
         labels = {

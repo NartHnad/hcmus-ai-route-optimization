@@ -1,4 +1,11 @@
+from src.models.models import RouteRequest
+
 ALGORITHMS = {}
+MULTI_LOCATION_ALGORITHMS = {}
+
+# ====================
+# IMPORT ALGORITHMS
+# ====================
 
 try:
     from src.algorithms.dfs import dfs
@@ -28,7 +35,6 @@ try:
 except ImportError:
     pass
 
-
 try:
     from src.algorithms.genetic_algorithm import genetic_algorithm
 
@@ -37,15 +43,45 @@ except ImportError:
     pass
 
 try:
+    from src.algorithms.beam_search import beam_search
+
+    ALGORITHMS["Beam Search Algorithm"] = beam_search
+except ImportError:
+    pass
+
+try:
+    from src.algorithms.mock3_algorithm import mock3_search
+
+    ALGORITHMS["Mock 3 Search"] = mock3_search
+except ImportError:
+    pass
+
+# ====================
+# IMPORT MULTI LOCATION ALGORITHMS
+# ====================
+
+try:
+    from src.algorithms.mock_multi_location import mock_multi_location_search
+
+    MULTI_LOCATION_ALGORITHMS["Mock Multi-location Search"] = mock_multi_location_search
+except ImportError:
+    pass
+
+try:
     from src.algorithms.simulated_annealing import simulated_annealing
 
-    ALGORITHMS["Simulated Annealing (SA)"] = simulated_annealing
+    MULTI_LOCATION_ALGORITHMS["Simulated Annealing (SA)"] = simulated_annealing
 except ImportError:
     pass
 
 
-def get_algorithms():
-    return sorted(ALGORITHMS.keys())
+# Get Algorithms from dictionary
+def get_algorithms(route_mode="single"):
+    if route_mode == "single":
+        return sorted(ALGORITHMS.keys())
+    if route_mode == "multi":
+        return sorted(MULTI_LOCATION_ALGORITHMS.keys())
+    raise ValueError(f"Unknown route mode: {route_mode}")
 
 
 def run_algorithm(name, graph, start, goal):
@@ -59,3 +95,45 @@ def run_algorithm(name, graph, start, goal):
     algorithm = ALGORITHMS[name]
 
     return algorithm(graph, start, goal)
+
+
+def run_multi_location_algorithm(
+    name,
+    graph,
+    start,
+    goals,
+    respect_goal_order=False,
+):
+    """Execute a registered algorithm that accepts multiple goal nodes."""
+    if name not in MULTI_LOCATION_ALGORITHMS:
+        raise ValueError(f"Unknown multi-location algorithm: {name}")
+
+    return MULTI_LOCATION_ALGORITHMS[name](
+        graph,
+        start,
+        list(goals or []),
+        respect_goal_order=bool(respect_goal_order),
+    )
+
+
+def run_route_request(name, graph, request: RouteRequest):
+    """
+    Dispatch an immutable route request to its compatible registry.
+    """
+
+    if request.route_mode == "single":
+        if not request.delivery_nodes:
+            raise ValueError("A route request requires at least one goal node.")
+
+        return run_algorithm(name, graph, request.start_node, request.delivery_nodes[0])
+
+    if request.route_mode == "multi":
+        return run_multi_location_algorithm(
+            name,
+            graph,
+            request.start_node,
+            request.delivery_nodes,
+            respect_goal_order=request.respect_goal_order,
+        )
+
+    raise ValueError(f"Unknown route mode: {request.route_mode}")

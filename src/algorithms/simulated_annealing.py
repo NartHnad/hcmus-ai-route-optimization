@@ -43,11 +43,12 @@ def get_value(tour: list, distance_matrix: dict) -> float:
 def swap_two_locations(tour: list) -> list:
     next_tour = tour.copy()
 
-    if len(next_tour) <= 3:
+    if len(next_tour) <= 2:
         return next_tour
 
-    # Randomly select two indices to swap (excluding start/end)
-    i, j = random.sample(range(1, len(next_tour) - 1), 2)
+    # Randomly select two indices to swap
+    # just start node is fixed
+    i, j = random.sample(range(1, len(next_tour)), 2)
 
     # Swap the two locations
     next_tour[i], next_tour[j] = next_tour[j], next_tour[i]
@@ -87,7 +88,9 @@ def build_distance_matrix(graph, locations: list) -> dict:
 
 def simulated_annealing(
     graph,
-    locations: list,
+    start,
+    goals,
+    respect_goal_order=False,
     initial_temp: float = 1000.0,
     decay_rate: float = 0.995,
 ) -> SearchResult:
@@ -107,75 +110,130 @@ def simulated_annealing(
 
     steps = []
 
+    # Normalize goals
+    if isinstance(goals, str):
+        if "," in goals:
+            goals = [loc.strip() for loc in goals.split(",")]
+        else:
+            goals = [goals]
+    else:
+        goals = list(goals or [])
+
+    # Start must always be the first location
+    locations = [start] + goals
+
+    if len(locations) < 2:
+        return SearchResult(
+            path=[start],
+            steps=[
+                SearchStep(
+                    step_type=StepType.FINISH,
+                    node_id=start,
+                    metrics={
+                        "total_cost": 0.0,
+                        "tour": start,
+                    },
+                )
+            ],
+            total_cost=0.0,
+            success=True,
+            message="No delivery locations were provided.",
+            visited_order=locations,
+        )
+
     # 1. Pre-calculate distance matrix
     dist_matrix = build_distance_matrix(graph, locations)
 
-    # 2. current = Make-Node(problem.Initial-State)
-    # If locations is provided as a string, convert it to a list of locations
-    if isinstance(locations, str):
-        if "," in locations:
-            locations = [loc.strip() for loc in locations.split(",")]
-        else:
-            locations = [locations]
+    # =========================================================
+    # CASE 1: Goal order must be preserved --> Khong han la SA nua do co dinh goal
+    # =========================================================
+    if respect_goal_order:
+        best_tour = locations.copy()
+        best_val = get_value(best_tour, dist_matrix)
 
-    locations = list(locations)
-
-    current = locations.copy()
-    current_val = get_value(current, dist_matrix)
-
-    best_tour = current.copy()
-    best_val = current_val
-
-    t = 1
-    # 3. for t = 1 to infinity do
-    while True:
-        # T = schedule(t)
-        T = exp_cooling_schedule(t, initial_temp=initial_temp, decay_rate=decay_rate)
-
-        # if T == 0 then return current
-        if T == 0:
-            break
-
-        # next = a randomly selected successor of current (Swap two cities)
-        next_state = swap_two_locations(current)
-        next_val = get_value(next_state, dist_matrix)
-
-        # DeltaE = next.Value - current.Value
-        delta_e = next_val - current_val
-
-        # Accept logic from pseudocode
-        if delta_e > 0:
-            current = next_state
-            current_val = next_val
-
-        else:
-            # current = next only with probability exp(DeltaE / T)
-            prob = math.exp(delta_e / T)
-            if random.random() < prob:
-                current = next_state
-                current_val = next_val
-
-        # Track global optimum
-        if current_val > best_val:
-            best_tour = current.copy()
-            best_val = current_val
-
-            # Emit GUI update step event
+        if best_val != float("-inf"):
             steps.append(
                 SearchStep(
                     step_type=StepType.UPDATE,
-                    node_id=best_tour[1] if len(best_tour) > 1 else locations[0],
+                    node_id=(best_tour[1] if len(best_tour) > 1 else best_tour[0]),
                     metrics={
-                        "time_step": t,
-                        "temperature": round(T, 2),
+                        "time_step": 0,
+                        "temperature": 0,
                         "best_distance": round(-best_val, 2),
                         "tour": " -> ".join(best_tour),
                     },
                 )
             )
 
-        t += 1
+    # =========================================================
+    # CASE 2: Goal order can be optimized
+    # =========================================================
+    else:
 
+        current = locations.copy()
+        current_val = get_value(current, dist_matrix)
+
+        best_tour = current.copy()
+        best_val = current_val
+
+        t = 1
+
+        # 3. for t = 1 to infinity do
+        while True:
+
+            # T = schedule(t)
+            T = exp_cooling_schedule(
+                t, initial_temp=initial_temp, decay_rate=decay_rate
+            )
+
+            # if T == 0 then return current
+            if T == 0:
+                break
+
+            # next = a randomly selected successor of current (Swap two cities)
+            next_state = swap_two_locations(current)
+            next_val = get_value(next_state, dist_matrix)
+
+            # Difference in value
+            # DeltaE = next.Value - current.Value
+            delta_e = next_val - current_val
+
+            # Accept logic from pseudocode
+            if delta_e > 0:
+                current = next_state
+                current_val = next_val
+
+            else:
+                # current = next only with probability exp(DeltaE / T)
+                prob = math.exp(delta_e / T)
+                if random.random() < prob:
+                    current = next_state
+                    current_val = next_val
+
+            # Track global optimum
+            if current_val > best_val:
+                best_tour = current.copy()
+                best_val = current_val
+
+                # Emit GUI update step event
+                steps.append(
+                    SearchStep(
+                        step_type=StepType.UPDATE,
+                        node_id=best_tour[1] if len(best_tour) > 1 else locations[0],
+                        metrics={
+                            "time_step": t,
+                            "temperature": round(T, 2),
+                            "best_distance": round(-best_val, 2),
+                            "tour": " -> ".join(best_tour),
+                        },
+                    )
+                )
+
+            t += 1
+
+    # =========================================================
+    # Construct actual graph path
+    # =========================================================
     # 4. Construct turn-by-turn road path from best tour
     best_distance = -best_val
     full_path = []
@@ -187,6 +245,10 @@ def simulated_annealing(
                 full_path.extend(sub_res.path)
             else:
                 full_path.extend(sub_res.path[1:])
+
+    # =========================================================
+    # Finish step
+    # =========================================================
 
     steps.append(
         SearchStep(

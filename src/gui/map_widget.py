@@ -7,6 +7,7 @@ from pathlib import Path
 from PyQt5.QtCore import QTimer, QUrl, pyqtSignal
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 
+from src.gui.route_selection import normalize_route_selection
 from src.models.models import SearchResult
 
 
@@ -39,8 +40,7 @@ class MapWidget(QWebEngineView):
         self._is_paused = False
         self._manual_mode = False
         self._finished_emitted = False
-        self._current_start = None
-        self._current_goal = None
+        self._selection_payload = normalize_route_selection(None, [])
         self._theme = "light"
         self._js_step_in_flight = False
         self._playback_generation = 0
@@ -183,6 +183,11 @@ class MapWidget(QWebEngineView):
                     self.graph_render_failed.emit(str(error))
                     return
                 if state.get("ready"):
+                    # initMap rebuilds the Leaflet layer/index state
+                    # asynchronously. Re-apply the latest route selection
+                    # before consumers treat this renderer as ready so an
+                    # earlier Start/Goal update cannot be lost.
+                    self._update_selection()
                     self.graph_ready.emit()
                     return
             QTimer.singleShot(100, lambda: self._poll_graph_render(token))
@@ -589,18 +594,39 @@ class MapWidget(QWebEngineView):
             self.playback_state_changed.emit("ready")
 
     def set_start_node(self, node_id):
-        self._current_start = node_id or None
+        """Deprecated: use :meth:`set_route_locations` instead."""
+        self._selection_payload = normalize_route_selection(
+            node_id, self._selection_payload["goals"],
+            self._selection_payload["display_order"],
+            self._selection_payload["preview_goal"],
+        )
         self._update_selection()
 
     def set_goal_node(self, node_id):
-        self._current_goal = node_id or None
+        """Deprecated: use :meth:`set_route_locations` instead."""
+        self._selection_payload = normalize_route_selection(
+            self._selection_payload["start"], [node_id] if node_id else []
+        )
+        self._update_selection()
+
+    def set_route_locations(
+        self,
+        start_id,
+        goal_ids,
+        display_order=None,
+        preview_goal=None,
+    ):
+        self._selection_payload = normalize_route_selection(
+            start_id, goal_ids, display_order, preview_goal
+        )
         self._update_selection()
 
     def _update_selection(self):
-        self._run_js_function(
-            "updateSelection",
-            {"start": self._current_start, "goal": self._current_goal},
-        )
+        self._run_js_function("updateSelection", self._selection_payload)
+
+    def get_endpoint_marker_state(self, callback):
+        """Fetch the map endpoint-marker diagnostics from Leaflet."""
+        return self._run_js_function("getEndpointMarkerState", callback=callback)
 
     def set_theme(self, theme_name):
         self._theme = theme_name
