@@ -74,6 +74,17 @@ try:
 except ImportError:
     pass
 
+# #NhatHuyChanged: expose the deterministic multi-location optimizer.
+try:
+    from src.algorithms.nearest_neighbor_2opt import (
+        ALGORITHM_NAME as NEAREST_NEIGHBOR_2OPT_NAME,
+        nearest_neighbor_2opt,
+    )
+
+    MULTI_LOCATION_ALGORITHMS[NEAREST_NEIGHBOR_2OPT_NAME] = nearest_neighbor_2opt
+except ImportError:
+    pass
+
 
 # Get Algorithms from dictionary
 def get_algorithms(route_mode="single"):

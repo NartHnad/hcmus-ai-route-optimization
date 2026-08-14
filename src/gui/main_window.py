@@ -579,13 +579,16 @@ class MainWindow(QMainWindow):
 
     def _update_route_context(self, request):
         is_multi = request.route_mode == "multi"
+        # #NhatHuyChanged: multi-location mode now has real route optimizers.
         self.route_scope_label.setText(
-            f"Multi-location mode · {len(request.delivery_nodes)} goals · mock search only."
+            f"Multi-location mode · {len(request.delivery_nodes)} goals · "
+            "route optimization enabled."
             if is_multi
             else "Single-route mode · all standard search algorithms are available."
         )
         self.algorithm_hint.setText(
-            "The mock returns a deterministic demo order; it does not prove global optimality."
+            "Choose an optimizer, or enable list order to visit goals "
+            "exactly as arranged."
             if is_multi
             else "Frontier and explored state updates at every step."
         )
