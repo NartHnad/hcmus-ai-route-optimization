@@ -1,4 +1,0 @@
-Algorithm,Scenario,Locations,Total_Runs,Successful_Runs,Success_Rate_%,Best_Cost,Avg_Cost,Median_Cost,Worst_Cost,Std_Cost,Avg_Distance_km,Avg_Time_ms,Median_Time_ms,Std_Time_ms,Avg_Peak_Memory_KB,Max_Peak_Memory_KB
-SimulatedAnnealing,M3,3,30,30,100.0,22.023438,22.023438,22.023438,22.023438,0,5.4,47.825,47.402,1.291,1555.09,1581.38
-SimulatedAnnealing,M5,5,30,30,100.0,21.848956,21.848956,21.848956,21.848956,0,4.996,100.821,97.7,14.969,1273.39,1301.42
-SimulatedAnnealing,M8,8,30,30,100.0,52.82673,54.375011,53.727633,58.997914,1.913855,14.5942,259.929,256.733,24.714,1695.8,1728.57
