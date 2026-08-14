@@ -72,7 +72,7 @@ def beam_search(graph, start_id, goal_id, beam_width=10, mode="optimal"):
 
         path.reverse()
         path_edges.reverse()
-        total_cost = sum(edge.calculate_cost(mode=mode) for edge in path_edges)
+        total_cost = sum(edge.calculate_cost() for edge in path_edges)
         steps.append(SearchStep(StepType.FINISH, node_id=goal_id))
 
         return SearchResult(
@@ -107,7 +107,7 @@ def beam_search(graph, start_id, goal_id, beam_width=10, mode="optimal"):
                 if neighbor in discovered:
                     continue
 
-                edge_cost = edge.calculate_cost(mode=mode)
+                edge_cost = edge.calculate_cost()
                 tentative_g = path_cost[current] + edge_cost
                 f = tentative_g + heuristic(neighbor)
                 candidate = (f, tentative_g, neighbor, current, edge)
