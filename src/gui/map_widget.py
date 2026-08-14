@@ -5,9 +5,12 @@ import time
 from pathlib import Path
 
 from PyQt5.QtCore import QTimer, QUrl, pyqtSignal
+from PyQt5.QtWebChannel import QWebChannel
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 
+from src.gui.edge_editor_bridge import EdgeEditorBridge
 from src.gui.route_selection import normalize_route_selection
+from src.models.graph_updater import serialize_visual_edges
 from src.models.models import SearchResult
 
 
@@ -47,6 +50,12 @@ class MapWidget(QWebEngineView):
         self._pending_navigation = None
         self._graph_node_count = 0
         self._visual_updates_enabled = True
+        self._edge_editing_enabled = False
+
+        self._web_channel = QWebChannel(self.page())
+        self._edge_bridge = EdgeEditorBridge(self)
+        self._web_channel.registerObject("edgeBridge", self._edge_bridge)
+        self.page().setWebChannel(self._web_channel)
 
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
@@ -98,6 +107,7 @@ class MapWidget(QWebEngineView):
             return
 
         self.set_theme(self._theme)
+        self.set_edge_editing_enabled(self._edge_editing_enabled)
         if self._pending_graph_data is not None:
             graph_data = self._pending_graph_data
             self._pending_graph_data = None
@@ -133,27 +143,7 @@ class MapWidget(QWebEngineView):
 
         # A two-way road is stored as two directed adjacency edges. Leaflet only
         # needs one physical line; both algorithm directions point to that line.
-        visual_edges = {}
-        direction_sets = {}
-        for outgoing_edges in graph.adjacency_list.values():
-            for edge in outgoing_edges:
-                pair = tuple(sorted((edge.from_node, edge.to_node)))
-                if pair not in visual_edges:
-                    visual_edges[pair] = {
-                        "from": edge.from_node,
-                        "to": edge.to_node,
-                        "distance": edge.distance,
-                        "travel_time": edge.travel_time,
-                        "note": edge.note,
-                        "directions": [],
-                    }
-                    direction_sets[pair] = set()
-                direction = (edge.from_node, edge.to_node)
-                if direction not in direction_sets[pair]:
-                    direction_sets[pair].add(direction)
-                    visual_edges[pair]["directions"].append(list(direction))
-
-        return {"nodes": nodes, "edges": list(visual_edges.values())}
+        return {"nodes": nodes, "edges": serialize_visual_edges(graph)}
 
     def draw_graph(self, graph):
         graph_data = self._serialize_graph(graph)
@@ -636,6 +626,18 @@ class MapWidget(QWebEngineView):
         self._visual_updates_enabled = bool(enabled)
         if self._visual_updates_enabled:
             self.refresh_current_visualization()
+
+    def set_edge_update_handler(self, handler):
+        self._edge_bridge.set_update_handler(handler)
+
+    def set_edge_editing_enabled(self, enabled):
+        self._edge_editing_enabled = bool(enabled)
+        self._run_js_function(
+            "setEdgeEditingEnabled", {"enabled": self._edge_editing_enabled}
+        )
+
+    def update_edge_direction(self, edge_payload):
+        self._run_js_function("updateEdgeDirection", edge_payload)
 
     def refresh_current_visualization(self):
         if not self._visual_updates_enabled or not self._steps:

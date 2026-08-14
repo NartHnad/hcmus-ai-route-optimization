@@ -3,9 +3,12 @@ import os
 from pathlib import Path
 
 from PyQt5.QtCore import QTimer, QUrl, pyqtSignal
+from PyQt5.QtWebChannel import QWebChannel
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 
+from src.gui.edge_editor_bridge import EdgeEditorBridge
 from src.gui.route_selection import normalize_route_selection
+from src.models.graph_updater import serialize_visual_edges
 
 class GraphWidget(QWebEngineView):
     """Canvas graph renderer that mirrors MapWidget playback events."""
@@ -23,6 +26,12 @@ class GraphWidget(QWebEngineView):
         self._selection_payload = normalize_route_selection(None, [])
         self._theme = "light"
         self._render_enabled = False
+        self._edge_editing_enabled = False
+
+        self._web_channel = QWebChannel(self.page())
+        self._edge_bridge = EdgeEditorBridge(self)
+        self._web_channel.registerObject("edgeBridge", self._edge_bridge)
+        self.page().setWebChannel(self._web_channel)
 
         self.loadFinished.connect(self._on_load_finished)
         html_path = Path(__file__).resolve().parent / "assets" / "graph.html"
@@ -42,6 +51,7 @@ class GraphWidget(QWebEngineView):
             return
         self.set_theme(self._theme)
         self.set_render_enabled(self._render_enabled)
+        self.set_edge_editing_enabled(self._edge_editing_enabled)
         if self._pending_graph_data is not None:
             graph_data = self._pending_graph_data
             self._pending_graph_data = None
@@ -74,28 +84,7 @@ class GraphWidget(QWebEngineView):
             }
             for node in graph.nodes.values()
         ]
-        visual_edges = {}
-        direction_sets = {}
-        for outgoing_edges in graph.adjacency_list.values():
-            for edge in outgoing_edges:
-                pair = tuple(sorted((edge.from_node, edge.to_node)))
-                if pair not in visual_edges:
-                    visual_edges[pair] = {
-                        "from": edge.from_node,
-                        "to": edge.to_node,
-                        "distance": edge.distance,
-                        "travel_time": edge.travel_time,
-                        "cost": edge.calculate_cost(),
-                        "road_type": edge.road_type,
-                        "note": edge.note,
-                        "directions": [],
-                    }
-                    direction_sets[pair] = set()
-                direction = (edge.from_node, edge.to_node)
-                if direction not in direction_sets[pair]:
-                    direction_sets[pair].add(direction)
-                    visual_edges[pair]["directions"].append(list(direction))
-        return {"nodes": nodes, "edges": list(visual_edges.values())}
+        return {"nodes": nodes, "edges": serialize_visual_edges(graph)}
 
     def draw_graph(self, graph):
         graph_data = self._serialize_graph(graph)
@@ -140,6 +129,18 @@ class GraphWidget(QWebEngineView):
     def set_render_enabled(self, enabled):
         self._render_enabled = bool(enabled)
         self._run_js_function("setRenderEnabled", {"enabled": self._render_enabled})
+
+    def set_edge_update_handler(self, handler):
+        self._edge_bridge.set_update_handler(handler)
+
+    def set_edge_editing_enabled(self, enabled):
+        self._edge_editing_enabled = bool(enabled)
+        self._run_js_function(
+            "setEdgeEditingEnabled", {"enabled": self._edge_editing_enabled}
+        )
+
+    def update_edge_direction(self, edge_payload):
+        self._run_js_function("updateEdgeDirection", edge_payload)
 
     def set_start_node(self, node_id):
         """Deprecated: use :meth:`set_route_locations` instead."""

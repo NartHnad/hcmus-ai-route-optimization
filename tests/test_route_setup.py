@@ -29,6 +29,8 @@ def test_route_setup_initializes_one_goal_and_switches_route_mode():
         assert widget.route_request().route_mode == "single"
         assert not widget.remove_goal_button.isEnabled()
         assert not widget.route_request().respect_goal_order
+        assert not widget.route_request().return_to_start
+        assert not widget.return_to_start_checkbox.isEnabled()
 
         widget.add_goal_combo.setCurrentIndex(1)
         assert widget.preview_goal_id() == "N2"
@@ -37,6 +39,7 @@ def test_route_setup_initializes_one_goal_and_switches_route_mode():
         assert _goals(widget) == ["N10", "N2"]
         assert widget.route_request().route_mode == "multi"
         assert widget.remove_goal_button.isEnabled()
+        assert widget.return_to_start_checkbox.isEnabled()
         assert widget.preview_goal_id() is None
     finally:
         widget.close()
@@ -49,6 +52,24 @@ def test_route_setup_keeps_one_goal_when_start_conflicts_and_remove_is_locked():
         assert widget.route_request().start_node == "N10"
         assert _goals(widget) == ["N2"]
         assert not widget.remove_goal_button.isEnabled()
+    finally:
+        widget.close()
+
+
+def test_return_to_start_is_reset_when_route_becomes_single():
+    _app, widget = _widget(["N1", "N2", "N10"])
+    try:
+        widget.add_goal_combo.setCurrentIndex(widget.add_goal_combo.findData("N2"))
+        widget.add_goal_button.click()
+        widget.return_to_start_checkbox.setChecked(True)
+        assert widget.route_request().return_to_start
+
+        widget.goal_list.setCurrentRow(1)
+        widget.remove_goal_button.click()
+
+        assert widget.route_request().route_mode == "single"
+        assert not widget.route_request().return_to_start
+        assert not widget.return_to_start_checkbox.isEnabled()
     finally:
         widget.close()
 

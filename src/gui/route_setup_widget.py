@@ -69,6 +69,11 @@ class RouteSetupWidget(QWidget):
         self.remove_goal_button.setObjectName("removeGoalButton")
         layout.addWidget(self.remove_goal_button)
 
+        self.return_to_start_checkbox = QCheckBox("Quay về điểm bắt đầu")
+        self.return_to_start_checkbox.setObjectName("returnToStartCheck")
+        self.return_to_start_checkbox.setChecked(False)
+        layout.addWidget(self.return_to_start_checkbox)
+
         self.respect_goal_order_checkbox = QCheckBox("Đi theo thứ tự danh sách")
         self.respect_goal_order_checkbox.setObjectName("respectGoalOrderCheck")
         self.respect_goal_order_checkbox.setChecked(False)
@@ -88,6 +93,7 @@ class RouteSetupWidget(QWidget):
         self.goal_list.model().rowsMoved.connect(self._on_goal_order_changed)
         self.goal_list.currentItemChanged.connect(lambda *_: self._update_controls())
         self.respect_goal_order_checkbox.toggled.connect(self._on_order_toggled)
+        self.return_to_start_checkbox.toggled.connect(self._on_return_toggled)
 
     @staticmethod
     def _goal_text(node_id, graph):
@@ -112,6 +118,11 @@ class RouteSetupWidget(QWidget):
     def _update_controls(self):
         goals = self._goal_ids()
         can_edit = self._controls_enabled and bool(self._node_ids)
+        is_multi = len(goals) >= 2
+        if not is_multi and self.return_to_start_checkbox.isChecked():
+            self.return_to_start_checkbox.blockSignals(True)
+            self.return_to_start_checkbox.setChecked(False)
+            self.return_to_start_checkbox.blockSignals(False)
         self.start_combo.setEnabled(can_edit)
         self.add_goal_combo.setEnabled(can_edit)
         self.goal_list.setEnabled(can_edit)
@@ -119,7 +130,8 @@ class RouteSetupWidget(QWidget):
         self.remove_goal_button.setEnabled(
             can_edit and len(goals) >= 2 and self.goal_list.currentItem() is not None
         )
-        self.respect_goal_order_checkbox.setEnabled(can_edit and len(goals) >= 2)
+        self.return_to_start_checkbox.setEnabled(can_edit and is_multi)
+        self.respect_goal_order_checkbox.setEnabled(can_edit and is_multi)
 
     def _emit_selection_changed(self):
         self._update_controls()
@@ -151,6 +163,9 @@ class RouteSetupWidget(QWidget):
         self.respect_goal_order_checkbox.blockSignals(True)
         self.respect_goal_order_checkbox.setChecked(False)
         self.respect_goal_order_checkbox.blockSignals(False)
+        self.return_to_start_checkbox.blockSignals(True)
+        self.return_to_start_checkbox.setChecked(False)
+        self.return_to_start_checkbox.blockSignals(False)
         default_goal = self._valid_alternative()
         if default_goal is not None:
             self._append_goal(default_goal)
@@ -165,6 +180,7 @@ class RouteSetupWidget(QWidget):
             start_node=self.start_combo.currentData() or "",
             delivery_nodes=tuple(self._goal_ids()),
             respect_goal_order=self.respect_goal_order_checkbox.isChecked(),
+            return_to_start=self.return_to_start_checkbox.isChecked(),
         )
 
     def preview_goal_id(self):
@@ -239,6 +255,9 @@ class RouteSetupWidget(QWidget):
         self._emit_selection_changed()
 
     def _on_order_toggled(self, _checked):
+        self._emit_selection_changed()
+
+    def _on_return_toggled(self, _checked):
         self._emit_selection_changed()
 
     def set_start_node(self, node_id):

@@ -18,6 +18,18 @@ def test_map_html_uses_qt_webengine_compatible_string_replacement():
     assert "function getEndpointMarkerState()" in map_html
     assert "startMarkerVisible" in map_html
     assert "goalMarkerCount" in map_html
+    assert 'qrc:///qtwebchannel/qwebchannel.js' in map_html
+    assert "function setEdgeEditingEnabled" in map_html
+    assert "function updateEdgeDirection" in map_html
+    assert "L.DomEvent.stop(event.originalEvent)" in map_html
+    assert "map.on('click', closeEdgeEditor)" not in map_html
+
+    graph_html = (
+        Path(__file__).resolve().parents[1] / "src" / "gui" / "assets" / "graph.html"
+    ).read_text(encoding="utf-8")
+    assert 'qrc:///qtwebchannel/qwebchannel.js' in graph_html
+    assert "function setEdgeEditingEnabled" in graph_html
+    assert "function updateEdgeDirection" in graph_html
 
 
 class _SignalRecorder:

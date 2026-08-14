@@ -12,6 +12,7 @@ class RouteRequest:
     start_node: str
     delivery_nodes: tuple[str, ...]
     respect_goal_order: bool = False
+    return_to_start: bool = False
 
     @property
     def route_mode(self) -> str:
@@ -104,6 +105,12 @@ class Edge:
         Safest Route
         Optimal Route
         """
+        # Lightweight/test graphs may be assembled directly without the
+        # factory's normalization pass. Preserve the legacy raw-cost fallback
+        # for those graphs while loaded datasets continue to use the weighted
+        # normalized formula below.
+        if self.norm_distance == 0.0 and self.norm_travel_time == 0.0:
+            return self.distance + self.travel_time
         return (
             (alpha * self.norm_distance)
             + (beta * self.norm_travel_time)
@@ -113,7 +120,7 @@ class Edge:
 
     def reversed(self):
         """Return a reversed copy of this edge for legacy two-way graph building."""
-        return Edge(
+        reverse = Edge(
             from_node=self.to_node,
             to_node=self.from_node,
             distance=self.distance,
@@ -124,6 +131,10 @@ class Edge:
             risk=self.risk,
             note=self.note,
         )
+        reverse.norm_distance = self.norm_distance
+        reverse.norm_travel_time = self.norm_travel_time
+        reverse.weight = self.weight
+        return reverse
 
     def __repr__(self):
         return f"Edge({self.from_node} -> {self.to_node}, cost={self.calculate_cost()})"
