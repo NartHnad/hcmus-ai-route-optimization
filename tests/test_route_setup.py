@@ -92,6 +92,21 @@ def test_route_setup_reorders_goals_and_emits_preview_selection():
         widget.close()
 
 
+def test_route_setup_accepts_typed_start_and_goal_matches():
+    _app, widget = _widget(["N1", "N2", "N10"])
+    try:
+        widget.add_goal_combo.lineEdit().setText("n2")
+        widget.add_goal_button.click()
+        assert _goals(widget) == ["N10", "N2"]
+
+        widget.start_combo.lineEdit().setText("n10")
+        assert widget.start_combo.commit_best_match()
+        assert widget.route_request().start_node == "N10"
+        assert _goals(widget) == ["N2"]
+    finally:
+        widget.close()
+
+
 def test_route_setup_rejects_duplicate_start_and_goal_101():
     node_ids = [f"N{index}" for index in range(102)]
     _app, widget = _widget(node_ids)
@@ -112,5 +127,82 @@ def test_route_setup_rejects_duplicate_start_and_goal_101():
         widget.add_goal_combo.setCurrentIndex(widget.add_goal_combo.findData("N0"))
         widget._on_add_goal()
         assert widget.route_request().start_node not in _goals(widget)
+    finally:
+        widget.close()
+
+
+def test_route_setup_removes_goal_and_disables_controls():
+    _app, widget = _widget(["N1", "N2", "N3"])
+    try:
+        widget.add_goal_combo.setCurrentIndex(1)
+        widget.add_goal_button.click()
+        assert len(_goals(widget)) == 2
+        assert widget.route_request().route_mode == "multi"
+        assert widget.remove_goal_button.isEnabled()
+        assert widget.respect_goal_order_checkbox.isEnabled()
+
+        widget.goal_list.setCurrentRow(0)
+        widget.remove_goal_button.click()
+
+        assert _goals(widget) == ["N2"]
+        assert widget.route_request().route_mode == "single"
+        assert not widget.remove_goal_button.isEnabled()
+        assert not widget.respect_goal_order_checkbox.isEnabled()
+    finally:
+        widget.close()
+
+
+def test_route_setup_validation_errors():
+    _app, widget = _widget(["N1", "N2", "N3"])
+    errors = []
+    widget.validation_error.connect(errors.append)
+    try:
+        widget.add_goal_combo.setCurrentIndex(widget.add_goal_combo.findData("N3"))
+        widget._on_add_goal()
+        assert errors[-1] == "Goal này đã có trong danh sách."
+
+        widget.goal_list.setCurrentRow(0)
+        widget._on_remove_goal()
+        assert errors[-1] == "Route Setup phải luôn có ít nhất một Goal."
+    finally:
+        widget.close()
+
+
+def test_route_setup_too_few_nodes():
+    app = QApplication.instance() or QApplication([])
+    graph = Graph()
+    graph.add_node(Node("N1", "N1", 10.0, 106.0))
+    widget = RouteSetupWidget()
+    errors = []
+    widget.validation_error.connect(errors.append)
+    widget.set_graph(graph, ["N1"])
+    try:
+        assert errors[-1] == "Dataset cần ít nhất hai node khác nhau."
+    finally:
+        widget.close()
+
+
+def test_route_setup_toggle_order_checkbox():
+    _app, widget = _widget(["N1", "N2", "N3"])
+    try:
+        widget.add_goal_combo.setCurrentIndex(1)
+        widget.add_goal_button.click()
+        assert len(_goals(widget)) == 2
+        assert not widget.route_request().respect_goal_order
+        
+        widget.respect_goal_order_checkbox.setChecked(True)
+        assert widget.route_request().respect_goal_order
+    finally:
+        widget.close()
+
+
+def test_route_setup_deprecated_set_goal_node():
+    _app, widget = _widget(["N1", "N2", "N3"])
+    try:
+        assert _goals(widget) == ["N3"]
+        widget.set_goal_node("N2")
+        assert _goals(widget) == ["N2"]
+        widget.set_goal_node("N1")
+        assert _goals(widget) == ["N2"]
     finally:
         widget.close()
