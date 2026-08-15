@@ -118,6 +118,7 @@ class Edge:
         # normalized formula below.
         if self.norm_distance == 0.0 and self.norm_travel_time == 0.0:
             return self.distance + self.travel_time
+
         return (
             (alpha * self.norm_distance)
             + (beta * self.norm_travel_time)
@@ -143,10 +144,6 @@ class Edge:
             risk=self.risk,
             note=self.note,
         )
-        reverse.norm_distance = self.norm_distance
-        reverse.norm_travel_time = self.norm_travel_time
-        reverse.weight = self.weight
-        return reverse
 
         rev_edge.norm_distance = self.norm_distance
         rev_edge.norm_travel_time = self.norm_travel_time
