@@ -38,8 +38,13 @@ def test_update_changes_only_the_selected_direction_and_never_distance():
 
     forward = graph.get_edge("A", "B")
     assert forward.distance == 1.0
-    assert forward.travel_time == 5.0
-    assert forward.norm_travel_time == 0.5
+    assert forward.travel_time == pytest.approx(5.0 / 0.86)
+    assert forward.norm_travel_time == pytest.approx(forward.travel_time / graph.max_time)
+    assert forward.weight == pytest.approx(forward.calculate_cost())
+
+    update_edge_attributes(graph, "A", "B", 5.0, 0.4, 0.0)
+    assert forward.travel_time == pytest.approx(5.0)
+    assert forward.congestion == 0.0
     assert forward.weight == pytest.approx(forward.calculate_cost())
     assert payload["distance"] == 1.0
     assert (
@@ -50,6 +55,18 @@ def test_update_changes_only_the_selected_direction_and_never_distance():
     ) == original_reverse
 
 
+def test_congestion_update_restores_baseline_time():
+    graph = _two_way_graph()
+
+    update_edge_attributes(graph, "A", "B", 5.0, 0.2, 0.5)
+    edge = graph.get_edge("A", "B")
+    assert edge.travel_time == pytest.approx(5.0 / 0.65)
+
+    update_edge_attributes(graph, "A", "B", 5.0, 0.2, 0.0)
+    assert edge.travel_time == pytest.approx(5.0)
+    assert edge._base_travel_time == pytest.approx(5.0)
+
+
 @pytest.mark.parametrize(
     "travel_time,risk,congestion",
     [(0, 0.2, 0.2), (float("nan"), 0.2, 0.2), (2, -0.1, 0.2), (2, 0.2, 1.1)],
@@ -57,12 +74,24 @@ def test_update_changes_only_the_selected_direction_and_never_distance():
 def test_invalid_updates_are_atomic(travel_time, risk, congestion):
     graph = _two_way_graph()
     edge = graph.get_edge("A", "B")
-    before = (edge.travel_time, edge.risk, edge.congestion, edge.weight)
+    before = (
+        edge.travel_time,
+        edge._base_travel_time,
+        edge.risk,
+        edge.congestion,
+        edge.weight,
+    )
 
     with pytest.raises(EdgeUpdateError):
         update_edge_attributes(graph, "A", "B", travel_time, risk, congestion)
 
-    assert (edge.travel_time, edge.risk, edge.congestion, edge.weight) == before
+    assert (
+        edge.travel_time,
+        edge._base_travel_time,
+        edge.risk,
+        edge.congestion,
+        edge.weight,
+    ) == before
 
 
 def test_visual_edge_payload_keeps_direction_specific_details():
@@ -77,4 +106,4 @@ def test_visual_edge_payload_keeps_direction_specific_details():
     }
     assert set(details) == {("A", "B"), ("B", "A")}
     assert details[("A", "B")]["travel_time"] == 2.0
-    assert details[("B", "A")]["travel_time"] == 7.0
+    assert details[("B", "A")]["travel_time"] == pytest.approx(7.0 / 0.58)
