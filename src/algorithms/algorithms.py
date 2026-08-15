@@ -49,12 +49,6 @@ try:
 except ImportError:
     pass
 
-try:
-    from src.algorithms.mock3_algorithm import mock3_search
-
-    ALGORITHMS["Mock 3 Search"] = mock3_search
-except ImportError:
-    pass
 
 # ====================
 # IMPORT MULTI LOCATION ALGORITHMS
@@ -103,6 +97,7 @@ def run_multi_location_algorithm(
     start,
     goals,
     respect_goal_order=False,
+    return_to_start=False,
 ):
     """Execute a registered algorithm that accepts multiple goal nodes."""
     if name not in MULTI_LOCATION_ALGORITHMS:
@@ -113,6 +108,7 @@ def run_multi_location_algorithm(
         start,
         list(goals or []),
         respect_goal_order=bool(respect_goal_order),
+        return_to_start=bool(return_to_start),
     )
 
 
@@ -136,4 +132,12 @@ def run_route_request(name, graph, request: RouteRequest):
             respect_goal_order=request.respect_goal_order,
         )
 
-    raise ValueError(f"Unknown route mode: {request.route_mode}")
+    return run_multi_location_algorithm(
+        name,
+        graph,
+        request.start_node,
+        request.delivery_nodes,
+        respect_goal_order=request.respect_goal_order,
+        return_to_start=request.return_to_start,
+    )
+

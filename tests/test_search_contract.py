@@ -144,3 +144,4 @@ def test_graph_view_payload_deduplicates_visual_edges_without_losing_direction()
         ("B", "A"),
     }
     assert edge["cost"] == 5.0
+    assert len(edge["direction_details"]) == 2
