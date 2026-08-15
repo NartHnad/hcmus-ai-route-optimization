@@ -131,6 +131,7 @@ def run_route_request(name, graph, request: RouteRequest):
             request.delivery_nodes,
             respect_goal_order=request.respect_goal_order,
         )
+
     return run_multi_location_algorithm(
         name,
         graph,
@@ -139,3 +140,4 @@ def run_route_request(name, graph, request: RouteRequest):
         respect_goal_order=request.respect_goal_order,
         return_to_start=request.return_to_start,
     )
+

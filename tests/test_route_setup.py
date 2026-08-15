@@ -92,6 +92,21 @@ def test_route_setup_reorders_goals_and_emits_preview_selection():
         widget.close()
 
 
+def test_route_setup_accepts_typed_start_and_goal_matches():
+    _app, widget = _widget(["N1", "N2", "N10"])
+    try:
+        widget.add_goal_combo.lineEdit().setText("n2")
+        widget.add_goal_button.click()
+        assert _goals(widget) == ["N10", "N2"]
+
+        widget.start_combo.lineEdit().setText("n10")
+        assert widget.start_combo.commit_best_match()
+        assert widget.route_request().start_node == "N10"
+        assert _goals(widget) == ["N2"]
+    finally:
+        widget.close()
+
+
 def test_route_setup_rejects_duplicate_start_and_goal_101():
     node_ids = [f"N{index}" for index in range(102)]
     _app, widget = _widget(node_ids)

@@ -5,7 +5,6 @@ from PyQt5.QtGui import QStandardItem, QStandardItemModel
 from PyQt5.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
-    QComboBox,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -15,6 +14,7 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+from src.gui.node_search_combo import NodeSearchComboBox, NodeSearchIndex
 from src.models.models import RouteRequest
 
 
@@ -43,15 +43,27 @@ class RouteSetupWidget(QWidget):
         layout.setSpacing(8)
 
         layout.addWidget(self._field_label("Start location"))
-        self.start_combo = QComboBox()
+        self.start_combo = NodeSearchComboBox(
+            placeholder="Gõ ID hoặc tên điểm bắt đầu..."
+        )
         self.start_combo.setObjectName("fieldInput")
+        self.start_combo.setAccessibleName("Tìm điểm bắt đầu")
+        self.start_combo.setToolTip(
+            "Nhập ID hoặc tên node, sau đó chọn gợi ý hoặc nhấn Enter."
+        )
         layout.addWidget(self.start_combo)
 
         layout.addWidget(self._field_label("Add goal"))
         add_layout = QHBoxLayout()
         add_layout.setContentsMargins(0, 0, 0, 0)
-        self.add_goal_combo = QComboBox()
+        self.add_goal_combo = NodeSearchComboBox(
+            placeholder="Gõ ID hoặc tên điểm đến..."
+        )
         self.add_goal_combo.setObjectName("fieldInput")
+        self.add_goal_combo.setAccessibleName("Tìm điểm đến")
+        self.add_goal_combo.setToolTip(
+            "Nhập ID hoặc tên node, sau đó chọn gợi ý hoặc nhấn Enter."
+        )
         self.add_goal_button = QPushButton("Add")
         self.add_goal_button.setObjectName("addGoalButton")
         add_layout.addWidget(self.add_goal_combo, 1)
@@ -142,17 +154,21 @@ class RouteSetupWidget(QWidget):
         self._graph = graph
         self._node_ids = list(node_ids or [])
         model = QStandardItemModel(self)
+        search_entries = []
         for node_id in self._node_ids:
             node = graph.get_node(node_id) if graph is not None else None
-            item = QStandardItem(
-                f"{node_id} · {node.name}" if node is not None else str(node_id)
-            )
+            name = node.name if node is not None else str(node_id)
+            display = f"{node_id} · {name}" if node is not None else str(node_id)
+            item = QStandardItem(display)
             item.setData(node_id, Qt.UserRole)
             model.appendRow(item)
+            search_entries.append((node_id, name, display))
 
+        search_index = NodeSearchIndex(search_entries)
         for combo in (self.start_combo, self.add_goal_combo):
             combo.blockSignals(True)
             combo.setModel(model)
+            combo.set_search_index(search_index)
             combo.setCurrentIndex(
                 (0 if combo is self.start_combo else len(self._node_ids) - 1)
                 if self._node_ids
@@ -221,6 +237,7 @@ class RouteSetupWidget(QWidget):
         self._emit_selection_changed()
 
     def _on_add_goal(self):
+        self.add_goal_combo.commit_best_match()
         node_id = self.add_goal_combo.currentData()
         goals = self._goal_ids()
         if len(goals) >= self.MAX_GOALS:
