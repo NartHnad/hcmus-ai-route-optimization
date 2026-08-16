@@ -451,12 +451,14 @@ class MapWidget(QWebEngineView):
         if navigation == "previous":
             self.previous_step()
             return
+
         if navigation == "next":
             self.next_step()
             return
 
         if emitted.get("type") == "finish" or self._step_index >= len(self._steps):
             self._emit_finished_once()
+
         elif not self._is_paused:
             # The selected cadence includes renderer time. The old behavior
             # waited N ms *after* rendering and therefore every speed was much
@@ -581,12 +583,22 @@ class MapWidget(QWebEngineView):
         frontier = {}
         explored = {}
         current = None
+
+        # Bidirectional Search state. Normal algorithms and GA simply leave these None/empty.
+        current_direction = None
+        node_directions = {}
+
         edge_states = {}
         path = []
 
         for step in steps:
             step_type = step.get("type")
             node = step.get("node")
+            metrics = self._step_metrics(step)
+
+            direction = metrics("search_direction")
+            if direction not in {"forward", "backward"}:
+                direction = None
 
             # A GA generation route is a replacement snapshot, not another graph
             # search frontier.  Reset accumulated visual state before rebuilding it.
@@ -594,43 +606,64 @@ class MapWidget(QWebEngineView):
                 frontier.clear()
                 explored.clear()
                 current = None
+                current_direction = None
+                node_directions.clear()
                 edge_states.clear()
                 path = []
 
             ga_route_step = self._is_ga_route_step(step)
             ga_logical_update = self._is_ga_logical_update(step)
 
+            if node and direction:
+                node_directions[node] = direction
+
             if step_type == "expand":
                 if current:
                     explored[current] = None
                 current = node
+                current_direction = direction
                 frontier.pop(node, None)
                 if node:
                     explored[node] = None
+
             elif step_type == "discover":
                 # GA route DISCOVER events are edge playback only; they must not
                 # pretend every road node is a search frontier item.
                 if not ga_route_step and node and node not in explored:
                     frontier[node] = None
+
                 source, target = step.get("from"), step.get("to")
+
                 if source and target:
                     key = (source, target)
                     edge_states.pop(key, None)
-                    edge_states[key] = "inspect"
+                    base_state = "inspect"
+                    edge_states[key] = (
+                        f"{base_state}_{direction}" if direction else base_state
+                    )
+
             elif step_type == "update":
                 # Selection/crossover/mutation/generation updates are informational.
                 # They belong in the log/state metrics, not in frontier visualization.
                 if not ga_logical_update and node and node not in explored:
                     frontier[node] = None
+
                 source, target = step.get("from"), step.get("to")
+
                 if source and target:
                     key = (source, target)
                     edge_states.pop(key, None)
-                    edge_states[key] = "relaxed"
+                    base_state = "relaxed"
+                    edge_states[key] = (
+                        f"{base_state}_{direction}" if direction else base_state
+                    )
+
             elif step_type == "finish":
                 if current:
                     explored[current] = None
+
                 current = None
+                current_direction = None
                 path = list(step.get("path") or [])
 
         explored_nodes = list(explored)
@@ -638,6 +671,7 @@ class MapWidget(QWebEngineView):
             {"from": source, "to": target, "state": state}
             for (source, target), state in edge_states.items()
         ]
+
         if self._graph_node_count > 2000:
             # StatePanel still exposes the complete explored/visited lists. The
             # cap applies only to map markers, where thousands of overlapping
@@ -645,10 +679,22 @@ class MapWidget(QWebEngineView):
             explored_nodes = explored_nodes[-1000:]
             edges = edges[-1200:]
 
+        visible_state_nodes = set(frontier) | set(explored_nodes)
+        if current:
+            visible_state_nodes.add(current)
+
+        node_directions = {
+            node_id: direction
+            for node_id, direction in node_directions.items()
+            if node_id in visible_state_nodes
+        }
+
         return {
             "frontier": list(frontier),
             "explored": explored_nodes,
             "current": current,
+            "current_direction": current_direction,
+            "node_directions": node_directions,
             "edges": edges,
             "path": path,
         }

@@ -35,6 +35,17 @@ try:
 except ImportError:
     pass
 
+# #NhatHuyChanged: register weighted Bidirectional Search for single routes only.
+try:
+    from src.algorithms.bidirectional_search import (
+        ALGORITHM_NAME as BIDIRECTIONAL_SEARCH_NAME,
+        bidirectional_search,
+    )
+
+    ALGORITHMS[BIDIRECTIONAL_SEARCH_NAME] = bidirectional_search
+except ImportError:
+    pass
+
 try:
     from src.algorithms.genetic_algorithm import genetic_algorithm
 

@@ -117,6 +117,9 @@
         .legend__dot--current { color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.25); }
         .legend__dot--frontier { color: #8b5cf6; }
         .legend__dot--explored { color: #64748b; }
+
+        .legend__dot--forward { color: #ff2323; }
+        .legend__dot--backward { color: #db2777; }
         .legend__line { width: 18px; height: 0; border-top: 4px solid #16a34a; border-radius: 4px; }
 
         .endpoint-marker {
@@ -188,6 +191,8 @@
             <div class="legend__item"><span class="legend__dot legend__dot--current"></span>Current</div>
             <div class="legend__item"><span class="legend__dot legend__dot--frontier"></span>Frontier</div>
             <div class="legend__item"><span class="legend__dot legend__dot--explored"></span>Explored</div>
+            <div class="legend__item"><span class="legend__dot legend__dot--forward"></span>Start-side search</div>
+            <div class="legend__item"><span class="legend__dot legend__dot--backward"></span>Goal-side search</div>
             <div class="legend__item"><span class="legend__line"></span>Final path</div>
         </div>
     </div>
@@ -224,13 +229,33 @@
             frontier: { radius: 9,  color: '#7c3aed', weight: 3, fillColor: '#a78bfa', fillOpacity: 0.95 },
             explored: { radius: 8,  color: '#475569', weight: 2, fillColor: '#94a3b8', fillOpacity: 0.86 },
             current:  { radius: 11, color: '#b45309', weight: 5, fillColor: '#fbbf24', fillOpacity: 1.00 },
+            // Bidirectional - Start side
+            frontier_forward:  { radius: 9,  color: '#6d28d9', weight: 3, fillColor: '#8b5cf6', fillOpacity: 0.96 },
+            explored_forward:  { radius: 8,  color: '#5b21b6', weight: 2, fillColor: '#a78bfa', fillOpacity: 0.88 },
+            current_forward:   { radius: 11, color: '#4c1d95', weight: 5, fillColor: '#7c3aed', fillOpacity: 1.00 },
+            
+            // Bidirectional - Goal side
+            frontier_backward: { radius: 9,  color: '#be185d', weight: 3, fillColor: '#f472b6', fillOpacity: 0.96 },
+            explored_backward: { radius: 8,  color: '#db2777', weight: 2, fillColor: '#f9a8d4', fillOpacity: 0.88 },
+            current_backward:  { radius: 11, color: '#9d174d', weight: 5, fillColor: '#ec4899', fillOpacity: 1.00 },
+            
             path:     { radius: 10, color: '#15803d', weight: 3, fillColor: '#22c55e', fillOpacity: 1.00 },
         };
 
         const EDGE_STYLE = {
             default: { color: '#64748b', weight: 3, opacity: 0.56, dashArray: null },
-            inspect: { color: '#f97316', weight: 4, opacity: 0.88, dashArray: '6 5' },
-            relaxed: { color: '#7c3aed', weight: 4, opacity: 0.84, dashArray: '3 5' },
+            
+            inspect: { color: '#f97316', weight: 5, opacity: 0.88, dashArray: '6 5' },
+            relaxed: { color: '#7c3aed', weight: 5, opacity: 0.84, dashArray: '3 5' },
+            
+            // Bidirectional - Start side
+            inspect_forward:  { color: '#7c3aed', weight: 5, opacity: 0.90, dashArray: '6 5' },
+            relaxed_forward:  { color: '#6d28d9', weight: 5, opacity: 0.88, dashArray: '3 5' },
+            
+            // Bidirectional - Goal side
+            inspect_backward: { color: '#db2777', weight: 5, opacity: 0.90, dashArray: '6 5' },
+            relaxed_backward: { color: '#be185d', weight: 5, opacity: 0.88, dashArray: '3 5' },
+           
             path:    { color: '#16a34a', weight: 6, opacity: 1.00, dashArray: null },
         };
 
@@ -257,6 +282,8 @@
         let defaultTooltips = {};
         let nodeStates = {};
         let currentNode = null;
+        let currentDirection = null;
+        let nodeDirections = {};
         let currentStart = null;
         let currentGoals = [];
         let currentDisplayOrder = [];
@@ -432,6 +459,8 @@
             startMarker = null;
             goalMarkers = [];
             currentNode = null;
+            currentDirection = null;
+            nodeDirections = {};
             styledNodes.clear();
             styledEdges.clear();
             frontierNodes.clear();
@@ -617,7 +646,7 @@
             layer.setStyle(NODE_STYLE[state]);
             if (state === 'default') styledNodes.delete(nodeId);
             else styledNodes.add(nodeId);
-            if (state === 'current' || state === 'path') layer.bringToFront();
+            if (state.startsWith('current') || state === 'path') layer.bringToFront();
         }
 
         function styleEdge(fromNode, toNode, state) {
@@ -629,9 +658,21 @@
             if (state !== 'default') layer.bringToFront();
         }
 
+        // #NhatHuyChanged: select side-specific styles only for Bidirectional events.
+        function searchDirection(step) {
+            const direction = step && step.metrics && step.metrics.search_direction;
+            return direction === 'forward' || direction === 'backward' ? direction : null;
+        }
+
+        function directionalState(baseState, direction) {
+            const candidate = direction ? `${baseState}_${direction}` : baseState;
+            const styles = baseState === 'inspect' || baseState === 'relaxed' ? EDGE_STYLE : NODE_STYLE;
+            return styles[candidate] ? candidate : baseState;
+        }
+
         function stepStage(step) {
             return String((step.metrics && step.metrics.stage) || '');
-        }
+        }   
 
         function isGaRouteStep(step) {
             const stage = stepStage(step);
@@ -648,6 +689,8 @@
         function applyStep(rawStep) {
             const step = normalizeInput(rawStep);
             if (!step.type) return;
+            const direction = searchDirection(step);
+            if (step.node && direction) nodeDirections[step.node] = direction;
 
             const metrics = step.metrics || {};
             const gaRouteStep = isGaRouteStep(step);
@@ -660,13 +703,14 @@
             if (step.type === 'expand') {
                 if (currentNode && currentNode !== step.node && nodeStates[currentNode] !== 'path') {
                     exploredNodes.add(currentNode);
-                    styleNode(currentNode, 'explored');
+                    styleNode(currentNode, directionalState('explored', currentDirection || nodeDirections[currentNode]));
                 }
                 currentNode = step.node || null;
+                currentDirection = direction;
                 if (currentNode) {
                     frontierNodes.delete(currentNode);
                     exploredNodes.add(currentNode);
-                    styleNode(currentNode, 'current');
+                    styleNode(currentNode, directionalState('current', direction));
                     const layer = nodeLayers[currentNode];
                     if (!historyRendering && layer && !map.getBounds().contains(layer.getLatLng())) {
                         map.panTo(layer.getLatLng(), { animate: true, duration: 0.25 });
@@ -675,21 +719,26 @@
             } else if (step.type === 'discover') {
                 if (!gaRouteStep && step.node && step.node !== currentNode && !exploredNodes.has(step.node)) {
                     frontierNodes.add(step.node);
-                    styleNode(step.node, 'frontier');
+                    styleNode(step.node, directionalState('frontier', direction));
                 }
-                if (step.from && step.to) styleEdge(step.from, step.to, 'inspect');
+                if (step.from && step.to) {
+                    styleEdge(step.from, step.to, directionalState('inspect', direction));
+                }
             } else if (step.type === 'update') {
                 if (!gaLogicalUpdate && step.node && step.node !== currentNode && !exploredNodes.has(step.node)) {
                     frontierNodes.add(step.node);
-                    styleNode(step.node, 'frontier');
+                    styleNode(step.node, directionalState('frontier', direction));
                 }
-                if (step.from && step.to) styleEdge(step.from, step.to, 'relaxed');
+                if (step.from && step.to) {
+                    styleEdge(step.from, step.to, directionalState('relaxed', direction));
+                }
             } else if (step.type === 'finish') {
                 if (currentNode && nodeStates[currentNode] !== 'path') {
                     exploredNodes.add(currentNode);
-                    styleNode(currentNode, 'explored');
+                    styleNode(currentNode, directionalState('explored', currentDirection || nodeDirections[currentNode]));
                 }
                 currentNode = null;
+                currentDirection = null;
                 const path = step.path || [];
                 path.forEach(nodeId => styleNode(nodeId, 'path'));
                 for (let index = 0; index < path.length - 1; index += 1) {
@@ -700,6 +749,8 @@
 
         function resetVisualization() {
             currentNode = null;
+            currentDirection = null;
+            nodeDirections = {};
             Array.from(styledNodes).forEach(nodeId => styleNode(nodeId, 'default'));
             Array.from(styledEdges).forEach(layer => setLayerStyle(layer, EDGE_STYLE.default));
             styledNodes.clear();
@@ -742,17 +793,20 @@
             resetVisualization();
             (snapshot.explored || []).forEach(nodeId => {
                 exploredNodes.add(nodeId);
-                styleNode(nodeId, 'explored');
+                const direction = (snapshot.node_directions || {})[nodeId];
+                styleNode(nodeId, directionalState('explored', direction));
             });
             (snapshot.frontier || []).forEach(nodeId => {
                 frontierNodes.add(nodeId);
-                styleNode(nodeId, 'frontier');
+                const direction = (snapshot.node_directions || {})[nodeId];
+                styleNode(nodeId, directionalState('frontier', direction));
             });
             (snapshot.edges || []).forEach(edge => {
                 styleEdge(edge.from, edge.to, edge.state || 'inspect');
             });
             currentNode = snapshot.current || null;
-            if (currentNode) styleNode(currentNode, 'current');
+            currentDirection = snapshot.current_direction || null;
+            if (currentNode) styleNode(currentNode, directionalState('current', currentDirection));
             highlightPath(snapshot.path || []);
         }
 
