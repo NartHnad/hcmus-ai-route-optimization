@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graph View</title>
+    <style>
+        * { box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+        body {
+            --bg: #f8fafc;
+            --grid: #e2e8f0;
+            --text: #0f172a;
+            --muted: #64748b;
+            --panel: rgba(255,255,255,.94);
+            --border: #cbd5e1;
+            font-family: Inter, "Segoe UI", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+        body[data-theme="dark"] {
+            --bg: #0f172a;
+            --grid: #1e293b;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --panel: rgba(15,23,42,.94);
+            --border: #334155;
+        }
+        #graph { width: 100%; height: 100%; display: block; cursor: grab; }
+        #graph.is-dragging { cursor: grabbing; }
+        .toolbar, .legend, .empty, .tooltip {
+            position: absolute;
+            z-index: 2;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--panel);
+            box-shadow: 0 8px 24px rgba(15,23,42,.12);
+        }
+        .toolbar { top: 12px; left: 12px; display: flex; gap: 6px; padding: 6px; }
+        button {
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 6px 9px;
+            background: transparent;
+            color: var(--text);
+            font: 600 12px inherit;
+            cursor: pointer;
+        }
+        button:hover { border-color: #3b82f6; color: #2563eb; }
+        .legend { left: 12px; bottom: 12px; padding: 9px 11px; font-size: 11px; }
+        .legend strong { display: block; margin-bottom: 6px; font-size: 12px; }
+        .legend-grid { display: grid; grid-template-columns: repeat(2, auto); gap: 5px 12px; }
+        .dot { display: inline-block; width: 9px; height: 9px; margin-right: 5px; border-radius: 50%; }
+        .line { display: inline-block; width: 16px; height: 3px; margin: 0 5px 3px 0; }
+        .empty { left: 50%; top: 50%; transform: translate(-50%,-50%); padding: 14px 18px; text-align: center; }
+        .empty strong { display: block; margin-bottom: 4px; }
+        .tooltip { display: none; pointer-events: none; max-width: 280px; padding: 8px 10px; font-size: 11px; line-height: 1.45; }
+        .tooltip strong { display: block; color: var(--text); font-size: 12px; }
+        .tooltip span { color: var(--muted); }
+        .edge-editor {
+            display: none; position: absolute; z-index: 5; width: 270px;
+            max-height: calc(100% - 16px); overflow: auto; padding: 12px;
+            border: 1px solid var(--border); border-radius: 12px;
+            background: var(--panel); box-shadow: 0 12px 30px rgba(15,23,42,.24);
+            font-size: 12px;
+        }
+        .edge-editor h3 { margin: 0 0 9px; font-size: 14px; }
+        .edge-editor label { display: block; margin-top: 7px; color: var(--muted); font-weight: 600; }
+        .edge-editor input, .edge-editor select {
+            width: 100%; margin-top: 3px; padding: 6px 7px; border: 1px solid var(--border);
+            border-radius: 6px; color: var(--text); background: var(--bg); font: inherit;
+        }
+        .edge-editor input[readonly] { opacity: .75; }
+        .edge-editor__meta { margin-top: 7px; color: var(--muted); line-height: 1.45; }
+        .edge-editor__error { min-height: 16px; margin-top: 6px; color: #dc2626; }
+        .edge-editor__actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 6px; }
+        @media (max-width: 620px) {
+            .legend { max-width: calc(100% - 24px); }
+            .legend-grid { grid-template-columns: repeat(3, auto); }
+        }
+    </style>
+</head>
+<body data-theme="light">
+    <canvas id="graph"></canvas>
+    <div class="toolbar">
+        <button id="fit-button" type="button">Fit graph</button>
+        <button id="labels-button" type="button">Labels: Auto</button>
+    </div>
+    <div class="legend">
+        <strong>Graph legend</strong>
+        <div class="legend-grid">
+            <span><i class="dot" style="background:#3b82f6"></i>Default</span>
+            <span><i class="dot" style="background:#8b5cf6"></i>Frontier</span>
+            <span><i class="dot" style="background:#94a3b8"></i>Explored</span>
+            <span><i class="dot" style="background:#f59e0b"></i>Current</span>
+            <!-- #NhatHuyChanged: legend entries for the two Bidirectional frontiers. -->
+            <span><i class="dot" style="background:#2563eb"></i>Start-side search</span>
+            <span><i class="dot" style="background:#db2777"></i>Goal-side search</span>
+            <span><i class="dot" style="background:#22c55e"></i>Final path</span>
+            <span><i class="line" style="background:#f97316"></i>Inspect edge</span>
+        </div>
+    </div>
+    <div id="empty" class="empty"><strong>No graph loaded</strong>Load a dataset to begin.</div>
+    <div id="tooltip" class="tooltip"></div>
+    <form id="edge-editor" class="edge-editor">
+        <h3>Edit edge</h3>
+        <label>Direction<select id="edge-direction"></select></label>
+        <label>Distance (km)<input id="edge-distance" readonly></label>
+        <label>Estimated time (min)<input id="edge-time" type="number" min="0.000001" step="any" required></label>
+        <label>Risk (0–1)<input id="edge-risk" type="number" min="0" max="1" step="0.01" required></label>
+        <label>Congestion (0–1)<input id="edge-congestion" type="number" min="0" max="1" step="0.01" required></label>
+        <div id="edge-meta" class="edge-editor__meta"></div>
+        <div id="edge-error" class="edge-editor__error"></div>
+        <div class="edge-editor__actions">
+            <button id="edge-cancel" type="button">Cancel</button>
+            <button type="submit">Apply</button>
+        </div>
+    </form>
+
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <script>
+        const canvas = document.getElementById('graph');
+        const ctx = canvas.getContext('2d');
+        const empty = document.getElementById('empty');
+        const tooltip = document.getElementById('tooltip');
+        const fitButton = document.getElementById('fit-button');
+        const labelsButton = document.getElementById('labels-button');
+        const edgeEditor = document.getElementById('edge-editor');
+        const edgeDirection = document.getElementById('edge-direction');
+        const edgeDistance = document.getElementById('edge-distance');
+        const edgeTime = document.getElementById('edge-time');
+        const edgeRisk = document.getElementById('edge-risk');
+        const edgeCongestion = document.getElementById('edge-congestion');
+        const edgeMeta = document.getElementById('edge-meta');
+        const edgeError = document.getElementById('edge-error');
+
+        const COLORS = {
+            light: { bg:'#f8fafc', grid:'#e2e8f0', text:'#0f172a', muted:'#64748b', edge:'#94a3b8', label:'#ffffff' },
+            dark:  { bg:'#0f172a', grid:'#1e293b', text:'#e2e8f0', muted:'#94a3b8', edge:'#475569', label:'#111827' },
+            node: '#3b82f6', frontier:'#8b5cf6', explored:'#94a3b8', current:'#f59e0b', path:'#22c55e',
+            inspect:'#f97316', relaxed:'#8b5cf6', start:'#16a34a', goal:'#dc2626',
+            frontier_forward:'#8b5cf6', frontier_backward:'#f472b6',
+            explored_forward:'#a78bfa', explored_backward:'#f9a8d4',
+            current_forward:'#7c3aed', current_backward:'#ec4899',
+            inspect_forward:'#7c3aed', inspect_backward:'#ec4899',
+            relaxed_forward:'#6d28d9', relaxed_backward:'#db2777',
+        };
+
+        let graphData = { nodes: [], edges: [] };
+        let nodeIndex = new Map();
+        let edgeByDirection = new Map();
+        let frontier = new Set();
+        let explored = new Set();
+        let nodeMetrics = new Map();
+        let nodeDirections = new Map();
+        let edgeStates = new Map();
+        let currentNode = null;
+        let pathNodes = new Set();
+        let pathEdges = new Set();
+        let startNode = null;
+        let goalNodes = new Set();
+        let goalOrder = new Map();
+        let previewGoal = null;
+        let renderEnabled = false;
+        let drawQueued = false;
+        let theme = 'light';
+        let labelMode = 'auto';
+        let zoom = 1;
+        let panX = 0;
+        let panY = 0;
+        let dragging = false;
+        let dragX = 0;
+        let dragY = 0;
+        let dragDistance = 0;
+        let edgeEditingEnabled = false;
+        let editingEdge = null;
+        let edgeBridge = null;
+
+        if (typeof QWebChannel !== 'undefined' && window.qt && qt.webChannelTransport) {
+            new QWebChannel(qt.webChannelTransport, channel => {
+                edgeBridge = channel.objects.edgeBridge;
+            });
+        }
+
+        function normalizeInput(value) {
+            if (typeof value === 'string') return JSON.parse(value);
+            return value || {};
+        }
+        function edgeKey(fromNode, toNode) { return `${fromNode}->${toNode}`; }
+        function formatNumber(value) {
+            const number = Number(value);
+            if (!Number.isFinite(number)) return '—';
+            return number >= 100 ? number.toFixed(0) : number.toFixed(2).replace(/\.00$/, '');
+        }
+        function cssColors() { return COLORS[theme]; }
+
+        function directionDetails(edge) {
+            if (Array.isArray(edge.direction_details) && edge.direction_details.length) {
+                return edge.direction_details;
+            }
+            return [{
+                from: edge.from, to: edge.to, distance: edge.distance,
+                travel_time: edge.travel_time, risk: edge.risk || 0,
+                congestion: edge.congestion || 0, road_type: edge.road_type || '',
+                note: edge.note || '', cost: edge.cost,
+            }];
+        }
+
+        function selectedDirectionDetail() {
+            if (!editingEdge) return null;
+            const key = edgeDirection.value;
+            return directionDetails(editingEdge).find(detail => edgeKey(detail.from, detail.to) === key) || null;
+        }
+
+        function populateEdgeEditor() {
+            const detail = selectedDirectionDetail();
+            if (!detail) return;
+            edgeDistance.value = formatNumber(detail.distance);
+            edgeTime.value = detail.travel_time;
+            edgeRisk.value = detail.risk;
+            edgeCongestion.value = detail.congestion;
+            edgeMeta.textContent = `From/To: ${detail.from} → ${detail.to} · Road: ${detail.road_type || '—'} · Note: ${detail.note || '—'} · Cost: ${formatNumber(detail.cost)}`;
+            edgeError.textContent = '';
+        }
+
+        function closeEdgeEditor() {
+            edgeEditor.style.display = 'none';
+            editingEdge = null;
+        }
+
+        function openEdgeEditor(edge, clientX, clientY) {
+            if (!edgeEditingEnabled || !edge) return;
+            editingEdge = edge;
+            edgeDirection.innerHTML = '';
+            directionDetails(edge).forEach(detail => {
+                const option = document.createElement('option');
+                option.value = edgeKey(detail.from, detail.to);
+                option.textContent = `${detail.from} → ${detail.to}`;
+                edgeDirection.appendChild(option);
+            });
+            populateEdgeEditor();
+            edgeEditor.style.display = 'block';
+            const left = Math.max(8, Math.min(window.innerWidth - edgeEditor.offsetWidth - 8, clientX + 10));
+            const top = Math.max(8, Math.min(window.innerHeight - edgeEditor.offsetHeight - 8, clientY + 10));
+            edgeEditor.style.left = `${left}px`;
+            edgeEditor.style.top = `${top}px`;
+        }
+
+        function setEdgeEditingEnabled(rawState) {
+            const state = normalizeInput(rawState);
+            edgeEditingEnabled = Boolean(state.enabled);
+            if (!edgeEditingEnabled) closeEdgeEditor();
+        }
+
+        function updateEdgeDirection(rawDetail) {
+            const detail = normalizeInput(rawDetail);
+            const edge = edgeByDirection.get(edgeKey(detail.from, detail.to));
+            if (!edge) return false;
+            const existing = directionDetails(edge).find(item => item.from === detail.from && item.to === detail.to);
+            if (!existing) return false;
+            Object.assign(existing, detail);
+            if (edge.from === detail.from && edge.to === detail.to) Object.assign(edge, detail);
+            if (editingEdge === edge) populateEdgeEditor();
+            scheduleDraw();
+            return true;
+        }
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            const ratio = window.devicePixelRatio || 1;
+            canvas.width = Math.max(1, Math.round(rect.width * ratio));
+            canvas.height = Math.max(1, Math.round(rect.height * ratio));
+            ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+            scheduleDraw();
+        }
+
+        function buildLayout() {
+            if (!graphData.nodes.length) return;
+            if (graphData.nodes.length <= 180) {
+                const count = graphData.nodes.length;
+                const indexById = new Map();
+                graphData.nodes.forEach((node, index) => {
+                    const angle = (index / count) * Math.PI * 2;
+                    node.nx = .5 + Math.cos(angle) * .4;
+                    node.ny = .5 + Math.sin(angle) * .4;
+                    indexById.set(node.id, index);
+                });
+                const links = graphData.edges
+                    .map(edge => [indexById.get(edge.from), indexById.get(edge.to)])
+                    .filter(link => link[0] !== undefined && link[1] !== undefined);
+                const ideal = Math.sqrt(1 / count) * .72;
+                for (let iteration = 0; iteration < 110; iteration += 1) {
+                    const dx = new Array(count).fill(0), dy = new Array(count).fill(0);
+                    for (let left = 0; left < count; left += 1) {
+                        for (let right = left + 1; right < count; right += 1) {
+                            let vx = graphData.nodes[left].nx - graphData.nodes[right].nx;
+                            let vy = graphData.nodes[left].ny - graphData.nodes[right].ny;
+                            const distance = Math.max(.002, Math.hypot(vx, vy));
+                            const force = (ideal * ideal) / distance;
+                            vx /= distance; vy /= distance;
+                            dx[left] += vx * force; dy[left] += vy * force;
+                            dx[right] -= vx * force; dy[right] -= vy * force;
+                        }
+                    }
+                    links.forEach(([left, right]) => {
+                        let vx = graphData.nodes[left].nx - graphData.nodes[right].nx;
+                        let vy = graphData.nodes[left].ny - graphData.nodes[right].ny;
+                        const distance = Math.max(.002, Math.hypot(vx, vy));
+                        const force = (distance * distance) / ideal;
+                        vx /= distance; vy /= distance;
+                        dx[left] -= vx * force; dy[left] -= vy * force;
+                        dx[right] += vx * force; dy[right] += vy * force;
+                    });
+                    const temperature = .065 * (1 - iteration / 110) + .003;
+                    graphData.nodes.forEach((node, index) => {
+                        const displacement = Math.max(.001, Math.hypot(dx[index], dy[index]));
+                        node.nx = Math.max(.06, Math.min(.94, node.nx + dx[index] / displacement * Math.min(displacement, temperature)));
+                        node.ny = Math.max(.06, Math.min(.94, node.ny + dy[index] / displacement * Math.min(displacement, temperature)));
+                    });
+                }
+                return;
+            }
+            const valid = graphData.nodes.filter(node => Number.isFinite(Number(node.lat)) && Number.isFinite(Number(node.lon)));
+            if (valid.length === graphData.nodes.length) {
+                const lats = valid.map(node => Number(node.lat));
+                const lons = valid.map(node => Number(node.lon));
+                const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+                const minLon = Math.min(...lons), maxLon = Math.max(...lons);
+                const latSpan = Math.max(1e-9, maxLat - minLat);
+                const lonSpan = Math.max(1e-9, maxLon - minLon);
+                graphData.nodes.forEach(node => {
+                    node.nx = (Number(node.lon) - minLon) / lonSpan;
+                    node.ny = 1 - (Number(node.lat) - minLat) / latSpan;
+                });
+            } else {
+                graphData.nodes.forEach((node, index) => {
+                    const angle = (index / graphData.nodes.length) * Math.PI * 2;
+                    node.nx = .5 + Math.cos(angle) * .44;
+                    node.ny = .5 + Math.sin(angle) * .44;
+                });
+            }
+        }
+
+        function initGraph(rawData) {
+            try {
+                closeEdgeEditor();
+                const incoming = normalizeInput(rawData);
+                graphData = { nodes: incoming.nodes || [], edges: incoming.edges || [] };
+                nodeIndex = new Map(graphData.nodes.map(node => [node.id, node]));
+                edgeByDirection = new Map();
+                graphData.edges.forEach(edge => {
+                    (edge.directions || [[edge.from, edge.to]]).forEach(direction => {
+                        edgeByDirection.set(edgeKey(direction[0], direction[1]), edge);
+                    });
+                });
+                buildLayout();
+                resetVisualization();
+                fitGraph();
+                empty.style.display = graphData.nodes.length ? 'none' : 'block';
+                return { ready: true, token: incoming.render_token || 0 };
+            } catch (error) {
+                empty.style.display = 'block';
+                empty.innerHTML = '<strong>Graph rendering failed</strong>Check Event log for details.';
+                return { ready: false, error: String(error && error.message ? error.message : error) };
+            }
+        }
+
+        function setTheme(rawTheme) {
+            theme = normalizeInput(rawTheme).theme === 'dark' ? 'dark' : 'light';
+            document.body.dataset.theme = theme;
+            scheduleDraw();
+        }
+
+        function setRenderEnabled(rawState) {
+            renderEnabled = Boolean(normalizeInput(rawState).enabled);
+            if (renderEnabled) scheduleDraw();
+        }
+
+        function updateSelection(rawSelection) {
+            const selection = normalizeInput(rawSelection);
+            startNode = selection.start || null;
+            const goals = Array.isArray(selection.goals)
+                ? selection.goals
+                : (selection.goal ? [selection.goal] : []);
+            const displayOrder = Array.isArray(selection.display_order)
+                ? selection.display_order
+                : goals;
+            goalNodes = new Set(goals);
+            goalOrder = new Map();
+            displayOrder.forEach((nodeId, index) => {
+                if (goalNodes.has(nodeId)) goalOrder.set(nodeId, index + 1);
+            });
+            goals.forEach(nodeId => {
+                if (!goalOrder.has(nodeId)) goalOrder.set(nodeId, goalOrder.size + 1);
+            });
+            previewGoal = selection.preview_goal || null;
+            scheduleDraw();
+        }
+
+        function resetVisualization() {
+            frontier = new Set();
+            explored = new Set();
+            nodeMetrics = new Map();
+            nodeDirections = new Map();
+            edgeStates = new Map();
+            currentNode = null;
+            pathNodes = new Set();
+            pathEdges = new Set();
+            scheduleDraw();
+        }
+
+        function stepStage(step) {
+            return String((step.metrics && step.metrics.stage) || '');
+        }
+
+        function isOptimizerRouteStep(step) {
+            const stage = stepStage(step);
+            return stage.startsWith('ga_generation_route')
+                || stage.startsWith('ga_final_route')
+                || stage.startsWith('sa_initial_route')
+                || stage.startsWith('sa_iteration_route')
+                || stage.startsWith('sa_final_route')
+                || stage.startsWith('nn2opt_nn_route')
+                || stage.startsWith('nn2opt_2opt_route')
+                || stage.startsWith('nn2opt_preserved_route')
+                || stage.startsWith('nn2opt_final_route');
+        }
+
+        function isOptimizerLogicalUpdate(step) {
+            const stage = stepStage(step);
+            return step.type === 'update'
+                && (
+                    stage.startsWith('ga_')
+                    || stage.startsWith('sa_')
+                    || stage.startsWith('nn2opt_')
+                )
+                && !step.from
+                && !step.to;
+        }
+
+        function mutateStep(rawStep) {
+            const step = normalizeInput(rawStep);
+            const type = step.type;
+            const node = step.node;
+            if (!type) return;
+            // #NhatHuyChanged: keep side metadata without changing legacy events.
+            const rawDirection = step.metrics && step.metrics.search_direction;
+            const direction = rawDirection === 'forward' || rawDirection === 'backward'
+                ? rawDirection
+                : null;
+            if (node && direction) nodeDirections.set(node, direction);
+
+            const metrics = step.metrics || {};
+            const optimizerRouteStep = isOptimizerRouteStep(step);
+            const optimizerLogicalUpdate = isOptimizerLogicalUpdate(step);
+            if (metrics.route_reset) resetVisualization();
+
+            if (Array.isArray(step.frontier)) frontier = new Set(step.frontier);
+            if (Array.isArray(step.explored)) explored = new Set(step.explored);
+            else if (Array.isArray(step.visited_order)) explored = new Set(step.visited_order);
+            if (node && step.metrics && Object.keys(step.metrics).length) {
+                nodeMetrics.set(node, { ...step.metrics });
+            }
+
+            const usesSnapshot = Array.isArray(step.frontier) || Array.isArray(step.explored) || Array.isArray(step.visited_order);
+            if (!usesSnapshot && type === 'discover' && !optimizerRouteStep && node && !explored.has(node)) {
+                frontier.add(node);
+            } else if (!usesSnapshot && type === 'update' && !optimizerLogicalUpdate && node && !explored.has(node)) {
+                frontier.add(node);
+            }
+            if (type === 'expand') {
+                if (currentNode) explored.add(currentNode);
+                currentNode = node || null;
+                if (node) {
+                    frontier.delete(node);
+                    explored.add(node);
+                }
+            } else if (type === 'discover' || type === 'update') {
+                if (step.from && step.to) {
+                    const baseState = type === 'update' ? 'relaxed' : 'inspect';
+                    edgeStates.set(
+                        edgeKey(step.from, step.to),
+                        direction ? `${baseState}_${direction}` : baseState
+                    );
+                }
+            } else if (type === 'finish') {
+                if (currentNode) explored.add(currentNode);
+                currentNode = null;
+                const path = step.path || [];
+                pathNodes = new Set(path);
+                pathEdges = new Set();
+                for (let index = 0; index < path.length - 1; index += 1) {
+                    pathEdges.add(edgeKey(path[index], path[index + 1]));
+                }
+            }
+        }
+
+        function applyStep(rawStep) { mutateStep(rawStep); scheduleDraw(); }
+        function applySteps(rawSteps) {
+            const steps = normalizeInput(rawSteps);
+            (Array.isArray(steps) ? steps : []).forEach(mutateStep);
+            scheduleDraw();
+        }
+        function renderSteps(rawSteps) {
+            resetVisualization();
+            const steps = normalizeInput(rawSteps);
+            (Array.isArray(steps) ? steps : []).forEach(mutateStep);
+            scheduleDraw();
+        }
+
+        function fitGraph() {
+            zoom = 1;
+            panX = 0;
+            panY = 0;
+            scheduleDraw();
+        }
+
+        function basePosition(node) {
+            const width = canvas.clientWidth, height = canvas.clientHeight;
+            const padding = Math.min(70, Math.max(28, Math.min(width, height) * .08));
+            return {
+                x: padding + node.nx * Math.max(1, width - padding * 2),
+                y: padding + node.ny * Math.max(1, height - padding * 2),
+            };
+        }
+        function position(node) {
+            const base = basePosition(node);
+            const cx = canvas.clientWidth / 2, cy = canvas.clientHeight / 2;
+            return { x: (base.x - cx) * zoom + cx + panX, y: (base.y - cy) * zoom + cy + panY };
+        }
+
+        function scheduleDraw() {
+            if (!renderEnabled || drawQueued) return;
+            drawQueued = true;
+            window.requestAnimationFrame(() => { drawQueued = false; draw(); });
+        }
+
+        function drawGrid(colors, width, height) {
+            ctx.strokeStyle = colors.grid;
+            ctx.lineWidth = 1;
+            const spacing = Math.max(28, 52 * Math.min(2, zoom));
+            ctx.globalAlpha = .55;
+            for (let x = (panX % spacing); x < width; x += spacing) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,height); ctx.stroke(); }
+            for (let y = (panY % spacing); y < height; y += spacing) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(width,y); ctx.stroke(); }
+            ctx.globalAlpha = 1;
+        }
+
+        function edgeVisualState(edge) {
+            const directions = edge.directions || [[edge.from, edge.to]];
+            for (const direction of directions) {
+                const key = edgeKey(direction[0], direction[1]);
+                if (pathEdges.has(key)) return 'path';
+            }
+            let inspected = 'default';
+            for (const direction of directions) {
+                const state = edgeStates.get(edgeKey(direction[0], direction[1]));
+                if (state && state.startsWith('relaxed')) return state;
+                if (state && state.startsWith('inspect')) inspected = state;
+            }
+            return inspected;
+        }
+
+        function drawArrow(from, to, color) {
+            const angle = Math.atan2(to.y - from.y, to.x - from.x);
+            const x = from.x + (to.x - from.x) * .62;
+            const y = from.y + (to.y - from.y) * .62;
+            const size = 5;
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x - Math.cos(angle - .48) * size, y - Math.sin(angle - .48) * size);
+            ctx.lineTo(x - Math.cos(angle + .48) * size, y - Math.sin(angle + .48) * size);
+            ctx.closePath(); ctx.fill();
+        }
+
+        function drawEdgeLabel(edge, from, to, colors) {
+            const text = `c:${formatNumber(edge.cost)} · d:${formatNumber(edge.distance)}`;
+            const x = (from.x + to.x) / 2, y = (from.y + to.y) / 2;
+            ctx.font = '10px Segoe UI';
+            const width = ctx.measureText(text).width + 8;
+            ctx.fillStyle = colors.label; ctx.globalAlpha = .88;
+            ctx.fillRect(x - width / 2, y - 8, width, 14);
+            ctx.globalAlpha = 1; ctx.fillStyle = colors.muted; ctx.textAlign = 'center';
+            ctx.fillText(text, x, y + 3);
+        }
+
+        function nodeState(nodeId) {
+            if (pathNodes.has(nodeId)) return 'path';
+            const direction = nodeDirections.get(nodeId);
+            if (nodeId === currentNode) return direction ? `current_${direction}` : 'current';
+            if (frontier.has(nodeId)) return direction ? `frontier_${direction}` : 'frontier';
+            if (explored.has(nodeId)) return direction ? `explored_${direction}` : 'explored';
+            return 'node';
+        }
+
+        function drawNodeLabel(node, point, radius, colors, important) {
+            const metrics = nodeMetrics.get(node.id) || {};
+            const metricParts = ['g','h','f'].filter(key => metrics[key] !== undefined).map(key => `${key}:${formatNumber(metrics[key])}`);
+            const order = goalOrder.get(node.id);
+            const prefix = node.id === startNode ? 'S · ' : order ? `${order} · ` : '';
+            const title = prefix + (node.name || node.id);
+            const detail = metricParts.join('  ');
+            ctx.font = important ? '600 11px Segoe UI' : '10px Segoe UI';
+            const width = Math.max(ctx.measureText(title).width, detail ? ctx.measureText(detail).width : 0) + 10;
+            const height = detail ? 29 : 17;
+            const placeLeft = point.x > canvas.clientWidth * .68;
+            const x = placeLeft ? point.x - radius - 5 - width : point.x + radius + 5;
+            const y = Math.max(2, Math.min(canvas.clientHeight - height - 2, point.y - height / 2));
+            ctx.fillStyle = colors.label; ctx.globalAlpha = .92;
+            ctx.fillRect(x, y, width, height);
+            ctx.globalAlpha = 1; ctx.textAlign = 'left'; ctx.fillStyle = colors.text;
+            ctx.fillText(title, x + 5, y + 11);
+            if (detail) { ctx.font = '10px Segoe UI'; ctx.fillStyle = colors.muted; ctx.fillText(detail, x + 5, y + 24); }
+        }
+
+        function drawEndpointBadge(node, point, radius) {
+            const order = goalOrder.get(node.id);
+            const label = node.id === startNode ? 'S' : (order ? String(order) : (node.id === previewGoal ? '+' : ''));
+            if (!label) return;
+            ctx.save();
+            ctx.fillStyle = node.id === startNode ? COLORS.start : COLORS.goal;
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, Math.max(radius + 2, 9), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '800 10px Segoe UI';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, point.x, point.y + .5);
+            ctx.restore();
+        }
+
+        function draw() {
+            const width = canvas.clientWidth, height = canvas.clientHeight;
+            const colors = cssColors();
+            ctx.clearRect(0, 0, width, height);
+            ctx.fillStyle = colors.bg; ctx.fillRect(0, 0, width, height);
+            drawGrid(colors, width, height);
+            if (!graphData.nodes.length) return;
+
+            const smallGraph = graphData.nodes.length <= 120;
+            graphData.edges.forEach(edge => {
+                const fromNode = nodeIndex.get(edge.from), toNode = nodeIndex.get(edge.to);
+                if (!fromNode || !toNode) return;
+                const from = position(fromNode), to = position(toNode);
+                if ((from.x < -40 && to.x < -40) || (from.y < -40 && to.y < -40) || (from.x > width + 40 && to.x > width + 40) || (from.y > height + 40 && to.y > height + 40)) return;
+                const state = edgeVisualState(edge);
+                const color = state === 'default' ? colors.edge : (COLORS[state] || colors.edge);
+                ctx.strokeStyle = color;
+                ctx.globalAlpha = state === 'default' ? (smallGraph ? .52 : .25) : .95;
+                ctx.lineWidth = state === 'path' ? 4 : state === 'default' ? 1 : 2.5;
+                ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke();
+                ctx.globalAlpha = 1;
+                if ((edge.directions || []).length === 1 && (smallGraph || zoom >= 2)) drawArrow(from, to, color);
+                if (state !== 'default' || (smallGraph && graphData.edges.length <= 90 && zoom >= 1.55)) drawEdgeLabel(edge, from, to, colors);
+            });
+
+            graphData.nodes.forEach(node => {
+                const point = position(node);
+                if (point.x < -80 || point.y < -80 || point.x > width + 80 || point.y > height + 80) return;
+                const state = nodeState(node.id);
+                const important = state !== 'node' || node.id === startNode || goalNodes.has(node.id) || node.id === previewGoal;
+                const radius = important ? 7 : smallGraph ? 5 : Math.max(1.8, Math.min(4, 2.2 * Math.sqrt(zoom)));
+                ctx.beginPath(); ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = node.id === startNode
+                    ? COLORS.start
+                    : goalNodes.has(node.id) || node.id === previewGoal
+                        ? COLORS.goal
+                        : COLORS[state];
+                ctx.fill();
+                ctx.lineWidth = important ? 2 : 1;
+                ctx.strokeStyle = node.id === startNode || goalNodes.has(node.id) || node.id === previewGoal
+                    ? '#ffffff'
+                    : colors.label;
+                ctx.stroke();
+                drawEndpointBadge(node, point, radius);
+                const showLabel = labelMode === 'all' || important || (labelMode === 'auto' && (smallGraph || zoom >= 3));
+                if (showLabel) drawNodeLabel(node, point, radius, colors, important);
+            });
+        }
+
+        function nearestNode(x, y) {
+            let best = null, bestDistance = 14;
+            for (const node of graphData.nodes) {
+                const point = position(node);
+                const distance = Math.hypot(point.x - x, point.y - y);
+                if (distance < bestDistance) { best = node; bestDistance = distance; }
+            }
+            return best;
+        }
+
+        function distanceToSegment(x, y, from, to) {
+            const dx = to.x - from.x, dy = to.y - from.y;
+            const lengthSquared = dx * dx + dy * dy;
+            if (!lengthSquared) return Math.hypot(x - from.x, y - from.y);
+            const amount = Math.max(0, Math.min(1, ((x - from.x) * dx + (y - from.y) * dy) / lengthSquared));
+            return Math.hypot(x - (from.x + amount * dx), y - (from.y + amount * dy));
+        }
+
+        function nearestEdge(x, y, includeLargeGraph = false) {
+            if (!includeLargeGraph && graphData.edges.length > 2000) return null;
+            let best = null, bestDistance = 7;
+            for (const edge of graphData.edges) {
+                const fromNode = nodeIndex.get(edge.from), toNode = nodeIndex.get(edge.to);
+                if (!fromNode || !toNode) continue;
+                const distance = distanceToSegment(x, y, position(fromNode), position(toNode));
+                if (distance < bestDistance) { best = edge; bestDistance = distance; }
+            }
+            return best;
+        }
+
+        canvas.addEventListener('mousedown', event => {
+            closeEdgeEditor();
+            dragging = true; dragX = event.clientX; dragY = event.clientY; dragDistance = 0; canvas.classList.add('is-dragging'); tooltip.style.display = 'none';
+        });
+        window.addEventListener('mouseup', event => {
+            const wasDragging = dragging;
+            dragging = false;
+            canvas.classList.remove('is-dragging');
+            if (!wasDragging || dragDistance > 4 || !edgeEditingEnabled) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left, y = event.clientY - rect.top;
+            if (x < 0 || y < 0 || x > rect.width || y > rect.height || nearestNode(x, y)) return;
+            openEdgeEditor(nearestEdge(x, y, true), event.clientX, event.clientY);
+        });
+        window.addEventListener('mousemove', event => {
+            if (dragging) {
+                const dx = event.clientX - dragX, dy = event.clientY - dragY;
+                dragDistance += Math.hypot(dx, dy);
+                panX += dx; panY += dy; dragX = event.clientX; dragY = event.clientY; scheduleDraw(); return;
+            }
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left, y = event.clientY - rect.top;
+            const node = nearestNode(x, y);
+            if (node) {
+                const metrics = nodeMetrics.get(node.id) || {};
+                const metricText = ['g','h','f'].filter(key => metrics[key] !== undefined).map(key => `${key}=${formatNumber(metrics[key])}`).join(' · ');
+                tooltip.innerHTML = `<strong>${node.name || node.id}</strong><span>${node.id}${metricText ? ' · ' + metricText : ''}</span>`;
+            } else {
+                const edge = nearestEdge(x, y);
+                if (!edge) { tooltip.style.display = 'none'; return; }
+                tooltip.innerHTML = `<strong>${edge.note || edge.road_type || `${edge.from} → ${edge.to}`}</strong><span>cost=${formatNumber(edge.cost)} · distance=${formatNumber(edge.distance)} · time=${formatNumber(edge.travel_time)}</span>`;
+            }
+            tooltip.style.left = `${Math.min(window.innerWidth - 290, event.clientX + 12)}px`;
+            tooltip.style.top = `${Math.min(window.innerHeight - 70, event.clientY + 12)}px`;
+            tooltip.style.display = 'block';
+        });
+        canvas.addEventListener('wheel', event => {
+            event.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left, y = event.clientY - rect.top;
+            const oldZoom = zoom;
+            const nextZoom = Math.max(.45, Math.min(8, zoom * (event.deltaY < 0 ? 1.18 : .85)));
+            const cx = canvas.clientWidth / 2, cy = canvas.clientHeight / 2;
+            panX = x - cx - ((x - cx - panX) / oldZoom) * nextZoom;
+            panY = y - cy - ((y - cy - panY) / oldZoom) * nextZoom;
+            zoom = nextZoom; scheduleDraw();
+        }, { passive: false });
+
+        fitButton.addEventListener('click', fitGraph);
+        labelsButton.addEventListener('click', () => {
+            labelMode = labelMode === 'auto' ? 'all' : labelMode === 'all' ? 'off' : 'auto';
+            labelsButton.textContent = `Labels: ${labelMode[0].toUpperCase()}${labelMode.slice(1)}`;
+            scheduleDraw();
+        });
+        edgeDirection.addEventListener('change', populateEdgeEditor);
+        document.getElementById('edge-cancel').addEventListener('click', closeEdgeEditor);
+        edgeEditor.addEventListener('mousedown', event => event.stopPropagation());
+        document.addEventListener('mousedown', event => {
+            if (edgeEditor.style.display !== 'none' && !edgeEditor.contains(event.target) && event.target !== canvas) {
+                closeEdgeEditor();
+            }
+        });
+        edgeEditor.addEventListener('submit', event => {
+            event.preventDefault();
+            const detail = selectedDirectionDetail();
+            if (!detail || !edgeBridge) {
+                edgeError.textContent = 'Edge editor is not connected.';
+                return;
+            }
+            const payload = {
+                from: detail.from, to: detail.to,
+                travel_time: Number(edgeTime.value), risk: Number(edgeRisk.value),
+                congestion: Number(edgeCongestion.value),
+            };
+            edgeBridge.updateEdge(payload, response => {
+                if (!response || !response.ok) {
+                    edgeError.textContent = response && response.error ? response.error : 'Update failed.';
+                    return;
+                }
+                updateEdgeDirection(response.edge);
+                closeEdgeEditor();
+            });
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') closeEdgeEditor();
+        });
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+    </script>
+</body>
+</html>

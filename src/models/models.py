@@ -1,10 +1,36 @@
 # src/models.py
 
+from src.constants import (
+    DEFAULT_ALPHA,
+    DEFAULT_BETA,
+    DEFAULT_DELTA,
+    DEFAULT_GAMMA,
+    StepType,
+)
+from dataclasses import dataclass
+
+from src.constants import StepType
+
+
+@dataclass(frozen=True)
+class RouteRequest:
+    """An immutable snapshot of the locations selected for a route search."""
+
+    start_node: str
+    delivery_nodes: tuple[str, ...]
+    respect_goal_order: bool = False
+    return_to_start: bool = False
+
+    @property
+    def route_mode(self) -> str:
+        """Return the algorithm registry mode required by this request."""
+        return "multi" if len(self.delivery_nodes) >= 2 else "single"
+
 
 class Node:
     """
     Represents a physical traffic intersection, landmark, school, hospital, bus station, warehouse, or district.
-    It stores coordinates (lat, lon) 
+    It stores coordinates (lat, lon)
     and computing Heuristic distances (e.g., Euclidean) for informed search algorithms like A* and Greedy BFS.
     """
 
@@ -12,8 +38,8 @@ class Node:
         self,
         node_id: str,
         name: str,
-        lat: float = None,
-        lon: float = None,
+        lat: float,
+        lon: float,
         node_type: str = "intersection",
     ):
         self.id = node_id
@@ -21,7 +47,7 @@ class Node:
 
         self.lat = lat  # latitude: Vi do
         self.lon = lon  # longitude: Kinh do
-        self.node_type = node_type
+        self.node_type = node_type  # Giao lộ, Bệnh viện, ...
 
     # Magic Method: define how a Node object is represented as a string
     def __repr__(self):
@@ -39,77 +65,94 @@ class Edge:
         to_node: str,
         distance: float,
         travel_time: float,
-        road_type: str = None,
+        road_type: str,
         is_one_way: bool = False,
-        congestion: int = 0,
-        risk: int = 0,
+        congestion: float = 0.0,
+        risk: float = 0.0,
         note: str = "",
     ):
         self.from_node = from_node
         self.to_node = to_node
 
         # Compulsory Attributes
-        self.distance = float(distance)  # Raw physical distance (meters/kilometers)
-        self.travel_time = float(travel_time)  # Estimated travel time
-        self.road_type = road_type  
-        self.is_one_way = is_one_way # Traffic direction: 'one-way' or 'two-way'
+        self.distance = float(distance)  # Raw physical distance (kilometers)
+        self.travel_time = float(travel_time)  # Estimated travel time (minutes)
+        self.road_type = road_type
+        self.is_one_way = is_one_way  # Traffic direction: 'one-way' or 'two-way'
+
+        # Normalized Values 0.0 -> 1.0
+        self.norm_distance = 0.0
+        self.norm_travel_time = 0.0
 
         # Traffic traffic level scaled from a to b
-        self.congestion = int(congestion)
-
+        self.congestion = float(congestion)  # 0.0 -> 1.0
         # Penalty for flooding, construction, difficult intersections, narrow roads, or unsafe areas
-        self.risk = int(risk)
-
+        self.risk = float(risk)  # 0.0 -> 1.0
         self.note = note
 
-    def calculate_cost( #need to be updated
+        # Cached Cost Value
+        self.weight = 0.0
+
+    def calculate_cost(
         self,
-        alpha: float = 1.0,
-        beta: float = 1.0,
-        gamma: float = 1.0,
-        delta: float = 1.0,
-        mode: str = "optimal",
-    ):
+        alpha: float = DEFAULT_ALPHA,
+        beta: float = DEFAULT_BETA,
+        gamma: float = DEFAULT_GAMMA,
+        delta: float = DEFAULT_DELTA,
+    ) -> float:
         """
         Dynamically evaluate the edge's weight based on different routing strategies.
 
         Cost = alpha * Distance + beta * Time + gamma * Congestion + delta * Risk
-        """
+        Cost = 0.25 * Distance_norm + 0.45 * Time_norm + 0.2 * Congestion + 0.1 * Risk
 
-        if mode == "shortest":
-            return self.distance
+        Mode:
+        Shortest Distance
+        Fastest Route
+        Safest Route
+        Optimal Route
+        """
+        # Lightweight/test graphs may be assembled directly without the
+        # factory's normalization pass. Preserve the legacy raw-cost fallback
+        # for those graphs while loaded datasets continue to use the weighted
+        # normalized formula below.
+        if self.norm_distance == 0.0 and self.norm_travel_time == 0.0:
+            return self.distance + self.travel_time
 
         return (
-            (alpha * self.distance)
-            + (beta * self.travel_time)
+            (alpha * self.norm_distance)
+            + (beta * self.norm_travel_time)
             + (gamma * self.congestion)
             + (delta * self.risk)
         )
 
     def reversed(self):
         """Return a reversed copy of this edge for legacy two-way graph building."""
-        return Edge(
+        if self.is_one_way:
+            raise ValueError(
+                f"Cannot reverse one-way edge: " f"{self.from_node} -> {self.to_node}"
+            )
+
+        rev_edge = Edge(
             from_node=self.to_node,
             to_node=self.from_node,
             distance=self.distance,
             travel_time=self.travel_time,
             road_type=self.road_type,
+            is_one_way=False,
             congestion=self.congestion,
             risk=self.risk,
             note=self.note,
         )
 
+        rev_edge.norm_distance = self.norm_distance
+        rev_edge.norm_travel_time = self.norm_travel_time
+        rev_edge.weight = self.weight
+
+        return rev_edge
+
     def __repr__(self):
         return f"Edge({self.from_node} -> {self.to_node}, cost={self.calculate_cost()})"
-
-from enum import Enum
-
-class StepType(Enum):
-    EXPAND = "expand"           # Lấy node ra khỏi hàng đợi để xét (Visited)
-    DISCOVER = "discover"       # Tìm thấy node mới lần đầu (Frontier Add)
-    UPDATE = "update"           # Tìm thấy đường đi rẻ hơn đến node đã biết (Relaxation)
-
-    FINISH = "finish"
 
 
 class SearchStep:
@@ -126,6 +169,12 @@ class SearchStep:
     - Emit exactly one SearchStep when the event occurs.
     - Do not batch or reconstruct events afterward.
     - Unused fields must be None.
+
+    ``frontier``/``explored``/``visited_order`` remain supported for small,
+    legacy producers. Core graph-search algorithms emit compact delta events
+    instead: DISCOVER/UPDATE adds ``node`` to the frontier and EXPAND removes
+    it and appends it to the explored/visited order. ``frontier_position``
+    preserves stack ordering for DFS without copying the entire stack.
     """
 
     def __init__(
@@ -135,12 +184,22 @@ class SearchStep:
         edge_from: str = None,
         edge_to: str = None,
         metrics: dict = None,  # g, h, f of heuristic function
+        frontier=None,
+        explored=None,
+        visited_order=None,
+        frontier_position: str = None,
     ):
         self.step_type = step_type
         self.node_id = node_id
         self.edge_from = edge_from
         self.edge_to = edge_to
         self.metrics = metrics or {}
+        # Optional state snapshots keep playback deterministic and allow the UI
+        # to move both forwards and backwards without re-running an algorithm.
+        self.frontier = None if frontier is None else list(frontier)
+        self.explored = None if explored is None else list(explored)
+        self.visited_order = None if visited_order is None else list(visited_order)
+        self.frontier_position = frontier_position
 
     def to_dict(self):
         """
@@ -161,6 +220,18 @@ class SearchStep:
         if self.metrics:
             data["metrics"] = dict(self.metrics)
 
+        if self.frontier is not None:
+            data["frontier"] = list(self.frontier)
+
+        if self.explored is not None:
+            data["explored"] = list(self.explored)
+
+        if self.visited_order is not None:
+            data["visited_order"] = list(self.visited_order)
+
+        if self.frontier_position is not None:
+            data["frontier_position"] = self.frontier_position
+
         return data
 
     def __repr__(self):
@@ -172,6 +243,7 @@ class SearchStep:
         if self.metrics:
             parts.append(f"metrics={self.metrics}")
         return f"SearchStep({', '.join(parts)})"
+
 
 class SearchResult:
     """
@@ -189,6 +261,10 @@ class SearchResult:
         success: bool = False,
         message: str = "",
         visited_order=None,
+        runtime_ms: float = 0.0,
+        total_distance=None,
+        estimated_time=None,
+        goal_visit_order=None,
     ):
         self.path = path or []
         self.steps = steps or []
@@ -196,6 +272,13 @@ class SearchResult:
         self.success = success
         self.message = message
         self.visited_order = visited_order or []
+        self.runtime_ms = float(runtime_ms)
+        self.total_distance = None if total_distance is None else float(total_distance)
+        self.estimated_time = None if estimated_time is None else float(estimated_time)
+        # Ordered delivery destinations for multi-location searches. This is
+        # intentionally separate from ``visited_order``, which records graph
+        # nodes expanded by the search algorithm.
+        self.goal_visit_order = list(goal_visit_order or [])
 
     def to_dict(self):
         """
@@ -207,6 +290,10 @@ class SearchResult:
             "total_cost": self.total_cost,
             "message": getattr(self, "message", ""),
             "visited_order": list(self.visited_order),
+            "runtime_ms": self.runtime_ms,
+            "total_distance": self.total_distance,
+            "estimated_time": self.estimated_time,
+            "goal_visit_order": list(self.goal_visit_order),
             # Accept both SearchStep objects and plain dicts (mock steps),
             # so mixed lists still serialize cleanly.
             "steps": [
@@ -218,7 +305,8 @@ class SearchResult:
     def __repr__(self):
         return (
             f"SearchResult(success={self.success}, "
-            f"path={self.path}, total_cost={self.total_cost}, "
+            f"path={self.path}, "
+            f"total_cost={self.total_cost})"
         )
 
 
@@ -228,16 +316,25 @@ class Graph:
         self.nodes = {}
         # Directed Adjacency List mapping Node ID to its outgoing Edge objects
         self.adjacency_list = {}
+        # #NhatHuyChanged: maintain incoming edges for efficient reverse search.
+        self.incoming_adjacency_list = {}
+
+        # Max distance
+        self.max_distance = 1.0
+        # Max time
+        self.max_time = 1.0
 
     def add_node(self, node: Node):
         """Register a node into the graph network and initialize its adjacency list."""
         self.nodes[node.id] = node
         if node.id not in self.adjacency_list:
             self.adjacency_list[node.id] = []
+        if node.id not in self.incoming_adjacency_list:
+            self.incoming_adjacency_list[node.id] = []
 
     def add_edge(self, edge: Edge):
         """
-        Establish connectivity between nodes.
+        Add an edge to the graph.
         Automatically handles one-way constraints and creates a reverse edge if the road type direction is specified as 'two-way'.
         """
         # Add the forward edge
@@ -245,6 +342,7 @@ class Graph:
             self.adjacency_list[edge.from_node] = []
 
         self.adjacency_list[edge.from_node].append(edge)
+        self.incoming_adjacency_list.setdefault(edge.to_node, []).append(edge)
 
         # If it is a two-way street, create the reverse path
         if not edge.is_one_way:
@@ -252,16 +350,22 @@ class Graph:
 
             if reverse_edge.from_node not in self.adjacency_list:
                 self.adjacency_list[reverse_edge.from_node] = []
-            
-            self.adjacency_list[reverse_edge.from_node].append(reverse_edge)
 
+            self.adjacency_list[reverse_edge.from_node].append(reverse_edge)
+            self.incoming_adjacency_list.setdefault(
+                reverse_edge.to_node, []
+            ).append(reverse_edge)
 
     def get_node(self, node_id):
         return self.nodes.get(node_id)
-    
+
     def get_neighbors(self, node_id: str):
         """Return all outgoing edges from a node."""
         return self.adjacency_list.get(node_id, [])
+
+    def get_incoming_neighbors(self, node_id: str):
+        """Return directed edges whose destination is ``node_id``."""
+        return self.incoming_adjacency_list.get(node_id, [])
 
     def get_edge(self, from_node: str, to_node: str):
         """Return the first edge from from_node to to_node, or None."""
@@ -269,7 +373,8 @@ class Graph:
             if edge.to_node == to_node:
                 return edge
         return None
-    
+
     def clear(self):
         self.nodes.clear()
         self.adjacency_list.clear()
+        self.incoming_adjacency_list.clear()

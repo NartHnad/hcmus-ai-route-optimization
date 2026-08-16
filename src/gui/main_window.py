@@ -1,328 +1,1545 @@
-# src/gui/main_window.py
-
-# Import standard Python libraries
+import html
+import re
 import sys
+import time
+from datetime import datetime
+from pathlib import Path
 
-# Import PyQt5 modules for building the graphical interface
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import QObject, Qt, QThread, QTimer, pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import (
     QApplication,
     QComboBox,
+    QFrame,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QTextEdit,
     QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QSplitter,
+    QStackedWidget,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
-    QPlainTextEdit,  # Using for display searching process (log):
 )
 
-# Import project modules.
-from src.algorithms.algorithms import run_algorithm, get_algorithms
+from src.algorithms.algorithms import (
+    get_algorithms,
+    run_route_request,
+)
+from src.data.data_loader import get_dataset_options, load_dataset
+from src.gui.algorithm_state_panel import AlgorithmStatePanel
+from src.gui.delivery_panel import ResultSummaryPanel
+from src.gui.graph_widget import GraphWidget
 from src.gui.map_widget import MapWidget
-from src.data.data_loader import load_dataset, get_json_datasets
+from src.gui.route_setup_widget import RouteSetupWidget
+from src.models.graph_updater import EdgeUpdateError, update_edge_attributes
+
+
+class SearchWorker(QObject):
+    """Run a read-only graph search without blocking Qt's GUI thread."""
+
+    completed = pyqtSignal(object, float)
+    failed = pyqtSignal(str)
+
+    def __init__(self, algorithm, graph, route_request):
+        super().__init__()
+        self.algorithm = algorithm
+        self.graph = graph
+        self.route_request = route_request
+
+    @pyqtSlot()
+    def run(self):
+        try:
+            started = time.perf_counter()
+            result = run_route_request(self.algorithm, self.graph, self.route_request)
+            runtime_ms = (time.perf_counter() - started) * 1000
+            self.completed.emit(result, runtime_ms)
+        except Exception as exc:
+            self.failed.emit(str(exc))
 
 
 class MainWindow(QMainWindow):
-    """
-    The main window containing the search controls panel on the left
-    and the interactive Leaflet map widget on the right.
+    """Responsive Map View for route-search algorithm visualization."""
 
-    The window contains:
-        - A control sidebar
-        - An interactive Leaflet map
-        - A status console
-    """
+    COMPACT_BREAKPOINT = 880
+    EXECUTION_STATES = {
+        "idle",
+        "loading",
+        "ready",
+        "computing",
+        "running",
+        "paused",
+        "finished",
+    }
 
     def __init__(self):
         super().__init__()
-
-        # Configure the main window
-        self.setup_window()
-
-        # Store the currently loaded graph
         self.graph = None
+        self.current_theme = "light"
+        self.execution_state = "idle"
+        self._active_result = None
+        self._active_algorithm = ""
+        self._active_start = ""
+        self._active_goals = []
+        self._active_respect_goal_order = False
+        self._active_return_to_start = False
+        self._compact_mode = False
+        self._sidebar_user_collapsed = False
+        self._state_user_collapsed = False
+        self._sidebar_is_drawer = False
+        self._search_thread = None
+        self._search_worker = None
+        self._algorithm_route_mode = "single"
+        self._pending_load_summary = None
+        self._pending_renderers = set()
+        self._ready_renderers = set()
+        self._active_view = "map"
 
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-
-        main_layout = QHBoxLayout(central_widget)
-
-        main_layout.addWidget(self.create_sidebar())
-
-        self.map_widget = MapWidget()
-        main_layout.addWidget(self.map_widget, stretch=1)
-
-        # Initial message
-        self.log_status("[INFO] Application started.")
-        self.log_status("[INFO] Please load a dataset.")
-
+        self.setup_window()
+        self.build_ui()
+        self.connect_signals()
+        self.load_theme("light")
+        self._set_execution_state("idle")
+        self.result_panel.reset()
+        self.algorithm_state.reset()
+        self.log_event("INFO", "Application started. Load a dataset to begin.")
+        QTimer.singleShot(0, self._apply_responsive_layout)
 
     def setup_window(self):
         self.setWindowTitle("Route Optimization Visualizer")
-        self.resize(1100, 750)
-    
+        self.resize(1280, 820)
+        self.setMinimumSize(430, 620)
+
+    def build_ui(self):
+        self.central_widget = QWidget()
+        self.central_widget.setObjectName("appRoot")
+        self.setCentralWidget(self.central_widget)
+        root = QVBoxLayout(self.central_widget)
+        root.setContentsMargins(12, 10, 12, 12)
+        root.setSpacing(8)
+
+        root.addWidget(self.create_header())
+        self.alert_banner = self.create_alert_banner()
+        root.addWidget(self.alert_banner)
+
+        self.main_splitter = QSplitter(Qt.Horizontal)
+        self.main_splitter.setObjectName("mainSplitter")
+        self.main_splitter.setChildrenCollapsible(False)
+        self.main_splitter.setHandleWidth(10)
+        self.main_splitter.setOpaqueResize(True)
+
+        self.sidebar_scroll = self.create_sidebar()
+        self.workspace = self.create_workspace()
+        self.main_splitter.addWidget(self.sidebar_scroll)
+        self.main_splitter.addWidget(self.workspace)
+        self.main_splitter.setStretchFactor(0, 0)
+        self.main_splitter.setStretchFactor(1, 1)
+        self.main_splitter.setSizes([320, 940])
+        root.addWidget(self.main_splitter, 1)
+
+    def create_header(self):
+        header = QFrame()
+        header.setObjectName("appHeader")
+        layout = QHBoxLayout(header)
+        layout.setContentsMargins(12, 8, 12, 8)
+        layout.setSpacing(8)
+
+        self.sidebar_toggle = QPushButton("☰")
+        self.sidebar_toggle.setObjectName("iconButton")
+        self.sidebar_toggle.setAccessibleName("Toggle controls sidebar")
+        self.sidebar_toggle.setToolTip("Show or hide route controls")
+        layout.addWidget(self.sidebar_toggle)
+
+        title_box = QVBoxLayout()
+        title_box.setSpacing(0)
+        self.title_label = QLabel("Route Lab")
+        self.title_label.setObjectName("appTitle")
+        self.subtitle_label = QLabel("Map View · Single-route search")
+        self.subtitle_label.setObjectName("appSubtitle")
+        title_box.addWidget(self.title_label)
+        title_box.addWidget(self.subtitle_label)
+        layout.addLayout(title_box)
+
+        layout.addStretch()
+
+        self.map_view_button = QPushButton("Map View")
+        self.map_view_button.setObjectName("segmentButton")
+        self.map_view_button.setCheckable(True)
+        self.map_view_button.setChecked(True)
+        self.graph_view_button = QPushButton("Graph View")
+        self.graph_view_button.setObjectName("segmentButton")
+        self.graph_view_button.setCheckable(True)
+        self.graph_view_button.setToolTip("Show the node-edge graph renderer")
+        layout.addWidget(self.map_view_button)
+        layout.addWidget(self.graph_view_button)
+
+        self.state_toggle = QPushButton("Hide state")
+        self.state_toggle.setObjectName("tertiaryButton")
+        layout.addWidget(self.state_toggle)
+
+        self.status_badge = QLabel("Not ready")
+        self.status_badge.setObjectName("statusBadge")
+        layout.addWidget(self.status_badge)
+
+        self.theme_button = QPushButton("Dark mode")
+        self.theme_button.setObjectName("tertiaryButton")
+        self.theme_button.setAccessibleName("Toggle light and dark theme")
+        layout.addWidget(self.theme_button)
+        return header
+
+    def create_alert_banner(self):
+        banner = QFrame()
+        banner.setObjectName("alertBanner")
+        banner.hide()
+        layout = QHBoxLayout(banner)
+        layout.setContentsMargins(12, 8, 8, 8)
+        self.alert_label = QLabel("")
+        self.alert_label.setWordWrap(True)
+        close_button = QPushButton("×")
+        close_button.setObjectName("iconButton")
+        close_button.setAccessibleName("Dismiss notification")
+        close_button.clicked.connect(banner.hide)
+        layout.addWidget(self.alert_label, 1)
+        layout.addWidget(close_button)
+        self.alert_timer = QTimer(self)
+        self.alert_timer.setSingleShot(True)
+        self.alert_timer.timeout.connect(banner.hide)
+        return banner
+
     def create_sidebar(self):
-        # Control Panel layout (Sidebar)
-        sidebar = QWidget()
-        sidebar.setFixedWidth(280)
+        scroll = QScrollArea()
+        scroll.setObjectName("sidebarScroll")
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setMinimumWidth(260)
+        scroll.setMaximumWidth(520)
+        scroll.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
-        sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(0, 0, 0, 0)
-        sidebar_layout.setSpacing(16)
+        content = QWidget()
+        content.setObjectName("sidebarContent")
+        self.sidebar_content = content
+        layout = QVBoxLayout(content)
+        layout.setContentsMargins(6, 4, 8, 6)
+        layout.setSpacing(10)
 
-        sidebar_layout.addWidget(self.create_dataset_group())
-        sidebar_layout.addWidget(self.create_algorithm_group())
-        sidebar_layout.addWidget(self.create_parameters_group())
-        sidebar_layout.addWidget(self.create_execution_group())
-        sidebar_layout.addWidget(self.create_status_group())
+        layout.addWidget(self.create_dataset_group())
+        layout.addWidget(self.create_algorithm_group())
+        layout.addWidget(self.create_parameters_group())
+        layout.addWidget(self.create_execution_group())
+        layout.addStretch()
+        scroll.setWidget(content)
+        return scroll
 
-        sidebar_layout.addStretch()
-
-        return sidebar
-    
     def create_dataset_group(self):
-        dataset_group = QGroupBox("Dataset Control")
-        dataset_layout = QVBoxLayout(dataset_group)
+        group = QGroupBox("1 · Dataset")
+        layout = QVBoxLayout(group)
+        layout.setContentsMargins(12, 16, 12, 12)
+        layout.setSpacing(8)
+        layout.addWidget(self.field_label("Area / network"))
 
-        dataset_layout.addWidget(QLabel("Select Dataset:"))
         self.dataset_combo = QComboBox()
-
-        # GET DATASET TO SELECT
-        available_datasets = get_json_datasets()
-
-        """
-        Check available Datasets
-        """
-        if available_datasets:
-            self.dataset_combo.addItems(available_datasets)
-        else:
-            self.dataset_combo.addItem("Not found any datasets!")
+        self.dataset_combo.setObjectName("fieldInput")
+        self.configure_resizable_combo(self.dataset_combo, 16)
+        options = get_dataset_options()
+        for option in options:
+            label = self.friendly_dataset_name(option["filename"])
+            if option["node_count"] is not None:
+                label += f" · {option['node_count']} nodes"
+            self.dataset_combo.addItem(label, option["filename"])
+        if not options:
+            self.dataset_combo.addItem("No JSON datasets found", None)
             self.dataset_combo.setEnabled(False)
+        layout.addWidget(self.dataset_combo)
 
-        dataset_layout.addWidget(self.dataset_combo)
+        self.load_button = QPushButton("Load graph data")
+        self.load_button.setObjectName("secondaryButton")
+        self.load_button.setEnabled(bool(options))
+        layout.addWidget(self.load_button)
 
-        self.load_button = QPushButton("Load Graph Data")
-        self.load_button.clicked.connect(self.on_load_graph_clicked)
-        dataset_layout.addWidget(self.load_button)
+        self.graph_summary_label = QLabel("No graph loaded")
+        self.graph_summary_label.setObjectName("mutedLabel")
+        self.graph_summary_label.setWordWrap(True)
+        layout.addWidget(self.graph_summary_label)
+        return group
 
-        return dataset_group
-    
     def create_algorithm_group(self):
-        algorithm_group = QGroupBox("Algorithm")
-        algorithm_layout = QVBoxLayout(algorithm_group)
-
-        algorithm_layout.addWidget(QLabel("Select Algorithm:"))
-
+        group = QGroupBox("2 · Algorithm")
+        layout = QVBoxLayout(group)
+        layout.setContentsMargins(12, 16, 12, 12)
+        layout.setSpacing(8)
+        layout.addWidget(self.field_label("Search strategy"))
         self.algorithm_combo = QComboBox()
-
-        # Algorithm selection
-        self.available_algorithms = get_algorithms()
-
-        if self.available_algorithms:
-            self.algorithm_combo.addItems(self.available_algorithms)
-        else:
-            self.algorithm_combo.addItem("Not found any algorithms!")
+        self.algorithm_combo.setObjectName("fieldInput")
+        self.configure_resizable_combo(self.algorithm_combo, 16)
+        self.available_algorithms = get_algorithms("single")
+        self.algorithm_combo.addItems(self.available_algorithms)
+        if not self.available_algorithms:
+            self.algorithm_combo.addItem("No algorithms available")
             self.algorithm_combo.setEnabled(False)
+        layout.addWidget(self.algorithm_combo)
+        self.algorithm_hint = QLabel(
+            "Frontier and explored state updates at every step."
+        )
+        self.algorithm_hint.setObjectName("mutedLabel")
+        self.algorithm_hint.setWordWrap(True)
+        layout.addWidget(self.algorithm_hint)
+        return group
 
-        algorithm_layout.addWidget(self.algorithm_combo)
-        
-        return algorithm_group
-    
     def create_parameters_group(self):
-        parameter_group = QGroupBox("Parameters")
-        parameter_layout = QVBoxLayout(parameter_group)
+        group = QGroupBox("3 · Route setup")
+        layout = QVBoxLayout(group)
+        layout.setContentsMargins(12, 16, 12, 12)
+        layout.setSpacing(8)
 
-        # Start Node
-        parameter_layout.addWidget(QLabel("Start Node"))
+        self.route_setup = RouteSetupWidget()
+        self.route_setup.goal_list.setMinimumHeight(86)
+        self.route_setup.goal_list.setMaximumHeight(180)
+        self.route_setup.add_goal_button.setObjectName("secondaryButton")
+        self.route_setup.remove_goal_button.setObjectName("tertiaryButton")
+        self.route_setup.respect_goal_order_checkbox.setToolTip(
+            "Unchecked: the multi-location algorithm chooses the goal order."
+        )
+        self.route_setup.return_to_start_checkbox.setToolTip(
+            "After the final delivery goal, find a route back to Start."
+        )
+        layout.addWidget(self.route_setup)
 
-        self.start_combo = QComboBox()
+        self.route_scope_label = QLabel(
+            "One goal uses standard search; two or more goals use multi-location search."
+        )
+        self.route_scope_label.setObjectName("mutedLabel")
+        self.route_scope_label.setWordWrap(True)
+        layout.addWidget(self.route_scope_label)
 
-        parameter_layout.addWidget(self.start_combo)
-
-        # Goal Node
-        parameter_layout.addWidget(QLabel("Goal Node"))
-
-        self.goal_combo = QComboBox()
-
-        parameter_layout.addWidget(self.goal_combo)
-
-        # Animation Speed
-        parameter_layout.addWidget(QLabel("Animation Speed"))
-
+        layout.addWidget(self.field_label("Autoplay speed"))
         self.speed_combo = QComboBox()
+        self.speed_combo.setObjectName("fieldInput")
+        self.configure_resizable_combo(self.speed_combo, 14)
+        for label, profile in (
+            (
+                "Instant",
+                {
+                    "name": "Instant",
+                    "interval_ms": 0,
+                    "target_duration_ms": 0,
+                    "hint": "Show the final route immediately without intermediate map frames.",
+                },
+            ),
+            (
+                "Fast · ~5 s",
+                {
+                    "name": "Fast",
+                    "interval_ms": 50,
+                    "target_duration_ms": 5000,
+                    "hint": "Fast overview; large searches target roughly 5 seconds.",
+                },
+            ),
+            (
+                "Balanced · ~15 s",
+                {
+                    "name": "Balanced",
+                    "interval_ms": 100,
+                    "target_duration_ms": 15000,
+                    "hint": "Recommended balance; large searches target roughly 15 seconds.",
+                },
+            ),
+            (
+                "Detailed · ~30 s",
+                {
+                    "name": "Detailed",
+                    "interval_ms": 200,
+                    "target_duration_ms": 30000,
+                    "hint": "Slower inspection; large searches target roughly 30 seconds.",
+                },
+            ),
+            (
+                "Step by step · Manual",
+                {
+                    "name": "Step by step",
+                    "interval_ms": 100,
+                    "target_duration_ms": 0,
+                    "manual": True,
+                    "hint": "Manual playback only; use Previous and Next to move one event at a time.",
+                },
+            ),
+        ):
+            self.speed_combo.addItem(label, profile)
 
-        self.speed_combo.addItems(["100 ms", "250 ms", "500 ms", "1000 ms"])
-
-        # self.speed_combo.setCurrentText("500 ms")
-
-        parameter_layout.addWidget(self.speed_combo)
-
-        return parameter_group
+        self.speed_combo.setCurrentIndex(2)
+        layout.addWidget(self.speed_combo)
+        self.speed_hint = QLabel("")
+        self.speed_hint.setObjectName("mutedLabel")
+        self.speed_hint.setWordWrap(True)
+        layout.addWidget(self.speed_hint)
+        self._update_speed_hint()
+        return group
 
     def create_execution_group(self):
-        execution_group = QGroupBox("Execution")
+        group = QGroupBox("4 · Playback")
+        layout = QVBoxLayout(group)
+        layout.setContentsMargins(12, 16, 12, 12)
+        layout.setSpacing(8)
 
-        execution_layout = QVBoxLayout(execution_group)
+        self.run_button = QPushButton("Run search")
+        self.run_button.setObjectName("primaryButton")
+        layout.addWidget(self.run_button)
 
-        self.run_button = QPushButton("Run Search")
-        self.run_button.setEnabled(False)
+        grid = QGridLayout()
+        grid.setSpacing(7)
+        self.pause_button = QPushButton("Pause")
+        self.previous_button = QPushButton("Previous")
+        self.next_button = QPushButton("Next")
+        self.replay_button = QPushButton("Replay")
+        self.reset_button = QPushButton("Reset")
+        for button in (
+            self.pause_button,
+            self.previous_button,
+            self.next_button,
+            self.replay_button,
+            self.reset_button,
+        ):
+            button.setObjectName("secondaryButton")
+        grid.addWidget(self.pause_button, 0, 0, 1, 2)
+        grid.addWidget(self.previous_button, 1, 0)
+        grid.addWidget(self.next_button, 1, 1)
+        grid.addWidget(self.replay_button, 2, 0)
+        grid.addWidget(self.reset_button, 2, 1)
+        layout.addLayout(grid)
+        return group
+
+    def create_workspace(self):
+        workspace = QWidget()
+        workspace.setObjectName("workspace")
+        layout = QVBoxLayout(workspace)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        self.workspace_splitter = QSplitter(Qt.Vertical)
+        self.workspace_splitter.setObjectName("workspaceSplitter")
+        self.workspace_splitter.setChildrenCollapsible(False)
+
+        self.visualization_splitter = QSplitter(Qt.Horizontal)
+        self.visualization_splitter.setObjectName("visualizationSplitter")
+        self.visualization_splitter.setChildrenCollapsible(False)
+        self.visualization_splitter.setHandleWidth(10)
+        self.visualization_splitter.setOpaqueResize(True)
+        self.map_widget = MapWidget()
+        self.graph_widget = GraphWidget()
+        self.graph_widget.set_render_enabled(False)
+        self.visualization_stack = QStackedWidget()
+        self.visualization_stack.setObjectName("visualizationStack")
+        self.visualization_stack.addWidget(self.map_widget)
+        self.visualization_stack.addWidget(self.graph_widget)
+        self.visualization_stack.setCurrentWidget(self.map_widget)
+        self.algorithm_state = AlgorithmStatePanel()
+        self.visualization_splitter.addWidget(self.visualization_stack)
+        self.visualization_splitter.addWidget(self.algorithm_state)
+        self.visualization_splitter.setStretchFactor(0, 3)
+        self.visualization_splitter.setStretchFactor(1, 1)
+        self.visualization_splitter.setSizes([720, 330])
+
+        self.info_tabs = QTabWidget()
+        self.info_tabs.setObjectName("infoTabs")
+        self.info_tabs.setDocumentMode(True)
+
+        self.result_panel = ResultSummaryPanel()
+        self.result_scroll = QScrollArea()
+        self.result_scroll.setObjectName("resultScroll")
+        self.result_scroll.setWidgetResizable(True)
+        self.result_scroll.setFrameShape(QFrame.NoFrame)
+        self.result_scroll.setWidget(self.result_panel)
+        self.info_tabs.addTab(self.result_scroll, "Result")
+
+        self.event_log = QTextEdit()
+        self.event_log.setObjectName("eventLog")
+        self.event_log.setReadOnly(True)
+        self.event_log.document().setMaximumBlockCount(1200)
+        self.info_tabs.addTab(self.event_log, "Event log")
+
+        comparison = QWidget()
+        comparison_layout = QVBoxLayout(comparison)
+        comparison_layout.setContentsMargins(24, 20, 24, 20)
+        comparison_title = QLabel("Comparison View")
+        comparison_title.setObjectName("panelTitle")
+        comparison_text = QLabel(
+            "Coming soon · Single-run metrics and playback are completed first. "
+            "The future table will compare runs using the same dataset, route, "
+            "cost function and conditions."
+        )
+        comparison_text.setObjectName("mutedLabel")
+        comparison_text.setWordWrap(True)
+        comparison_layout.addWidget(comparison_title)
+        comparison_layout.addWidget(comparison_text)
+        comparison_layout.addStretch()
+        self.info_tabs.addTab(comparison, "Comparison · Soon")
+
+        self.workspace_splitter.addWidget(self.visualization_splitter)
+        self.workspace_splitter.addWidget(self.info_tabs)
+        self.workspace_splitter.setStretchFactor(0, 4)
+        self.workspace_splitter.setStretchFactor(1, 1)
+        self.workspace_splitter.setSizes([600, 185])
+        layout.addWidget(self.workspace_splitter)
+        return workspace
+
+    def connect_signals(self):
+        self.load_button.clicked.connect(self.on_load_graph_clicked)
+        self.algorithm_combo.currentTextChanged.connect(self.on_algorithm_changed)
+        self.route_setup.selection_changed.connect(self.on_route_selection_changed)
+        self.route_setup.validation_error.connect(
+            lambda message: self.show_alert(message, "error")
+        )
+        self.route_setup.route_event.connect(
+            lambda message: self.log_event("INFO", message)
+        )
+        self.speed_combo.currentIndexChanged.connect(self.on_speed_changed)
+
         self.run_button.clicked.connect(self.on_run_search_clicked)
-        execution_layout.addWidget(self.run_button)
-
-        self.reset_button = QPushButton("Reset Map")
-        self.reset_button.setEnabled(False)
+        self.pause_button.clicked.connect(self.on_pause_resume_clicked)
+        self.previous_button.clicked.connect(self.on_previous_clicked)
+        self.next_button.clicked.connect(self.on_next_clicked)
+        self.replay_button.clicked.connect(self.on_replay_clicked)
         self.reset_button.clicked.connect(self.on_reset_clicked)
-        execution_layout.addWidget(self.reset_button)
 
-        return execution_group
+        self.map_widget.animation_finished.connect(self.on_animation_finished)
+        self.map_widget.step_changed.connect(self.on_step_changed)
+        self.map_widget.playback_state_changed.connect(self.on_playback_state_changed)
+        self.map_widget.graph_ready.connect(
+            lambda: self.on_visualization_render_ready("map")
+        )
+        self.map_widget.graph_render_failed.connect(
+            lambda message: self.on_visualization_render_failed("map", message)
+        )
+        self.graph_widget.graph_ready.connect(
+            lambda: self.on_visualization_render_ready("graph")
+        )
+        self.graph_widget.graph_render_failed.connect(
+            lambda message: self.on_visualization_render_failed("graph", message)
+        )
+        self.map_widget.set_edge_update_handler(self.on_edge_update_requested)
+        self.graph_widget.set_edge_update_handler(self.on_edge_update_requested)
 
-    def create_status_group(self):
-        status_group = QGroupBox("Status")
+        self.sidebar_toggle.clicked.connect(self.toggle_sidebar)
+        self.state_toggle.clicked.connect(self.toggle_state_panel)
+        self.algorithm_state.collapse_requested.connect(self.toggle_state_panel)
+        self.theme_button.clicked.connect(self.toggle_theme)
+        self.graph_view_button.clicked.connect(self.on_graph_view_clicked)
+        self.map_view_button.clicked.connect(self.on_map_view_clicked)
 
-        status_layout = QVBoxLayout(status_group)
+    @staticmethod
+    def field_label(text):
+        label = QLabel(text)
+        label.setObjectName("fieldLabel")
+        return label
 
-        self.status_console = QPlainTextEdit()
+    @staticmethod
+    def configure_resizable_combo(combo, minimum_characters=14):
+        """Allow combo boxes to shrink and grow with the draggable sidebar."""
+        combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        combo.setMinimumContentsLength(minimum_characters)
+        combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        # Status console is read-only
-        self.status_console.setReadOnly(True)
+    @staticmethod
+    def friendly_dataset_name(filename):
+        stem = Path(filename).stem.strip("_").lower()
+        if stem == "map_data":
+            return "HCMC sample network"
+        stem = re.sub(r"^map_", "", stem)
+        words = stem.replace("_", " ").title()
+        return words.replace("District ", "District ")
 
-        # limit height
-        self.status_console.setMaximumHeight(180)
+    @staticmethod
+    def natural_node_key(node_id):
+        return [
+            int(part) if part.isdigit() else part.lower()
+            for part in re.split(r"(\d+)", node_id)
+        ]
 
-        status_layout.addWidget(self.status_console)
+    def current_start_id(self):
+        return self.route_setup.route_request().start_node
 
-        return status_group
-    
-    
+    def current_goal_id(self):
+        """Deprecated: compatibility helper for code that expects one goal."""
+        goals = self.route_setup.route_request().delivery_nodes
+        return goals[0] if goals else ""
 
-    # ==========================================================
-    # Load the selected graph dataset.
-    #
-    # Steps:
-    #   1. Read JSON file.
-    #   2. Build Graph object.
-    #   3. Display graph on map.
-    #   4. Populate node selection boxes.
-    # ==========================================================
-    def on_load_graph_clicked(self):
-        filename = self.dataset_combo.currentText()
+    def route_request(self):
+        return self.route_setup.route_request()
 
-        try:
-            # Construct Graph object from JSON file
-            self.graph = load_dataset(filename)
+    # RouteSetupWidget is the only mutable source of Start/Goal selection.
+    def _refresh_algorithm_options(self, route_mode):
+        """Refresh the algorithm menu only when its registry mode changes."""
+        if route_mode == self._algorithm_route_mode:
+            return
+        algorithms = get_algorithms(route_mode)
+        previous = self.algorithm_combo.currentText()
+        self.algorithm_combo.blockSignals(True)
+        self.algorithm_combo.clear()
+        self.algorithm_combo.addItems(algorithms)
+        if previous in algorithms:
+            self.algorithm_combo.setCurrentText(previous)
+        self.algorithm_combo.blockSignals(False)
+        self.available_algorithms = algorithms
+        self._algorithm_route_mode = route_mode
+        if algorithms:
+            self.algorithm_state.set_algorithm(self.algorithm_combo.currentText())
 
-            # Draw graph on the Leaflet map
-            self.map_widget.draw_graph(self.graph)
-
-            # Populate node selection boxes
-            node_ids = sorted(list(self.graph.nodes.keys()))
-
-            self.start_combo.clear()
-            self.start_combo.addItems(node_ids)
-
-            self.goal_combo.clear()
-            self.goal_combo.addItems(node_ids)
-
-            # Set default start and goal nodes
-            if len(node_ids) >= 2:
-                self.start_combo.setCurrentIndex(0)
-                self.goal_combo.setCurrentIndex(len(node_ids) - 1)
-
-            # Enable pathfinding controls
-            self.run_button.setEnabled(True)
-            self.reset_button.setEnabled(True)
-
-            # Count graph edges
-            total_edges = sum(
-                len(edges) for edges in self.graph.adjacency_list.values()
+    def _update_route_context(self, request):
+        is_multi = request.route_mode == "multi"
+        # multi-location mode now has real route optimizers.
+        self.route_scope_label.setText(
+            f"Multi-location mode · {len(request.delivery_nodes)} goals · "
+            "route optimization enabled."
+            if is_multi
+            else "Single-route mode · all standard search algorithms are available."
+        )
+        self.algorithm_hint.setText(
+            "Choose an optimizer, or enable list order to visit goals "
+            "exactly as arranged."
+            if is_multi
+            else "Frontier and explored state updates at every step."
+        )
+        if hasattr(self, "subtitle_label"):
+            view_name = "Graph" if self._active_view == "graph" else "Map"
+            self.subtitle_label.setText(
+                f"{view_name} View · {self._route_mode_label()}"
             )
 
-            # Count Algorithm selections
-            total_algorithms = len(self.available_algorithms)
-
-            # Display graph summary
-            self.log_status(
-                "[INFO]\n"
-                f"Successfully loaded {filename}.\n\n"
-                f"Nodes count: {len(self.graph.nodes)}\n"
-                f"Edges count: {total_edges}\n"
-                f"Algorithms count: {total_algorithms}"
-            )
-
-        except Exception as e:
-            self.log_status(f"[ERROR] Failed to load graph: {str(e)}")
-
-    # ==========================================================
-    # Execute the selected search algorithm.
-    #
-    # The generated search steps are passed to the map widget
-    # for animated visualization.
-    # ==========================================================
-    def on_run_search_clicked(self):
-        if self.graph is None:
-            return
-
-        start_id = self.start_combo.currentText()
-        goal_id = self.goal_combo.currentText()
-        algorithm_name = self.algorithm_combo.currentText()
-
-        # Validate user selections
-        if not start_id or not goal_id:
-            self.log_status("[ERROR] start or goal node selection is invalid.")
-            return
-
-        self.log_status(
-            f"[INFO] Running {self.algorithm_combo.currentText()} pathfinding from {start_id} to {goal_id}..."
+    def _update_route_locations(self, request=None, display_order=None):
+        request = request or self.route_request()
+        order = (
+            list(request.delivery_nodes)
+            if display_order is None
+            else list(display_order)
+        )
+        preview = self.route_setup.preview_goal_id()
+        self.map_widget.set_route_locations(
+            request.start_node, request.delivery_nodes, order, preview
+        )
+        self.graph_widget.set_route_locations(
+            request.start_node, request.delivery_nodes, order, preview
         )
 
-        # Execute search algorithm
+    def on_route_selection_changed(self, request):
+        self._refresh_algorithm_options(request.route_mode)
+        self._update_route_context(request)
+        if self.graph is not None:
+            self._update_route_locations(request)
+        self._set_execution_state(self.execution_state)
+
+    def on_load_graph_clicked(self):
+        filename = self.dataset_combo.currentData()
+        if not filename:
+            self.show_alert("No dataset is available to load.", "error")
+            return
+
+        self._set_execution_state("loading")
+        QApplication.processEvents()
+        try:
+            self.graph = load_dataset(filename)
+            self._pending_renderers = {"map", "graph"}
+            self._ready_renderers.clear()
+            self.map_widget.draw_graph(self.graph)
+            self.graph_widget.draw_graph(self.graph)
+            node_ids = sorted(self.graph.nodes, key=self.natural_node_key)
+            self.route_setup.set_graph(self.graph, node_ids)
+            edge_count = sum(len(edges) for edges in self.graph.adjacency_list.values())
+            self.graph_summary_label.setText(
+                f"{len(node_ids)} nodes · {edge_count} directed edges"
+            )
+            self.result_panel.reset(self._route_mode_label())
+            self.algorithm_state.reset()
+            self.algorithm_state.set_algorithm(self.algorithm_combo.currentText())
+            self._active_result = None
+            self.map_widget.show_message(
+                "Rendering graph layers. Controls will unlock when the map is ready.",
+                "info",
+            )
+            self._pending_load_summary = (
+                filename,
+                len(node_ids),
+                edge_count,
+            )
+            self.log_event(
+                "INFO", f"Loaded {filename}; rendering map layers in batches."
+            )
+            if self._compact_mode:
+                self.sidebar_scroll.hide()
+        except Exception as exc:
+            self._pending_load_summary = None
+            self._set_execution_state("idle")
+            self.show_alert(f"Failed to load graph: {exc}", "error")
+            self.map_widget.show_message("Graph data could not be loaded.", "error")
+            self.log_event("ERROR", f"Failed to load {filename}: {exc}")
+
+    def _route_mode_label(self):
+        request = self.route_setup.route_request()
+        goal_count = len(request.delivery_nodes)
+        return (
+            f"Multi-location search · {goal_count} goals"
+            f"{' · round trip' if request.return_to_start else ''}"
+            if goal_count >= 2
+            else "Single-route search"
+        )
+
+    def on_visualization_render_ready(self, renderer):
+        """Record renderer readiness; renderers reapply their own selection."""
+        if self.graph is None:
+            return
+        self._pending_renderers.discard(renderer)
+        self._ready_renderers.add(renderer)
+        if (
+            self.execution_state == "loading"
+            and self._active_view in self._ready_renderers
+        ):
+            self._finish_visualization_load()
+        elif self.execution_state in {"ready", "finished"}:
+            self._set_execution_state(self.execution_state)
+
+    def _finish_visualization_load(self):
+        self._set_execution_state("ready")
+        self.map_widget.show_message(
+            "Graph ready. Select start, goal and algorithm, then run.", "success"
+        )
+        if self._pending_load_summary is not None:
+            filename, node_count, edge_count = self._pending_load_summary
+            self.show_alert(
+                f"Loaded {self.friendly_dataset_name(filename)} successfully.",
+                "success",
+            )
+            self.log_event(
+                "SUCCESS",
+                f"Rendered {filename}: {node_count} nodes, "
+                f"{edge_count} directed edges.",
+            )
+        self._pending_load_summary = None
+
+    def on_visualization_render_failed(self, renderer, message):
+        self._pending_renderers.discard(renderer)
+        self._ready_renderers.discard(renderer)
+        title = "Map" if renderer == "map" else "Graph"
+        if renderer != self._active_view:
+            self.show_alert(
+                f"{title} View could not be prepared; the active view is still usable.",
+                "warning",
+            )
+            self.log_event("WARNING", f"{title} rendering failed: {message}")
+            if (
+                self.execution_state == "loading"
+                and self._active_view in self._ready_renderers
+            ):
+                self._finish_visualization_load()
+            return
+
+        self._pending_load_summary = None
+        self._set_execution_state("idle")
+        self.show_alert(f"{title} rendering failed: {message}", "error")
+        self.log_event("ERROR", f"{title} rendering failed: {message}")
+
+    def on_run_search_clicked(self):
+        if self.graph is None:
+            self.show_alert("Load a dataset before running a search.", "error")
+            return
+        if self._active_view not in self._ready_renderers:
+            title = "Graph" if self._active_view == "graph" else "Map"
+            self.show_alert(f"{title} View is still rendering. Please wait.", "warning")
+            return
+
+        request = self.route_request()
+        start_id = request.start_node
+        goals = request.delivery_nodes
         algorithm = self.algorithm_combo.currentText()
-        result = run_algorithm(algorithm, self.graph, start_id, goal_id)
+        if not start_id or not goals or not algorithm:
+            self.show_alert(
+                "Choose a valid start, at least one goal and an algorithm.", "error"
+            )
+            return
 
-        # Get interval from animation speed
-        interval = int(self.speed_combo.currentText().split()[0])
+        self._active_algorithm = algorithm
+        self._active_start = start_id
+        self._active_goals = list(goals)
+        self._active_respect_goal_order = request.respect_goal_order
+        self._active_return_to_start = request.return_to_start
+        self._set_execution_state("computing")
+        QApplication.processEvents()
 
-        # Animate the search process on the map
-        self.map_widget.draw_map_step_by_step(result, interval)
+        self.map_widget.reset(emit_state=False)
+        self.graph_widget.reset_visualization()
+        self.algorithm_state.reset()
+        self.algorithm_state.set_algorithm(algorithm)
+        self.result_panel.set_running(algorithm, start_id, goals)
+        self.log_event(
+            "INFO",
+            f"Running {algorithm}: {start_id} → {' → '.join(goals)}"
+            f"{' → ' + start_id if request.return_to_start else ''}.",
+        )
 
-    # ======================================================
-    # Restore the map to its original appearance.
-    # ======================================================
+        self._search_thread = QThread(self)
+        self._search_worker = SearchWorker(algorithm, self.graph, request)
+        self._search_worker.moveToThread(self._search_thread)
+        self._search_thread.started.connect(self._search_worker.run)
+        self._search_worker.completed.connect(self._on_search_completed)
+        self._search_worker.failed.connect(self._on_search_failed)
+        self._search_worker.completed.connect(self._search_thread.quit)
+        self._search_worker.failed.connect(self._search_thread.quit)
+        self._search_worker.completed.connect(self._search_worker.deleteLater)
+        self._search_worker.failed.connect(self._search_worker.deleteLater)
+        self._search_thread.finished.connect(self._on_search_thread_finished)
+        self._search_thread.finished.connect(self._search_thread.deleteLater)
+        self._search_thread.start()
+
+    def on_edge_update_requested(self, payload):
+        """Validate an editor request, update the graph, and sync both views."""
+        if self.graph is None:
+            return {"ok": False, "error": "Load a graph before editing an edge."}
+        if self.execution_state not in {"ready", "finished"}:
+            return {
+                "ok": False,
+                "error": "Edges cannot be edited while a search is running.",
+            }
+        try:
+            updated = update_edge_attributes(
+                self.graph,
+                payload.get("from"),
+                payload.get("to"),
+                payload.get("travel_time"),
+                payload.get("risk"),
+                payload.get("congestion"),
+            )
+        except EdgeUpdateError as exc:
+            return {"ok": False, "error": str(exc)}
+
+        self.map_widget.update_edge_direction(updated)
+        self.graph_widget.update_edge_direction(updated)
+        self.map_widget.reset(emit_state=False)
+        self.graph_widget.reset_visualization()
+        self.algorithm_state.reset()
+        self.algorithm_state.set_algorithm(self.algorithm_combo.currentText())
+        self.result_panel.reset(self._route_mode_label())
+        self._active_result = None
+        self._set_execution_state("ready")
+        direction = f"{updated['from']} → {updated['to']}"
+        self.show_alert(f"Updated edge {direction} for this session.", "success")
+        self.log_event(
+            "INFO",
+            f"Updated {direction}: time={updated['travel_time']:.2f}, "
+            f"risk={updated['risk']:.2f}, congestion={updated['congestion']:.2f}.",
+        )
+        return {"ok": True, "edge": updated}
+
+    def _on_search_completed(self, result, runtime_ms):
+        result.runtime_ms = runtime_ms
+        self._enrich_result_metrics(result)
+        self._active_result = result
+        if len(self._active_goals) >= 2 and not self._active_respect_goal_order:
+            result_order = list(getattr(result, "goal_visit_order", []) or [])
+            if result_order:
+                self._update_route_locations(display_order=result_order)
+        profile = self.current_playback_profile()
+        manual_mode = profile.get("manual", False)
+        self._set_execution_state("paused" if manual_mode else "running")
+        self.map_widget.draw_map_step_by_step(
+            result,
+            profile["interval_ms"],
+            profile["target_duration_ms"],
+            manual_mode=manual_mode,
+        )
+        if manual_mode:
+            self.map_widget.show_message(
+                f"{self._active_algorithm} ready · use Previous/Next for each step"
+            )
+        else:
+            self.map_widget.show_message(
+                f"Running {self._active_algorithm} · {profile['name']}"
+            )
+        if self._compact_mode:
+            self.sidebar_scroll.hide()
+
+    def _on_search_failed(self, message):
+        self._active_result = None
+        self._set_execution_state("ready")
+        self.show_alert(f"Search failed: {message}", "error")
+        self.log_event("ERROR", f"{self._active_algorithm} failed: {message}")
+
+    def _on_search_thread_finished(self):
+        self._search_worker = None
+        self._search_thread = None
+
+    def _enrich_result_metrics(self, result):
+        distance = 0.0
+        estimated_time = 0.0
+        complete = bool(result.path)
+        route_details = []
+        for from_node, to_node in zip(result.path, result.path[1:]):
+            edge = self.graph.get_edge(from_node, to_node)
+            if edge is None:
+                complete = False
+                break
+            distance += edge.distance
+            estimated_time += edge.travel_time
+            route_details.append(
+                {
+                    "from": from_node,
+                    "to": to_node,
+                    "distance": edge.distance,
+                    "travel_time": edge.travel_time,
+                    "road": edge.note or edge.road_type,
+                }
+            )
+        result.total_distance = distance if complete else None
+        result.estimated_time = estimated_time if complete else None
+        result.route_details = route_details if complete else []
+
+    def on_pause_resume_clicked(self):
+        if self.current_playback_profile().get("manual", False):
+            return
+        if self.execution_state == "running":
+            self.map_widget.pause_animation()
+            self.log_event("INFO", "Playback paused.")
+        elif self.execution_state == "paused":
+            self.map_widget.resume_animation()
+            self.log_event("INFO", "Playback resumed.")
+
+    def on_previous_clicked(self):
+        self.map_widget.previous_step()
+        if self.map_widget.step_index < self.map_widget.step_count:
+            self._set_execution_state("paused")
+        self.log_event("INFO", "Moved to the previous playback step.")
+
+    def on_next_clicked(self):
+        self.map_widget.next_step()
+        if self.map_widget.step_index < self.map_widget.step_count:
+            self._set_execution_state("paused")
+        self.log_event("INFO", "Advanced one playback step.")
+
+    def on_replay_clicked(self):
+        if self._active_result is None:
+            return
+        self.algorithm_state.reset()
+        self.graph_widget.reset_visualization()
+        self.result_panel.set_running(
+            self._active_algorithm, self._active_start, self._active_goals
+        )
+        self.map_widget.replay_animation()
+        if self.current_playback_profile().get("manual", False):
+            self._set_execution_state("paused")
+            self.log_event("INFO", "Manual playback returned to the initial state.")
+        else:
+            self._set_execution_state("running")
+            self.log_event("INFO", "Playback restarted from step 1.")
+
     def on_reset_clicked(self):
         self.map_widget.reset()
-        self.log_status("[INFO] Map style reset to default.")
+        self.graph_widget.reset_visualization()
+        self.algorithm_state.reset()
+        self.result_panel.reset(self._route_mode_label())
+        self._active_result = None
+        self._set_execution_state("ready" if self.graph is not None else "idle")
+        self.log_event(
+            "INFO", "Visualization reset; graph and route selection preserved."
+        )
 
-    def log_status(self, message: str):
-        """
-        Append a message to the status console.
-        """
+    def on_animation_finished(self):
+        self._set_execution_state("finished")
+        if self._active_result is None:
+            return
+        self.result_panel.set_result(
+            self._active_result,
+            self._active_algorithm,
+            self._active_start,
+            self._active_goals,
+        )
+        self.info_tabs.setCurrentWidget(self.result_scroll)
+        if self._active_result.success:
+            self.map_widget.show_message(
+                "Search completed · final path highlighted", "success"
+            )
+            self.show_alert("Search completed and a route was found.", "success")
+            self.log_event(
+                "SUCCESS",
+                f"Completed in {self._active_result.runtime_ms:.2f} ms; "
+                f"visited {len(self._active_result.visited_order)} nodes.",
+            )
+        else:
+            self.map_widget.show_message("Search completed · no route found", "error")
+            self.show_alert(
+                self._active_result.message or "No route was found.", "error"
+            )
+            self.log_event(
+                "ERROR", self._active_result.message or "No route was found."
+            )
 
-        self.status_console.appendPlainText(message)
+    @staticmethod
+    def _optimizer_summary_metrics(step):
+        """Return route-start metadata when a GA/SA frame was rendered atomically."""
+        metrics = step.get("metrics") or {}
+        if not isinstance(metrics, dict):
+            metrics = {}
+        route_frame = metrics.get("route_frame")
+        if route_frame is None:
+            return metrics
 
-        scrollbar = self.status_console.verticalScrollBar()
+        events = step.get("_batch") or step.get("_history") or []
+        for event in reversed(events):
+            event_metrics = event.get("metrics") or {}
+            if not isinstance(event_metrics, dict):
+                continue
+            if (
+                event_metrics.get("route_frame") == route_frame
+                and event_metrics.get("route_reset")
+            ):
+                return event_metrics
+        return metrics
+
+    @staticmethod
+    def _step_log_detail(step):
+        event_type = step.get("type", "unknown").upper()
+        node = step.get("node")
+        metrics = step.get("metrics") or {}
+        if not isinstance(metrics, dict):
+            metrics = {}
+        stage = str(metrics.get("stage") or "")
+        summary_metrics = MainWindow._optimizer_summary_metrics(step)
+        summary_stage = str(summary_metrics.get("stage") or stage)
+        generation = metrics.get("generation")
+        generation_text = f"generation {generation}" if generation is not None else "generation"
+
+        if stage.startswith("ga_"):
+            if metrics.get("route_reset"):
+                role = str(metrics.get("route_role") or "route")
+                cost = metrics.get("route_cost")
+                suffix = f" · cost {cost}" if cost is not None else ""
+                if role == "representative_offspring":
+                    return f"GA {generation_text} · draw representative offspring{suffix}"
+                if role == "new_global_best":
+                    return f"GA {generation_text} · draw NEW GLOBAL BEST{suffix}"
+                if role == "initial_best":
+                    return f"GA {generation_text} · draw initial best{suffix}"
+                if role == "final_global_best":
+                    return f"GA {generation_text} · draw final global best{suffix}"
+                if role == "preserved_order":
+                    return f"GA preserved goal order{suffix}"
+                return f"GA {generation_text} · draw route{suffix}"
+            if stage == "ga_candidate":
+                cost = metrics.get("candidate_cost")
+                changed = metrics.get("changed_from_previous")
+                change_text = "changed" if changed else "same order"
+                return f"GA {generation_text} · representative offspring · {change_text}" + (f" · cost {cost}" if cost is not None else "")
+            if stage == "ga_selection":
+                return f"GA {generation_text} · tournament selection"
+            if stage == "ga_crossover":
+                return f"GA {generation_text} · OX crossover"
+            if stage == "ga_mutation":
+                return f"GA {generation_text} · swap mutation"
+            if stage == "ga_elitism":
+                return f"GA {generation_text} · elitism"
+            if stage == "ga_generation":
+                best = metrics.get("generation_best_cost", metrics.get("best_cost"))
+                return f"GA {generation_text} complete" + (f" · best {best}" if best is not None else "")
+            if stage == "ga_best":
+                best = metrics.get("best_cost", metrics.get("global_best_cost"))
+                return f"GA {generation_text} · new global best" + (f" {best}" if best is not None else "")
+            if stage.startswith("ga_generation_route") or stage.startswith("ga_final_route"):
+                if event_type == "DISCOVER":
+                    return f"GA {generation_text} · route edge {step.get('from')} → {step.get('to')}"
+                if event_type == "EXPAND":
+                    return f"GA {generation_text} · reach {node}"
+            return f"GA {generation_text} · {stage.replace('ga_', '').replace('_', ' ')}"
+
+        if stage.startswith("sa_") or summary_stage.startswith("sa_"):
+            sa_metrics = summary_metrics if summary_stage.startswith("sa_") else metrics
+            sa_stage = summary_stage if summary_stage.startswith("sa_") else stage
+            iteration = sa_metrics.get("time_step")
+            iteration_text = f"iteration {iteration}" if iteration is not None else "iteration"
+            decision = str(sa_metrics.get("decision") or "").upper()
+            current_cost = sa_metrics.get("current_distance", sa_metrics.get("route_cost"))
+            best_cost = sa_metrics.get("best_distance")
+
+            if sa_metrics.get("route_reset"):
+                role = str(sa_metrics.get("route_role") or "route")
+                if role == "initial_current":
+                    return f"SA initial route · cost {current_cost}"
+                if role == "final_best":
+                    return f"SA final best route · cost {sa_metrics.get('route_cost')}"
+                if role == "preserved_order":
+                    return f"SA preserved goal order · cost {sa_metrics.get('route_cost')}"
+                suffix = f" · {decision}" if decision else ""
+                if current_cost is not None:
+                    suffix += f" · current {current_cost}"
+                if best_cost is not None:
+                    suffix += f" · best {best_cost}"
+                if sa_metrics.get("is_new_best"):
+                    suffix += " · NEW BEST"
+                return f"SA {iteration_text}{suffix}"
+
+            if sa_stage == "sa_iteration":
+                suffix = f" · {decision}" if decision else ""
+                if current_cost is not None:
+                    suffix += f" · current {current_cost}"
+                if best_cost is not None:
+                    suffix += f" · best {best_cost}"
+                return f"SA {iteration_text}{suffix}"
+            if sa_stage == "sa_best":
+                return f"SA {iteration_text} · new best {best_cost}"
+            if event_type == "DISCOVER":
+                return f"SA {iteration_text} · route edge {step.get('from')} → {step.get('to')}"
+            if event_type == "EXPAND":
+                return f"SA {iteration_text} · reach {node}"
+            return f"SA {iteration_text} · {sa_stage.replace('sa_', '').replace('_', ' ')}"
+
+        if stage.startswith("nn2opt_") or summary_stage.startswith("nn2opt_"):
+            nn_metrics = (
+                summary_metrics
+                if summary_stage.startswith("nn2opt_")
+                else metrics
+            )
+            nn_stage = (
+                summary_stage
+                if summary_stage.startswith("nn2opt_")
+                else stage
+            )
+            iteration = nn_metrics.get("iteration")
+            iteration_text = (
+                f"step {iteration}" if iteration is not None else "step"
+            )
+            route_cost = nn_metrics.get(
+                "route_cost",
+                nn_metrics.get("optimized_cost", nn_metrics.get("partial_cost")),
+            )
+
+            if nn_metrics.get("route_reset"):
+                role = str(nn_metrics.get("route_role") or "route")
+                suffix = f" · cost {route_cost}" if route_cost is not None else ""
+                if role == "nearest_neighbor_partial":
+                    selected = nn_metrics.get("selected_goal")
+                    selected_text = f" · selected {selected}" if selected else ""
+                    return f"NN {iteration_text}{selected_text} · draw partial route{suffix}"
+                if role == "nearest_neighbor_initial":
+                    return f"NN complete · draw initial route{suffix}"
+                if role == "2opt_improvement":
+                    segment = nn_metrics.get("reversed_segment")
+                    segment_text = f" · reverse {segment}" if segment else ""
+                    return f"2-Opt iteration {iteration}{segment_text} · draw improved route{suffix}"
+                if role == "preserved_order":
+                    return f"NN + 2-Opt preserved goal order{suffix}"
+                if role == "final_optimized":
+                    return f"NN + 2-Opt final optimized route{suffix}"
+                return f"NN + 2-Opt {iteration_text} · draw route{suffix}"
+
+            if nn_stage == "nn2opt_nn_select":
+                selected = nn_metrics.get("selected_goal")
+                leg_cost = nn_metrics.get("leg_cost")
+                suffix = f" · leg {leg_cost}" if leg_cost is not None else ""
+                return f"NN {iteration_text} · select {selected}{suffix}"
+            if nn_stage == "nn2opt_nn_complete":
+                cost = nn_metrics.get("nearest_neighbor_cost")
+                return "NN construction complete" + (
+                    f" · cost {cost}" if cost is not None else ""
+                )
+            if nn_stage == "nn2opt_2opt_iteration":
+                before = nn_metrics.get("previous_cost")
+                after = nn_metrics.get("optimized_cost")
+                segment = nn_metrics.get("reversed_segment")
+                segment_text = f" · reverse {segment}" if segment else ""
+                cost_text = (
+                    f" · {before} → {after}"
+                    if before is not None and after is not None
+                    else ""
+                )
+                return f"2-Opt iteration {iteration}{segment_text}{cost_text}"
+            if nn_stage == "nn2opt_preserved_order":
+                return "NN + 2-Opt · preserve selected goal order"
+            if event_type == "DISCOVER":
+                return f"NN + 2-Opt · route edge {step.get('from')} → {step.get('to')}"
+            if event_type == "EXPAND":
+                return f"NN + 2-Opt · reach {node}"
+            if event_type == "FINISH":
+                return "NN + 2-Opt · finish optimized route"
+            return f"NN + 2-Opt · {nn_stage.replace('nn2opt_', '').replace('_', ' ')}"
+
+        direction = metrics.get("search_direction")
+        if direction in {"forward", "backward"}:
+            side = "forward" if direction == "forward" else "backward"
+            if event_type == "EXPAND":
+                return f"Bidirectional {side} · expand {node}"
+            if event_type in {"DISCOVER", "UPDATE"}:
+                return (
+                    f"Bidirectional {side} · {event_type.lower()} "
+                    f"{step.get('from')} → {step.get('to')}"
+                )
+
+        if event_type == "EXPAND":
+            return f"expand {node}"
+        if event_type in {"DISCOVER", "UPDATE"}:
+            return f"{event_type.lower()} {step.get('from')} → {step.get('to')}"
+        if event_type == "FINISH":
+            return "finish search"
+        if event_type == "RESET":
+            return "return to initial state"
+        return event_type.lower()
+
+    @staticmethod
+    def _latest_playback_goal_order(step):
+        events = step.get("_history")
+        if events is None:
+            events = step.get("_batch")
+        if not events:
+            events = [step]
+        for event in reversed(events):
+            metrics = event.get("metrics") or {}
+            if not isinstance(metrics, dict):
+                continue
+            goal_order = metrics.get("goal_order")
+            if isinstance(goal_order, list):
+                return list(goal_order)
+        return None
+
+    def on_step_changed(self, step):
+        # Optimizer route-start events carry the displayed visit order. Update endpoint
+        # badges on both Map and Graph so 1..N labels match the route on screen.
+        if step.get("type") == "reset":
+            self._update_route_locations()
+        else:
+            playback_order = self._latest_playback_goal_order(step)
+            if playback_order is not None:
+                self._update_route_locations(display_order=playback_order)
+
+        self.graph_widget.apply_playback_event(step)
+        self.algorithm_state.update_step(step)
+        index = step.get("_index", 0)
+        total = step.get("_total", 0)
+        detail = self._step_log_detail(step)
+        batch_size = int(step.get("_batch_size", 1))
+        if batch_size > 1:
+            detail = f"processed {batch_size} events · latest: {detail}"
+        self.log_event("STEP", f"{index}/{total} · {detail}.")
+        self._refresh_playback_buttons()
+
+    def on_playback_state_changed(self, state):
+        if state in self.EXECUTION_STATES:
+            self._set_execution_state(state)
+
+    def on_algorithm_changed(self, algorithm):
+        if hasattr(self, "algorithm_state"):
+            self.algorithm_state.set_algorithm(algorithm)
+        if self.graph is not None and self.execution_state not in {"running", "paused"}:
+            self._set_execution_state("ready")
+
+    def on_speed_changed(self, _index):
+        profile = self.current_playback_profile()
+        self._update_speed_hint()
+        self.map_widget.set_playback_profile(
+            profile["interval_ms"],
+            profile["target_duration_ms"],
+            manual_mode=profile.get("manual", False),
+        )
+        self._set_execution_state(self.execution_state)
+        if self.execution_state in {"running", "paused"}:
+            if profile.get("manual", False):
+                self.log_event(
+                    "INFO",
+                    "Step-by-step mode enabled; autoplay is off.",
+                )
+            else:
+                self.log_event(
+                    "INFO",
+                    f"Playback speed changed to {profile['name']} "
+                    f"(target ~{profile['target_duration_ms'] / 1000:.0f} s for large searches).",
+                )
+
+    def current_playback_profile(self):
+        profile = self.speed_combo.currentData()
+        if isinstance(profile, dict):
+            return profile
+        return {
+            "name": "Balanced",
+            "interval_ms": 100,
+            "target_duration_ms": 15000,
+            "manual": False,
+            "hint": "Recommended balanced playback.",
+        }
+
+    def _update_speed_hint(self):
+        if not hasattr(self, "speed_hint"):
+            return
+        profile = self.current_playback_profile()
+        if profile.get("manual", False):
+            suffix = " Autoplay stays off until another speed is selected."
+        else:
+            suffix = (
+                " Large searches group adjacent events; Previous/Next still move one event."
+                if profile["interval_ms"] > 0
+                else " Algorithm State and results remain complete."
+            )
+        self.speed_hint.setText(profile.get("hint", "") + suffix)
+
+    def on_graph_view_clicked(self):
+        self._set_visualization_mode("graph")
+
+    def on_map_view_clicked(self):
+        self._set_visualization_mode("map")
+
+    def _set_visualization_mode(self, mode):
+        mode = "graph" if mode == "graph" else "map"
+        changed = mode != self._active_view
+        self._active_view = mode
+        graph_active = mode == "graph"
+        self.visualization_stack.setCurrentWidget(
+            self.graph_widget if graph_active else self.map_widget
+        )
+        self.graph_view_button.setChecked(graph_active)
+        self.map_view_button.setChecked(not graph_active)
+        self.map_widget.set_visual_updates_enabled(not graph_active)
+        self.graph_widget.set_render_enabled(graph_active)
+        self.subtitle_label.setText(
+            f"{'Graph' if graph_active else 'Map'} View · {self._route_mode_label()}"
+        )
+        if changed:
+            self.log_event(
+                "INFO",
+                "Switched to Graph View." if graph_active else "Switched to Map View.",
+            )
+        if (
+            self.execution_state == "loading"
+            and self.graph is not None
+            and mode in self._ready_renderers
+        ):
+            self._finish_visualization_load()
+
+    def _set_execution_state(self, state):
+        if state not in self.EXECUTION_STATES:
+            return
+        self.execution_state = state
+        manual_mode = self.current_playback_profile().get("manual", False)
+        self.run_button.setEnabled(
+            state in {"ready", "finished"}
+            and self.graph is not None
+            and bool(self.current_start_id())
+            and bool(self.route_request().delivery_nodes)
+            and bool(self.available_algorithms)
+        )
+        self.pause_button.setEnabled(not manual_mode and state in {"running", "paused"})
+        if manual_mode:
+            self.pause_button.setText("Manual mode")
+        else:
+            self.pause_button.setText("Resume" if state == "paused" else "Pause")
+        self.replay_button.setEnabled(
+            state in {"paused", "finished"} and self._active_result is not None
+        )
+        self.reset_button.setEnabled(state not in {"idle", "loading", "computing"})
+        self._refresh_playback_buttons()
+
+        controls_locked = state in {"loading", "computing", "running", "paused"}
+        self.dataset_combo.setEnabled(not controls_locked)
+        self.load_button.setEnabled(
+            not controls_locked and self.dataset_combo.currentData() is not None
+        )
+        self.algorithm_combo.setEnabled(
+            not controls_locked and bool(self.available_algorithms)
+        )
+        route_enabled = not controls_locked and self.graph is not None
+        self.route_setup.set_controls_enabled(route_enabled)
+        edge_editing_enabled = state in {"ready", "finished"} and self.graph is not None
+        self.map_widget.set_edge_editing_enabled(
+            edge_editing_enabled and "map" in self._ready_renderers
+        )
+        self.graph_widget.set_edge_editing_enabled(
+            edge_editing_enabled and "graph" in self._ready_renderers
+        )
+        self.speed_combo.setEnabled(state not in {"loading", "computing"})
+
+        labels = {
+            "idle": ("Not ready", "idle"),
+            "loading": ("Rendering", "running"),
+            "ready": ("Ready", "ready"),
+            "computing": ("Computing", "running"),
+            "running": ("Running", "running"),
+            "paused": ("Paused", "paused"),
+            "finished": ("Finished", "finished"),
+        }
+        if manual_mode and state == "paused":
+            labels["paused"] = ("Manual", "paused")
+        self._set_status_badge(*labels[state])
+
+    def _refresh_playback_buttons(self):
+        has_steps = self.map_widget.step_count > 0
+        can_navigate = self.execution_state in {"running", "paused", "finished"}
+        self.previous_button.setEnabled(
+            has_steps and can_navigate and self.map_widget.step_index > 0
+        )
+        self.next_button.setEnabled(
+            has_steps
+            and self.execution_state in {"running", "paused"}
+            and self.map_widget.step_index < self.map_widget.step_count
+        )
+
+    def _set_status_badge(self, text, state):
+        self.status_badge.setText(text)
+        self.status_badge.setProperty("statusState", state)
+        self._refresh_style(self.status_badge)
+
+    def toggle_sidebar(self):
+        if self._compact_mode:
+            if self.sidebar_scroll.isVisible():
+                self.sidebar_scroll.hide()
+            else:
+                self._position_sidebar_drawer()
+                self.sidebar_scroll.show()
+                self.sidebar_scroll.raise_()
+            return
+
+        self._sidebar_user_collapsed = self.sidebar_scroll.isVisible()
+        self.sidebar_scroll.setVisible(not self._sidebar_user_collapsed)
+
+    def toggle_state_panel(self):
+        if self._compact_mode:
+            self.info_tabs.setCurrentWidget(self.result_scroll)
+            return
+        visible = self.algorithm_state.isVisible()
+        self._state_user_collapsed = visible
+        self.algorithm_state.setVisible(not visible)
+        self.state_toggle.setText("Show state" if visible else "Hide state")
+        if not visible:
+            if self.visualization_splitter.orientation() == Qt.Horizontal:
+                self.visualization_splitter.setSizes([720, 330])
+            else:
+                self.visualization_splitter.setSizes([430, 190])
+
+    def toggle_theme(self):
+        self.load_theme("dark" if self.current_theme == "light" else "light")
+
+    def load_theme(self, theme_name):
+        theme_path = Path(__file__).resolve().parent / "themes" / f"{theme_name}.qss"
+        try:
+            with open(theme_path, encoding="utf-8") as file:
+                self.setStyleSheet(file.read())
+            self.current_theme = theme_name
+            self.theme_button.setText(
+                "◐"
+                if self._compact_mode
+                else ("Light mode" if theme_name == "dark" else "Dark mode")
+            )
+            if hasattr(self, "map_widget"):
+                self.map_widget.set_theme(theme_name)
+            if hasattr(self, "graph_widget"):
+                self.graph_widget.set_theme(theme_name)
+        except OSError as exc:
+            self.log_event("ERROR", f"Could not load {theme_name} theme: {exc}")
+
+    def show_alert(self, message, level="info"):
+        self.alert_label.setText(message)
+        self.alert_banner.setProperty("alertLevel", level)
+        self._refresh_style(self.alert_banner)
+        self.alert_banner.show()
+        self.alert_timer.start(7000 if level == "error" else 4500)
+
+    def log_event(self, level, message):
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        colors = {
+            "INFO": "#3b82f6",
+            "SUCCESS": "#16a34a",
+            "ERROR": "#ef4444",
+            "STEP": "#8b5cf6",
+        }
+        color = colors.get(level, "#64748b")
+        self.event_log.append(
+            f'<span style="color:#64748b">[{timestamp}]</span> '
+            f'<span style="color:{color};font-weight:700">'
+            f"[{html.escape(level)}]</span> "
+            f"<span>{html.escape(str(message))}</span>"
+        )
+        scrollbar = self.event_log.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        QTimer.singleShot(0, self._apply_responsive_layout)
 
-# ==========================================================
-# Application entry point
-#
-# Creates the QApplication object,
-# initializes the main window,
-# and starts the Qt event loop.
-# ==========================================================
+    def _apply_responsive_layout(self):
+        compact = self.width() < self.COMPACT_BREAKPOINT
+        if compact != self._compact_mode:
+            self._compact_mode = compact
+            if compact:
+                self._enter_compact_layout()
+            else:
+                self._exit_compact_layout()
+
+        self.subtitle_label.setVisible(self.width() >= 650)
+        self.graph_view_button.setVisible(self.width() >= 720)
+        self.map_view_button.setVisible(self.width() >= 720)
+        self.state_toggle.setVisible(self.width() >= 560)
+        self.result_panel.set_compact(self.width() < 720)
+        self.theme_button.setText(
+            ("◐" if self._compact_mode else "Light mode")
+            if self.current_theme == "dark"
+            else ("◐" if self._compact_mode else "Dark mode")
+        )
+        self.theme_button.setToolTip(
+            "Switch to light mode"
+            if self.current_theme == "dark"
+            else "Switch to dark mode"
+        )
+        if self._compact_mode:
+            self._position_sidebar_drawer()
+
+    def _enter_compact_layout(self):
+        self.sidebar_scroll.hide()
+        self.sidebar_scroll.setParent(self.central_widget)
+        self._sidebar_is_drawer = True
+        self.algorithm_state.setParent(self.info_tabs)
+        self.info_tabs.insertTab(0, self.algorithm_state, "State")
+        self.info_tabs.setTabText(self.info_tabs.indexOf(self.event_log), "Log")
+        self.info_tabs.setTabText(self.info_tabs.count() - 1, "Compare")
+        self.visualization_splitter.setOrientation(Qt.Horizontal)
+        self.algorithm_state.setMaximumWidth(16777215)
+        self.algorithm_state.setVisible(not self._state_user_collapsed)
+        self.algorithm_state.collapse_button.setText("Result")
+        self.workspace_splitter.setSizes([330, 240])
+
+    def _exit_compact_layout(self):
+        self.sidebar_scroll.hide()
+        self.main_splitter.insertWidget(0, self.sidebar_scroll)
+        self._sidebar_is_drawer = False
+        self.sidebar_scroll.setVisible(not self._sidebar_user_collapsed)
+        state_index = self.info_tabs.indexOf(self.algorithm_state)
+        if state_index >= 0:
+            self.info_tabs.removeTab(state_index)
+        self.visualization_splitter.addWidget(self.algorithm_state)
+        self.info_tabs.setTabText(self.info_tabs.indexOf(self.event_log), "Event log")
+        self.info_tabs.setTabText(self.info_tabs.count() - 1, "Comparison · Soon")
+        self.visualization_splitter.setOrientation(Qt.Horizontal)
+        self.algorithm_state.setMaximumWidth(680)
+        self.algorithm_state.setVisible(not self._state_user_collapsed)
+        self.algorithm_state.collapse_button.setText("Hide")
+        self.visualization_splitter.setSizes([720, 330])
+        self.workspace_splitter.setSizes([600, 185])
+        self.main_splitter.setSizes([320, max(500, self.width() - 354)])
+
+    def _position_sidebar_drawer(self):
+        if not self._sidebar_is_drawer:
+            return
+        header_bottom = self.sidebar_toggle.parentWidget().geometry().bottom() + 18
+        width = min(304, max(260, self.central_widget.width() - 24))
+        height = max(300, self.central_widget.height() - header_bottom - 12)
+        self.sidebar_scroll.setGeometry(12, header_bottom, width, height)
+
+    @staticmethod
+    def _refresh_style(widget):
+        widget.style().unpolish(widget)
+        widget.style().polish(widget)
+
+
 def main():
-
     app = QApplication(sys.argv)
-
+    app.setApplicationName("Route Optimization Visualizer")
     window = MainWindow()
     window.show()
-
     sys.exit(app.exec_())
 
 
-# Run the application only when this file
-# is executed directly.
 if __name__ == "__main__":
     main()
