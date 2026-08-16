@@ -113,7 +113,16 @@ QComboBox#fieldInput {
 }
 QComboBox#fieldInput:hover, QComboBox#fieldInput:focus { border-color: #5d82ef; }
 QComboBox#fieldInput:disabled { color: #98a2b3; background: #f2f4f7; }
+QComboBox#fieldInput QLineEdit { border: none; background: transparent; }
 QComboBox QAbstractItemView {
+    padding: 4px;
+    border: 1px solid #cfd8e6;
+    color: #172033;
+    background: #ffffff;
+    selection-color: #ffffff;
+    selection-background-color: #315efb;
+}
+QAbstractItemView#nodeSuggestions {
     padding: 4px;
     border: 1px solid #cfd8e6;
     color: #172033;

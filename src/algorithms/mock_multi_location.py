@@ -13,7 +13,9 @@ def _natural_node_key(node_id):
     ]
 
 
-def _clone_leg_step(step, leg_index, leg_count, leg_start, leg_goal):
+def _clone_leg_step(
+    step, leg_index, leg_count, leg_start, leg_goal, return_leg=False
+):
     metrics = dict(getattr(step, "metrics", {}) or {})
     metrics.update(
         {
@@ -21,6 +23,7 @@ def _clone_leg_step(step, leg_index, leg_count, leg_start, leg_goal):
             "leg_count": leg_count,
             "leg_start": leg_start,
             "leg_goal": leg_goal,
+            "return_leg": bool(return_leg),
         }
     )
     return SearchStep(
@@ -41,6 +44,7 @@ def mock_multi_location_search(
     start_id,
     goal_ids,
     respect_goal_order=False,
+    return_to_start=False,
 ):
     """Build a deterministic multi-stop demo route from real A* legs.
 
@@ -64,15 +68,19 @@ def mock_multi_location_search(
         )
 
     visit_order = goals if respect_goal_order else sorted(goals, key=_natural_node_key)
-    leg_count = len(visit_order)
+    route_stops = list(visit_order)
+    if return_to_start:
+        route_stops.append(start_id)
+    leg_count = len(route_stops)
     combined_path = []
     combined_steps = []
     combined_visited = []
     total_cost = 0.0
     leg_start = start_id
 
-    for zero_based_index, leg_goal in enumerate(visit_order):
+    for zero_based_index, leg_goal in enumerate(route_stops):
         leg_index = zero_based_index + 1
+        return_leg = bool(return_to_start and leg_goal == start_id)
         leg_result = a_star(graph, leg_start, leg_goal)
 
         for step in leg_result.steps:
@@ -84,6 +92,7 @@ def mock_multi_location_search(
                         leg_count,
                         leg_start,
                         leg_goal,
+                        return_leg,
                     )
                 )
 
@@ -98,6 +107,7 @@ def mock_multi_location_search(
                         "leg_count": leg_count,
                         "leg_start": leg_start,
                         "leg_goal": leg_goal,
+                        "return_leg": return_leg,
                     },
                 )
             )
@@ -118,24 +128,30 @@ def mock_multi_location_search(
 
         leg_start = leg_goal
 
+    final_node = start_id if return_to_start else visit_order[-1]
     combined_steps.append(
         SearchStep(
             StepType.FINISH,
-            node_id=visit_order[-1],
+            node_id=final_node,
             metrics={
                 "success": True,
                 "leg_count": leg_count,
                 "total_cost": total_cost,
+                "return_to_start": bool(return_to_start),
             },
         )
     )
     mode = "the selected order" if respect_goal_order else "a deterministic mock order"
+    return_suffix = " and returned to the start" if return_to_start else ""
     return SearchResult(
         path=combined_path,
         steps=combined_steps,
         total_cost=total_cost,
         success=True,
-        message=f"Mock multi-location search visited {leg_count} goals using {mode}.",
+        message=(
+            f"Mock multi-location search visited {len(visit_order)} goals using "
+            f"{mode}{return_suffix}."
+        ),
         visited_order=combined_visited,
         goal_visit_order=visit_order,
     )

@@ -36,6 +36,7 @@ from src.gui.delivery_panel import ResultSummaryPanel
 from src.gui.graph_widget import GraphWidget
 from src.gui.map_widget import MapWidget
 from src.gui.route_setup_widget import RouteSetupWidget
+from src.models.graph_updater import EdgeUpdateError, update_edge_attributes
 
 
 class SearchWorker(QObject):
@@ -87,6 +88,7 @@ class MainWindow(QMainWindow):
         self._active_start = ""
         self._active_goals = []
         self._active_respect_goal_order = False
+        self._active_return_to_start = False
         self._compact_mode = False
         self._sidebar_user_collapsed = False
         self._state_user_collapsed = False
@@ -302,6 +304,9 @@ class MainWindow(QMainWindow):
         self.route_setup.respect_goal_order_checkbox.setToolTip(
             "Unchecked: the multi-location algorithm chooses the goal order."
         )
+        self.route_setup.return_to_start_checkbox.setToolTip(
+            "After the final delivery goal, find a route back to Start."
+        )
         layout.addWidget(self.route_setup)
 
         self.route_scope_label = QLabel(
@@ -514,6 +519,8 @@ class MainWindow(QMainWindow):
         self.graph_widget.graph_render_failed.connect(
             lambda message: self.on_visualization_render_failed("graph", message)
         )
+        self.map_widget.set_edge_update_handler(self.on_edge_update_requested)
+        self.graph_widget.set_edge_update_handler(self.on_edge_update_requested)
 
         self.sidebar_toggle.clicked.connect(self.toggle_sidebar)
         self.state_toggle.clicked.connect(self.toggle_state_panel)
@@ -579,13 +586,16 @@ class MainWindow(QMainWindow):
 
     def _update_route_context(self, request):
         is_multi = request.route_mode == "multi"
+        # #NhatHuyChanged: multi-location mode now has real route optimizers.
         self.route_scope_label.setText(
-            f"Multi-location mode · {len(request.delivery_nodes)} goals · mock search only."
+            f"Multi-location mode · {len(request.delivery_nodes)} goals · "
+            "route optimization enabled."
             if is_multi
             else "Single-route mode · all standard search algorithms are available."
         )
         self.algorithm_hint.setText(
-            "The mock returns a deterministic demo order; it does not prove global optimality."
+            "Choose an optimizer, or enable list order to visit goals "
+            "exactly as arranged."
             if is_multi
             else "Frontier and explored state updates at every step."
         )
@@ -659,9 +669,11 @@ class MainWindow(QMainWindow):
             self.log_event("ERROR", f"Failed to load {filename}: {exc}")
 
     def _route_mode_label(self):
-        goal_count = len(self.route_setup.route_request().delivery_nodes)
+        request = self.route_setup.route_request()
+        goal_count = len(request.delivery_nodes)
         return (
             f"Multi-location search · {goal_count} goals"
+            f"{' · round trip' if request.return_to_start else ''}"
             if goal_count >= 2
             else "Single-route search"
         )
@@ -677,6 +689,8 @@ class MainWindow(QMainWindow):
             and self._active_view in self._ready_renderers
         ):
             self._finish_visualization_load()
+        elif self.execution_state in {"ready", "finished"}:
+            self._set_execution_state(self.execution_state)
 
     def _finish_visualization_load(self):
         self._set_execution_state("ready")
@@ -739,6 +753,7 @@ class MainWindow(QMainWindow):
         self._active_start = start_id
         self._active_goals = list(goals)
         self._active_respect_goal_order = request.respect_goal_order
+        self._active_return_to_start = request.return_to_start
         self._set_execution_state("computing")
         QApplication.processEvents()
 
@@ -749,7 +764,8 @@ class MainWindow(QMainWindow):
         self.result_panel.set_running(algorithm, start_id, goals)
         self.log_event(
             "INFO",
-            f"Running {algorithm}: {start_id} → {' → '.join(goals)}.",
+            f"Running {algorithm}: {start_id} → {' → '.join(goals)}"
+            f"{' → ' + start_id if request.return_to_start else ''}.",
         )
 
         self._search_thread = QThread(self)
@@ -765,6 +781,45 @@ class MainWindow(QMainWindow):
         self._search_thread.finished.connect(self._on_search_thread_finished)
         self._search_thread.finished.connect(self._search_thread.deleteLater)
         self._search_thread.start()
+
+    def on_edge_update_requested(self, payload):
+        """Validate an editor request, update the graph, and sync both views."""
+        if self.graph is None:
+            return {"ok": False, "error": "Load a graph before editing an edge."}
+        if self.execution_state not in {"ready", "finished"}:
+            return {
+                "ok": False,
+                "error": "Edges cannot be edited while a search is running.",
+            }
+        try:
+            updated = update_edge_attributes(
+                self.graph,
+                payload.get("from"),
+                payload.get("to"),
+                payload.get("travel_time"),
+                payload.get("risk"),
+                payload.get("congestion"),
+            )
+        except EdgeUpdateError as exc:
+            return {"ok": False, "error": str(exc)}
+
+        self.map_widget.update_edge_direction(updated)
+        self.graph_widget.update_edge_direction(updated)
+        self.map_widget.reset(emit_state=False)
+        self.graph_widget.reset_visualization()
+        self.algorithm_state.reset()
+        self.algorithm_state.set_algorithm(self.algorithm_combo.currentText())
+        self.result_panel.reset(self._route_mode_label())
+        self._active_result = None
+        self._set_execution_state("ready")
+        direction = f"{updated['from']} → {updated['to']}"
+        self.show_alert(f"Updated edge {direction} for this session.", "success")
+        self.log_event(
+            "INFO",
+            f"Updated {direction}: time={updated['travel_time']:.2f}, "
+            f"risk={updated['risk']:.2f}, congestion={updated['congestion']:.2f}.",
+        )
+        return {"ok": True, "edge": updated}
 
     def _on_search_completed(self, result, runtime_ms):
         result.runtime_ms = runtime_ms
@@ -1051,6 +1106,13 @@ class MainWindow(QMainWindow):
         )
         route_enabled = not controls_locked and self.graph is not None
         self.route_setup.set_controls_enabled(route_enabled)
+        edge_editing_enabled = state in {"ready", "finished"} and self.graph is not None
+        self.map_widget.set_edge_editing_enabled(
+            edge_editing_enabled and "map" in self._ready_renderers
+        )
+        self.graph_widget.set_edge_editing_enabled(
+            edge_editing_enabled and "graph" in self._ready_renderers
+        )
         self.speed_combo.setEnabled(state not in {"loading", "computing"})
 
         labels = {
