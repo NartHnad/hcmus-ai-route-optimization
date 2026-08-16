@@ -680,13 +680,21 @@
                 || stage.startsWith('ga_final_route')
                 || stage.startsWith('sa_initial_route')
                 || stage.startsWith('sa_iteration_route')
-                || stage.startsWith('sa_final_route');
+                || stage.startsWith('sa_final_route')
+                || stage.startsWith('nn2opt_nn_route')
+                || stage.startsWith('nn2opt_2opt_route')
+                || stage.startsWith('nn2opt_preserved_route')
+                || stage.startsWith('nn2opt_final_route');
         }
 
         function isOptimizerLogicalUpdate(step) {
             const stage = stepStage(step);
             return step.type === 'update'
-                && (stage.startsWith('ga_') || stage.startsWith('sa_'))
+                && (
+                    stage.startsWith('ga_')
+                    || stage.startsWith('sa_')
+                    || stage.startsWith('nn2opt_')
+                )
                 && !step.from
                 && !step.to;
         }

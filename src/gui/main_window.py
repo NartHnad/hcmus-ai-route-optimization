@@ -1089,6 +1089,76 @@ class MainWindow(QMainWindow):
                 return f"SA {iteration_text} · reach {node}"
             return f"SA {iteration_text} · {sa_stage.replace('sa_', '').replace('_', ' ')}"
 
+        if stage.startswith("nn2opt_") or summary_stage.startswith("nn2opt_"):
+            nn_metrics = (
+                summary_metrics
+                if summary_stage.startswith("nn2opt_")
+                else metrics
+            )
+            nn_stage = (
+                summary_stage
+                if summary_stage.startswith("nn2opt_")
+                else stage
+            )
+            iteration = nn_metrics.get("iteration")
+            iteration_text = (
+                f"step {iteration}" if iteration is not None else "step"
+            )
+            route_cost = nn_metrics.get(
+                "route_cost",
+                nn_metrics.get("optimized_cost", nn_metrics.get("partial_cost")),
+            )
+
+            if nn_metrics.get("route_reset"):
+                role = str(nn_metrics.get("route_role") or "route")
+                suffix = f" · cost {route_cost}" if route_cost is not None else ""
+                if role == "nearest_neighbor_partial":
+                    selected = nn_metrics.get("selected_goal")
+                    selected_text = f" · selected {selected}" if selected else ""
+                    return f"NN {iteration_text}{selected_text} · draw partial route{suffix}"
+                if role == "nearest_neighbor_initial":
+                    return f"NN complete · draw initial route{suffix}"
+                if role == "2opt_improvement":
+                    segment = nn_metrics.get("reversed_segment")
+                    segment_text = f" · reverse {segment}" if segment else ""
+                    return f"2-Opt iteration {iteration}{segment_text} · draw improved route{suffix}"
+                if role == "preserved_order":
+                    return f"NN + 2-Opt preserved goal order{suffix}"
+                if role == "final_optimized":
+                    return f"NN + 2-Opt final optimized route{suffix}"
+                return f"NN + 2-Opt {iteration_text} · draw route{suffix}"
+
+            if nn_stage == "nn2opt_nn_select":
+                selected = nn_metrics.get("selected_goal")
+                leg_cost = nn_metrics.get("leg_cost")
+                suffix = f" · leg {leg_cost}" if leg_cost is not None else ""
+                return f"NN {iteration_text} · select {selected}{suffix}"
+            if nn_stage == "nn2opt_nn_complete":
+                cost = nn_metrics.get("nearest_neighbor_cost")
+                return "NN construction complete" + (
+                    f" · cost {cost}" if cost is not None else ""
+                )
+            if nn_stage == "nn2opt_2opt_iteration":
+                before = nn_metrics.get("previous_cost")
+                after = nn_metrics.get("optimized_cost")
+                segment = nn_metrics.get("reversed_segment")
+                segment_text = f" · reverse {segment}" if segment else ""
+                cost_text = (
+                    f" · {before} → {after}"
+                    if before is not None and after is not None
+                    else ""
+                )
+                return f"2-Opt iteration {iteration}{segment_text}{cost_text}"
+            if nn_stage == "nn2opt_preserved_order":
+                return "NN + 2-Opt · preserve selected goal order"
+            if event_type == "DISCOVER":
+                return f"NN + 2-Opt · route edge {step.get('from')} → {step.get('to')}"
+            if event_type == "EXPAND":
+                return f"NN + 2-Opt · reach {node}"
+            if event_type == "FINISH":
+                return "NN + 2-Opt · finish optimized route"
+            return f"NN + 2-Opt · {nn_stage.replace('nn2opt_', '').replace('_', ' ')}"
+
         direction = metrics.get("search_direction")
         if direction in {"forward", "backward"}:
             side = "forward" if direction == "forward" else "backward"
@@ -1110,7 +1180,6 @@ class MainWindow(QMainWindow):
             return "return to initial state"
         return event_type.lower()
 
-
     @staticmethod
     def _latest_playback_goal_order(step):
         events = step.get("_history")
@@ -1128,7 +1197,7 @@ class MainWindow(QMainWindow):
         return None
 
     def on_step_changed(self, step):
-        # GA/SA route-start events carry the displayed visit order. Update endpoint
+        # Optimizer route-start events carry the displayed visit order. Update endpoint
         # badges on both Map and Graph so 1..N labels match the route on screen.
         if step.get("type") == "reset":
             self._update_route_locations()
