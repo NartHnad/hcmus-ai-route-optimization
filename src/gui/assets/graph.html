@@ -399,11 +399,32 @@
             scheduleDraw();
         }
 
+        function stepStage(step) {
+            return String((step.metrics && step.metrics.stage) || '');
+        }
+
+        function isGaRouteStep(step) {
+            const stage = stepStage(step);
+            return stage.startsWith('ga_generation_route') || stage.startsWith('ga_final_route');
+        }
+
+        function isGaLogicalUpdate(step) {
+            return step.type === 'update'
+                && stepStage(step).startsWith('ga_')
+                && !step.from
+                && !step.to;
+        }
+
         function mutateStep(rawStep) {
             const step = normalizeInput(rawStep);
             const type = step.type;
             const node = step.node;
             if (!type) return;
+
+            const metrics = step.metrics || {};
+            const gaRouteStep = isGaRouteStep(step);
+            const gaLogicalUpdate = isGaLogicalUpdate(step);
+            if (metrics.route_reset) resetVisualization();
 
             if (Array.isArray(step.frontier)) frontier = new Set(step.frontier);
             if (Array.isArray(step.explored)) explored = new Set(step.explored);
@@ -413,7 +434,9 @@
             }
 
             const usesSnapshot = Array.isArray(step.frontier) || Array.isArray(step.explored) || Array.isArray(step.visited_order);
-            if (!usesSnapshot && (type === 'discover' || type === 'update') && node && !explored.has(node)) {
+            if (!usesSnapshot && type === 'discover' && !gaRouteStep && node && !explored.has(node)) {
+                frontier.add(node);
+            } else if (!usesSnapshot && type === 'update' && !gaLogicalUpdate && node && !explored.has(node)) {
                 frontier.add(node);
             }
             if (type === 'expand') {
