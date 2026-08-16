@@ -234,7 +234,8 @@ class AlgorithmStatePanel(QFrame):
         self.explored.set_items(self._explored)
         self.visited.set_items(self._visited)
 
-        metrics = dict(step.get("metrics") or {})
+        metric_step = self._preferred_metrics_step(step)
+        metrics = dict(metric_step.get("metrics") or {})
         metrics.pop("route_reset", None)
         stage = str(metrics.get("stage") or "")
 
@@ -248,6 +249,7 @@ class AlgorithmStatePanel(QFrame):
             generation = metrics.pop("generation", None)
             route_value = None
             for candidate_key in (
+                "candidate_cost",
                 "generation_best_cost",
                 "route_cost",
                 "best_cost",
@@ -264,6 +266,35 @@ class AlgorithmStatePanel(QFrame):
             for key, label in self.metric_values.items():
                 value = ga_values[key]
                 label.setText("—" if value is None else self._format_metric(value))
+        elif stage.startswith("sa_"):
+            # SA has no graph-search G/H/F values. Show the quantities that drive
+            # the annealing decision instead.
+            self.metric_titles["g"].setText("ITER")
+            self.metric_titles["h"].setText("TEMP")
+            self.metric_titles["f"].setText("BEST")
+
+            sa_values = {
+                "g": metrics.pop("time_step", None),
+                "h": metrics.pop("temperature", None),
+                "f": metrics.pop("best_distance", None),
+            }
+            for key, label in self.metric_values.items():
+                value = sa_values[key]
+                label.setText("—" if value is None else self._format_metric(value))
+
+            # Route strings and frame identifiers are useful for logs/playback but
+            # make this compact panel unreadable. Goal order is already visible in
+            # endpoint badges on Map/Graph.
+            for hidden_key in (
+                "route_frame",
+                "route",
+                "goal_order",
+                "previous_tour",
+                "candidate_tour",
+                "current_tour",
+                "best_tour",
+            ):
+                metrics.pop(hidden_key, None)
         else:
             for key, title in (("g", "G"), ("h", "H"), ("f", "F")):
                 self.metric_titles[key].setText(title)
@@ -293,20 +324,48 @@ class AlgorithmStatePanel(QFrame):
         return str(metrics.get("stage") or "") if isinstance(metrics, dict) else ""
 
     @classmethod
-    def _is_ga_route_step(cls, step):
+    def _is_optimizer_route_step(cls, step):
         stage = cls._stage(step)
-        return stage.startswith("ga_generation_route") or stage.startswith(
-            "ga_final_route"
+        return (
+            stage.startswith("ga_generation_route")
+            or stage.startswith("ga_final_route")
+            or stage.startswith("sa_initial_route")
+            or stage.startswith("sa_iteration_route")
+            or stage.startswith("sa_final_route")
         )
 
     @classmethod
-    def _is_ga_logical_update(cls, step):
+    def _is_optimizer_logical_update(cls, step):
+        stage = cls._stage(step)
         return (
             step.get("type") == "update"
-            and cls._stage(step).startswith("ga_")
+            and (stage.startswith("ga_") or stage.startswith("sa_"))
             and not step.get("from")
             and not step.get("to")
         )
+
+    @classmethod
+    def _preferred_metrics_step(cls, step):
+        """Use the route-start marker metrics for an atomic optimizer batch."""
+        metrics = step.get("metrics") or {}
+        if not isinstance(metrics, dict):
+            return step
+
+        route_frame = metrics.get("route_frame")
+        if route_frame is None:
+            return step
+
+        events = step.get("_batch") or step.get("_history") or []
+        for item in reversed(events):
+            item_metrics = item.get("metrics") or {}
+            if not isinstance(item_metrics, dict):
+                continue
+            if (
+                item_metrics.get("route_frame") == route_frame
+                and item_metrics.get("route_reset")
+            ):
+                return item
+        return step
 
     def _apply_delta(self, step):
         """Apply one visualization event without changing search semantics."""
@@ -314,13 +373,13 @@ class AlgorithmStatePanel(QFrame):
         node = step.get("node")
         metrics = step.get("metrics") or {}
 
-        # Each visualized GA generation replaces the previous tour.  Clear the
-        # state lists as well so Previous/Next and the panel match Map/Graph View.
+        # Each visualized optimizer route frame replaces the previous tour. Clear
+        # state lists so Previous/Next and the panel match Map/Graph View.
         if isinstance(metrics, dict) and metrics.get("route_reset"):
             self._reset_state()
 
-        ga_route_step = self._is_ga_route_step(step)
-        ga_logical_update = self._is_ga_logical_update(step)
+        optimizer_route_step = self._is_optimizer_route_step(step)
+        optimizer_logical_update = self._is_optimizer_logical_update(step)
 
         # Backward compatibility for bounded producers such as the GA and for
         # external/legacy SearchStep instances that still provide snapshots.
@@ -337,9 +396,9 @@ class AlgorithmStatePanel(QFrame):
             key in step for key in ("frontier", "explored", "visited_order")
         )
         if not uses_snapshot:
-            if step_type == "discover" and node and not ga_route_step:
+            if step_type == "discover" and node and not optimizer_route_step:
                 self._add_frontier(node, step)
-            elif step_type == "update" and node and not ga_logical_update:
+            elif step_type == "update" and node and not optimizer_logical_update:
                 self._add_frontier(node, step)
             elif step_type == "expand" and node:
                 self._remove_frontier(node)
