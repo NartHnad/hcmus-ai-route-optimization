@@ -295,6 +295,40 @@ class AlgorithmStatePanel(QFrame):
                 "best_tour",
             ):
                 metrics.pop(hidden_key, None)
+        elif stage.startswith("nn2opt_"):
+            # NN + 2-Opt is a route optimizer, so graph-search G/H/F values are
+            # not meaningful.  During NN show selection progress/cost; during
+            # 2-Opt show before/after costs for the accepted improvement.
+            if stage.startswith("nn2opt_2opt"):
+                self.metric_titles["g"].setText("ITER")
+                self.metric_titles["h"].setText("BEFORE")
+                self.metric_titles["f"].setText("AFTER")
+                values = {
+                    "g": metrics.pop("iteration", None),
+                    "h": metrics.pop("previous_cost", None),
+                    "f": metrics.pop("optimized_cost", metrics.get("route_cost")),
+                }
+            else:
+                self.metric_titles["g"].setText("STEP")
+                self.metric_titles["h"].setText("ROUTE")
+                self.metric_titles["f"].setText("NN COST")
+                values = {
+                    "g": metrics.pop("iteration", None),
+                    "h": metrics.pop("route_cost", metrics.pop("partial_cost", None)),
+                    "f": metrics.pop("nearest_neighbor_cost", None),
+                }
+
+            for key, label in self.metric_values.items():
+                value = values[key]
+                label.setText("—" if value is None else self._format_metric(value))
+
+            for hidden_key in (
+                "route_frame",
+                "route",
+                "goal_order",
+                "remaining_goals",
+            ):
+                metrics.pop(hidden_key, None)
         else:
             for key, title in (("g", "G"), ("h", "H"), ("f", "F")):
                 self.metric_titles[key].setText(title)
@@ -332,6 +366,10 @@ class AlgorithmStatePanel(QFrame):
             or stage.startswith("sa_initial_route")
             or stage.startswith("sa_iteration_route")
             or stage.startswith("sa_final_route")
+            or stage.startswith("nn2opt_nn_route")
+            or stage.startswith("nn2opt_2opt_route")
+            or stage.startswith("nn2opt_preserved_route")
+            or stage.startswith("nn2opt_final_route")
         )
 
     @classmethod
@@ -339,7 +377,11 @@ class AlgorithmStatePanel(QFrame):
         stage = cls._stage(step)
         return (
             step.get("type") == "update"
-            and (stage.startswith("ga_") or stage.startswith("sa_"))
+            and (
+                stage.startswith("ga_")
+                or stage.startswith("sa_")
+                or stage.startswith("nn2opt_")
+            )
             and not step.get("from")
             and not step.get("to")
         )
@@ -360,9 +402,8 @@ class AlgorithmStatePanel(QFrame):
             item_metrics = item.get("metrics") or {}
             if not isinstance(item_metrics, dict):
                 continue
-            if (
-                item_metrics.get("route_frame") == route_frame
-                and item_metrics.get("route_reset")
+            if item_metrics.get("route_frame") == route_frame and item_metrics.get(
+                "route_reset"
             ):
                 return item
         return step

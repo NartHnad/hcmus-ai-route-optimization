@@ -324,7 +324,7 @@ class MapWidget(QWebEngineView):
 
     @classmethod
     def _is_optimizer_route_step(cls, step):
-        """Return True for route-edge playback produced by GA or SA."""
+        """Return True for route-edge playback produced by route optimizers."""
         stage = cls._step_stage(step)
         return (
             stage.startswith("ga_generation_route")
@@ -332,6 +332,10 @@ class MapWidget(QWebEngineView):
             or stage.startswith("sa_initial_route")
             or stage.startswith("sa_iteration_route")
             or stage.startswith("sa_final_route")
+            or stage.startswith("nn2opt_nn_route")
+            or stage.startswith("nn2opt_2opt_route")
+            or stage.startswith("nn2opt_preserved_route")
+            or stage.startswith("nn2opt_final_route")
         )
 
     @classmethod
@@ -340,7 +344,11 @@ class MapWidget(QWebEngineView):
         stage = cls._step_stage(step)
         return (
             step.get("type") == "update"
-            and (stage.startswith("ga_") or stage.startswith("sa_"))
+            and (
+                stage.startswith("ga_")
+                or stage.startswith("sa_")
+                or stage.startswith("nn2opt_")
+            )
             and not step.get("from")
             and not step.get("to")
         )
@@ -348,7 +356,7 @@ class MapWidget(QWebEngineView):
     def _bounded_playback_end(self, start, requested_end):
         """Keep optimizer route frames atomic during autoplay.
 
-        GA and SA encode a complete route as:
+        GA, SA and NN + 2-Opt encode a complete route as:
 
             UPDATE(route_reset=True) -> DISCOVER* -> EXPAND*
 
