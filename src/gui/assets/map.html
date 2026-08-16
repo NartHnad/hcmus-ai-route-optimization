@@ -141,6 +141,26 @@
             border: 0;
         }
 
+        .edge-editor {
+            display: none; position: absolute; z-index: 1200; width: 270px;
+            max-height: calc(100% - 16px); overflow: auto; box-sizing: border-box;
+            padding: 12px; border: 1px solid var(--border); border-radius: 12px;
+            color: var(--text); background: var(--surface); box-shadow: var(--shadow);
+            font-size: 12px;
+        }
+        .edge-editor h3 { margin: 0 0 9px; font-size: 14px; }
+        .edge-editor label { display: block; margin-top: 7px; color: var(--muted); font-weight: 600; }
+        .edge-editor input, .edge-editor select {
+            width: 100%; box-sizing: border-box; margin-top: 3px; padding: 6px 7px;
+            border: 1px solid var(--border); border-radius: 6px;
+            color: var(--text); background: var(--surface-muted); font: inherit;
+        }
+        .edge-editor input[readonly] { opacity: .75; }
+        .edge-editor__meta { margin-top: 7px; color: var(--muted); line-height: 1.45; }
+        .edge-editor__error { min-height: 16px; margin-top: 6px; color: #dc2626; }
+        .edge-editor__actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 6px; }
+        .edge-editor button { padding: 6px 9px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); background: transparent; cursor: pointer; }
+
         .leaflet-control-zoom a,
         .leaflet-control-attribution {
             color: var(--text) !important;
@@ -171,10 +191,33 @@
             <div class="legend__item"><span class="legend__line"></span>Final path</div>
         </div>
     </div>
+    <form id="edge-editor" class="edge-editor">
+        <h3>Edit edge</h3>
+        <label>Direction<select id="edge-direction"></select></label>
+        <label>Distance (km)<input id="edge-distance" readonly></label>
+        <label>Estimated time (min)<input id="edge-time" type="number" min="0.000001" step="any" required></label>
+        <label>Risk (0–1)<input id="edge-risk" type="number" min="0" max="1" step="0.01" required></label>
+        <label>Congestion (0–1)<input id="edge-congestion" type="number" min="0" max="1" step="0.01" required></label>
+        <div id="edge-meta" class="edge-editor__meta"></div>
+        <div id="edge-error" class="edge-editor__error"></div>
+        <div class="edge-editor__actions">
+            <button id="edge-cancel" type="button">Cancel</button>
+            <button type="submit">Apply</button>
+        </div>
+    </form>
 
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
     <script>
         const DEFAULT_CENTER = [10.7741, 106.6782];
         const DEFAULT_ZOOM = 14;
+        const edgeEditor = document.getElementById('edge-editor');
+        const edgeDirection = document.getElementById('edge-direction');
+        const edgeDistance = document.getElementById('edge-distance');
+        const edgeTime = document.getElementById('edge-time');
+        const edgeRisk = document.getElementById('edge-risk');
+        const edgeCongestion = document.getElementById('edge-congestion');
+        const edgeMeta = document.getElementById('edge-meta');
+        const edgeError = document.getElementById('edge-error');
 
         const NODE_STYLE = {
             default:  { radius: 7,  color: '#2563eb', weight: 2, fillColor: '#60a5fa', fillOpacity: 0.90 },
@@ -228,6 +271,15 @@
         let exploredNodes = new Set();
         let largeGraphMode = false;
         let graphRenderState = { token: 0, ready: true, progress: 1, error: null };
+        let edgeEditingEnabled = false;
+        let editingEdge = null;
+        let edgeBridge = null;
+
+        if (typeof QWebChannel !== 'undefined' && window.qt && qt.webChannelTransport) {
+            new QWebChannel(qt.webChannelTransport, channel => {
+                edgeBridge = channel.objects.edgeBridge;
+            });
+        }
 
         let legendTouched = false;
         document.getElementById('legend-toggle').addEventListener('click', () => {
@@ -247,6 +299,98 @@
         function normalizeInput(data) {
             if (typeof data === 'string') return JSON.parse(data);
             return data || {};
+        }
+
+        function formatNumber(value) {
+            const number = Number(value);
+            if (!Number.isFinite(number)) return '—';
+            return number >= 100 ? number.toFixed(0) : number.toFixed(2).replace(/\.00$/, '');
+        }
+
+        function directionDetails(edge) {
+            if (Array.isArray(edge.direction_details) && edge.direction_details.length) {
+                return edge.direction_details;
+            }
+            return [{
+                from: edge.from, to: edge.to, distance: edge.distance,
+                travel_time: edge.travel_time, risk: edge.risk || 0,
+                congestion: edge.congestion || 0, road_type: edge.road_type || '',
+                note: edge.note || '', cost: edge.cost,
+            }];
+        }
+
+        function selectedDirectionDetail() {
+            if (!editingEdge) return null;
+            return directionDetails(editingEdge).find(
+                detail => edgeKey(detail.from, detail.to) === edgeDirection.value
+            ) || null;
+        }
+
+        function populateEdgeEditor() {
+            const detail = selectedDirectionDetail();
+            if (!detail) return;
+            edgeDistance.value = formatNumber(detail.distance);
+            edgeTime.value = detail.travel_time;
+            edgeRisk.value = detail.risk;
+            edgeCongestion.value = detail.congestion;
+            edgeMeta.textContent = `From/To: ${detail.from} → ${detail.to} · Road: ${detail.road_type || '—'} · Note: ${detail.note || '—'} · Cost: ${formatNumber(detail.cost)}`;
+            edgeError.textContent = '';
+        }
+
+        function closeEdgeEditor() {
+            edgeEditor.style.display = 'none';
+            editingEdge = null;
+        }
+
+        function openEdgeEditor(edge, clientX, clientY) {
+            if (!edgeEditingEnabled || !edge) return;
+            editingEdge = edge;
+            edgeDirection.innerHTML = '';
+            directionDetails(edge).forEach(detail => {
+                const option = document.createElement('option');
+                option.value = edgeKey(detail.from, detail.to);
+                option.textContent = `${detail.from} → ${detail.to}`;
+                edgeDirection.appendChild(option);
+            });
+            populateEdgeEditor();
+            edgeEditor.style.display = 'block';
+            const left = Math.max(8, Math.min(window.innerWidth - edgeEditor.offsetWidth - 8, clientX + 10));
+            const top = Math.max(8, Math.min(window.innerHeight - edgeEditor.offsetHeight - 8, clientY + 10));
+            edgeEditor.style.left = `${left}px`;
+            edgeEditor.style.top = `${top}px`;
+        }
+
+        function setEdgeEditingEnabled(rawState) {
+            const state = normalizeInput(rawState);
+            edgeEditingEnabled = Boolean(state.enabled);
+            if (!edgeEditingEnabled) closeEdgeEditor();
+        }
+
+        function edgeTooltip(edge) {
+            const detail = directionDetails(edge)[0];
+            return [
+                detail.note || `${detail.from} → ${detail.to}`,
+                `${Number(detail.distance).toFixed(2)} km`,
+                `${Number(detail.travel_time).toFixed(1)} min`,
+            ].join(' · ');
+        }
+
+        function updateEdgeDirection(rawDetail) {
+            const detail = normalizeInput(rawDetail);
+            const edge = graphData.edges.find(candidate => directionDetails(candidate).some(
+                item => item.from === detail.from && item.to === detail.to
+            ));
+            if (!edge) return false;
+            const existing = directionDetails(edge).find(
+                item => item.from === detail.from && item.to === detail.to
+            );
+            if (!existing) return false;
+            Object.assign(existing, detail);
+            if (edge.from === detail.from && edge.to === detail.to) Object.assign(edge, detail);
+            const layer = edgeLayers[edgeKey(detail.from, detail.to)];
+            if (layer && layer.getTooltip()) layer.setTooltipContent(edgeTooltip(edge));
+            if (editingEdge === edge) populateEdgeEditor();
+            return true;
         }
 
         function edgeKey(fromNode, toNode) { return `${fromNode}->${toNode}`; }
@@ -297,6 +441,7 @@
 
         function initMap(data) {
             const incoming = normalizeInput(data);
+            closeEdgeEditor();
             const token = Number(incoming.render_token || (graphRenderState.token + 1));
             graphRenderState = { token, ready: false, progress: 0, error: null };
             map.invalidateSize();
@@ -379,17 +524,24 @@
                             {
                                 ...EDGE_STYLE.default,
                                 renderer: canvasRenderer,
-                                interactive: !largeGraph,
+                                interactive: true,
                             }
                         ).addTo(edgeLayerGroup);
-                        if (!largeGraph) {
-                            const details = [
-                                edge.note || `${edge.from} → ${edge.to}`,
-                                `${Number(edge.distance).toFixed(2)} km`,
-                                `${Number(edge.travel_time).toFixed(1)} min`,
-                            ].join(' · ');
-                            layer.bindTooltip(details);
-                        }
+                        if (!largeGraph) layer.bindTooltip(edgeTooltip(edge));
+                        layer.on('click', event => {
+                            // A canvas-backed Leaflet edge bubbles its click
+                            // to the map. Stop the native event here; otherwise
+                            // the map's empty-space click handler immediately
+                            // hides the editor we have just opened.
+                            if (event.originalEvent) L.DomEvent.stop(event.originalEvent);
+                            const original = event.originalEvent || {};
+                            const point = map.latLngToContainerPoint(event.latlng);
+                            openEdgeEditor(
+                                edge,
+                                Number.isFinite(original.clientX) ? original.clientX : point.x,
+                                Number.isFinite(original.clientY) ? original.clientY : point.y
+                            );
+                        });
                         const directions = edge.directions || [[edge.from, edge.to]];
                         directions.forEach(direction => {
                             edgeLayers[edgeKey(direction[0], direction[1])] = layer;
@@ -675,6 +827,45 @@
             currentPreviewGoal = selection.preview_goal || null;
             refreshEndpointMarkers();
         }
+
+        edgeDirection.addEventListener('change', populateEdgeEditor);
+        document.getElementById('edge-cancel').addEventListener('click', closeEdgeEditor);
+        edgeEditor.addEventListener('click', event => event.stopPropagation());
+        edgeEditor.addEventListener('submit', event => {
+            event.preventDefault();
+            const detail = selectedDirectionDetail();
+            if (!detail || !edgeBridge) {
+                edgeError.textContent = 'Edge editor is not connected.';
+                return;
+            }
+            const payload = {
+                from: detail.from,
+                to: detail.to,
+                travel_time: Number(edgeTime.value),
+                risk: Number(edgeRisk.value),
+                congestion: Number(edgeCongestion.value),
+            };
+            edgeBridge.updateEdge(payload, response => {
+                if (!response || !response.ok) {
+                    edgeError.textContent = response && response.error
+                        ? response.error
+                        : 'Update failed.';
+                    return;
+                }
+                updateEdgeDirection(response.edge);
+                closeEdgeEditor();
+            });
+        });
+        // Empty-space clicks naturally bubble to document. Do not also attach
+        // a map click handler: Leaflet canvas layer clicks bubble to the map
+        // before the DOM event completes, which used to close the popup
+        // immediately after it opened.
+        document.addEventListener('click', event => {
+            if (!edgeEditor.contains(event.target)) closeEdgeEditor();
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') closeEdgeEditor();
+        });
     </script>
 </body>
 </html>

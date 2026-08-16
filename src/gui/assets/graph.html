@@ -57,6 +57,23 @@
         .tooltip { display: none; pointer-events: none; max-width: 280px; padding: 8px 10px; font-size: 11px; line-height: 1.45; }
         .tooltip strong { display: block; color: var(--text); font-size: 12px; }
         .tooltip span { color: var(--muted); }
+        .edge-editor {
+            display: none; position: absolute; z-index: 5; width: 270px;
+            max-height: calc(100% - 16px); overflow: auto; padding: 12px;
+            border: 1px solid var(--border); border-radius: 12px;
+            background: var(--panel); box-shadow: 0 12px 30px rgba(15,23,42,.24);
+            font-size: 12px;
+        }
+        .edge-editor h3 { margin: 0 0 9px; font-size: 14px; }
+        .edge-editor label { display: block; margin-top: 7px; color: var(--muted); font-weight: 600; }
+        .edge-editor input, .edge-editor select {
+            width: 100%; margin-top: 3px; padding: 6px 7px; border: 1px solid var(--border);
+            border-radius: 6px; color: var(--text); background: var(--bg); font: inherit;
+        }
+        .edge-editor input[readonly] { opacity: .75; }
+        .edge-editor__meta { margin-top: 7px; color: var(--muted); line-height: 1.45; }
+        .edge-editor__error { min-height: 16px; margin-top: 6px; color: #dc2626; }
+        .edge-editor__actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 6px; }
         @media (max-width: 620px) {
             .legend { max-width: calc(100% - 24px); }
             .legend-grid { grid-template-columns: repeat(3, auto); }
@@ -82,7 +99,22 @@
     </div>
     <div id="empty" class="empty"><strong>No graph loaded</strong>Load a dataset to begin.</div>
     <div id="tooltip" class="tooltip"></div>
+    <form id="edge-editor" class="edge-editor">
+        <h3>Edit edge</h3>
+        <label>Direction<select id="edge-direction"></select></label>
+        <label>Distance (km)<input id="edge-distance" readonly></label>
+        <label>Estimated time (min)<input id="edge-time" type="number" min="0.000001" step="any" required></label>
+        <label>Risk (0–1)<input id="edge-risk" type="number" min="0" max="1" step="0.01" required></label>
+        <label>Congestion (0–1)<input id="edge-congestion" type="number" min="0" max="1" step="0.01" required></label>
+        <div id="edge-meta" class="edge-editor__meta"></div>
+        <div id="edge-error" class="edge-editor__error"></div>
+        <div class="edge-editor__actions">
+            <button id="edge-cancel" type="button">Cancel</button>
+            <button type="submit">Apply</button>
+        </div>
+    </form>
 
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
     <script>
         const canvas = document.getElementById('graph');
         const ctx = canvas.getContext('2d');
@@ -90,6 +122,14 @@
         const tooltip = document.getElementById('tooltip');
         const fitButton = document.getElementById('fit-button');
         const labelsButton = document.getElementById('labels-button');
+        const edgeEditor = document.getElementById('edge-editor');
+        const edgeDirection = document.getElementById('edge-direction');
+        const edgeDistance = document.getElementById('edge-distance');
+        const edgeTime = document.getElementById('edge-time');
+        const edgeRisk = document.getElementById('edge-risk');
+        const edgeCongestion = document.getElementById('edge-congestion');
+        const edgeMeta = document.getElementById('edge-meta');
+        const edgeError = document.getElementById('edge-error');
 
         const COLORS = {
             light: { bg:'#f8fafc', grid:'#e2e8f0', text:'#0f172a', muted:'#64748b', edge:'#94a3b8', label:'#ffffff' },
@@ -122,6 +162,16 @@
         let dragging = false;
         let dragX = 0;
         let dragY = 0;
+        let dragDistance = 0;
+        let edgeEditingEnabled = false;
+        let editingEdge = null;
+        let edgeBridge = null;
+
+        if (typeof QWebChannel !== 'undefined' && window.qt && qt.webChannelTransport) {
+            new QWebChannel(qt.webChannelTransport, channel => {
+                edgeBridge = channel.objects.edgeBridge;
+            });
+        }
 
         function normalizeInput(value) {
             if (typeof value === 'string') return JSON.parse(value);
@@ -134,6 +184,77 @@
             return number >= 100 ? number.toFixed(0) : number.toFixed(2).replace(/\.00$/, '');
         }
         function cssColors() { return COLORS[theme]; }
+
+        function directionDetails(edge) {
+            if (Array.isArray(edge.direction_details) && edge.direction_details.length) {
+                return edge.direction_details;
+            }
+            return [{
+                from: edge.from, to: edge.to, distance: edge.distance,
+                travel_time: edge.travel_time, risk: edge.risk || 0,
+                congestion: edge.congestion || 0, road_type: edge.road_type || '',
+                note: edge.note || '', cost: edge.cost,
+            }];
+        }
+
+        function selectedDirectionDetail() {
+            if (!editingEdge) return null;
+            const key = edgeDirection.value;
+            return directionDetails(editingEdge).find(detail => edgeKey(detail.from, detail.to) === key) || null;
+        }
+
+        function populateEdgeEditor() {
+            const detail = selectedDirectionDetail();
+            if (!detail) return;
+            edgeDistance.value = formatNumber(detail.distance);
+            edgeTime.value = detail.travel_time;
+            edgeRisk.value = detail.risk;
+            edgeCongestion.value = detail.congestion;
+            edgeMeta.textContent = `From/To: ${detail.from} → ${detail.to} · Road: ${detail.road_type || '—'} · Note: ${detail.note || '—'} · Cost: ${formatNumber(detail.cost)}`;
+            edgeError.textContent = '';
+        }
+
+        function closeEdgeEditor() {
+            edgeEditor.style.display = 'none';
+            editingEdge = null;
+        }
+
+        function openEdgeEditor(edge, clientX, clientY) {
+            if (!edgeEditingEnabled || !edge) return;
+            editingEdge = edge;
+            edgeDirection.innerHTML = '';
+            directionDetails(edge).forEach(detail => {
+                const option = document.createElement('option');
+                option.value = edgeKey(detail.from, detail.to);
+                option.textContent = `${detail.from} → ${detail.to}`;
+                edgeDirection.appendChild(option);
+            });
+            populateEdgeEditor();
+            edgeEditor.style.display = 'block';
+            const left = Math.max(8, Math.min(window.innerWidth - edgeEditor.offsetWidth - 8, clientX + 10));
+            const top = Math.max(8, Math.min(window.innerHeight - edgeEditor.offsetHeight - 8, clientY + 10));
+            edgeEditor.style.left = `${left}px`;
+            edgeEditor.style.top = `${top}px`;
+        }
+
+        function setEdgeEditingEnabled(rawState) {
+            const state = normalizeInput(rawState);
+            edgeEditingEnabled = Boolean(state.enabled);
+            if (!edgeEditingEnabled) closeEdgeEditor();
+        }
+
+        function updateEdgeDirection(rawDetail) {
+            const detail = normalizeInput(rawDetail);
+            const edge = edgeByDirection.get(edgeKey(detail.from, detail.to));
+            if (!edge) return false;
+            const existing = directionDetails(edge).find(item => item.from === detail.from && item.to === detail.to);
+            if (!existing) return false;
+            Object.assign(existing, detail);
+            if (edge.from === detail.from && edge.to === detail.to) Object.assign(edge, detail);
+            if (editingEdge === edge) populateEdgeEditor();
+            scheduleDraw();
+            return true;
+        }
 
         function resizeCanvas() {
             const rect = canvas.getBoundingClientRect();
@@ -213,6 +334,7 @@
 
         function initGraph(rawData) {
             try {
+                closeEdgeEditor();
                 const incoming = normalizeInput(rawData);
                 graphData = { nodes: incoming.nodes || [], edges: incoming.edges || [] };
                 nodeIndex = new Map(graphData.nodes.map(node => [node.id, node]));
@@ -516,8 +638,8 @@
             return Math.hypot(x - (from.x + amount * dx), y - (from.y + amount * dy));
         }
 
-        function nearestEdge(x, y) {
-            if (graphData.edges.length > 2000) return null;
+        function nearestEdge(x, y, includeLargeGraph = false) {
+            if (!includeLargeGraph && graphData.edges.length > 2000) return null;
             let best = null, bestDistance = 7;
             for (const edge of graphData.edges) {
                 const fromNode = nodeIndex.get(edge.from), toNode = nodeIndex.get(edge.to);
@@ -529,12 +651,24 @@
         }
 
         canvas.addEventListener('mousedown', event => {
-            dragging = true; dragX = event.clientX; dragY = event.clientY; canvas.classList.add('is-dragging'); tooltip.style.display = 'none';
+            closeEdgeEditor();
+            dragging = true; dragX = event.clientX; dragY = event.clientY; dragDistance = 0; canvas.classList.add('is-dragging'); tooltip.style.display = 'none';
         });
-        window.addEventListener('mouseup', () => { dragging = false; canvas.classList.remove('is-dragging'); });
+        window.addEventListener('mouseup', event => {
+            const wasDragging = dragging;
+            dragging = false;
+            canvas.classList.remove('is-dragging');
+            if (!wasDragging || dragDistance > 4 || !edgeEditingEnabled) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left, y = event.clientY - rect.top;
+            if (x < 0 || y < 0 || x > rect.width || y > rect.height || nearestNode(x, y)) return;
+            openEdgeEditor(nearestEdge(x, y, true), event.clientX, event.clientY);
+        });
         window.addEventListener('mousemove', event => {
             if (dragging) {
-                panX += event.clientX - dragX; panY += event.clientY - dragY; dragX = event.clientX; dragY = event.clientY; scheduleDraw(); return;
+                const dx = event.clientX - dragX, dy = event.clientY - dragY;
+                dragDistance += Math.hypot(dx, dy);
+                panX += dx; panY += dy; dragX = event.clientX; dragY = event.clientY; scheduleDraw(); return;
             }
             const rect = canvas.getBoundingClientRect();
             const x = event.clientX - rect.left, y = event.clientY - rect.top;
@@ -569,6 +703,38 @@
             labelMode = labelMode === 'auto' ? 'all' : labelMode === 'all' ? 'off' : 'auto';
             labelsButton.textContent = `Labels: ${labelMode[0].toUpperCase()}${labelMode.slice(1)}`;
             scheduleDraw();
+        });
+        edgeDirection.addEventListener('change', populateEdgeEditor);
+        document.getElementById('edge-cancel').addEventListener('click', closeEdgeEditor);
+        edgeEditor.addEventListener('mousedown', event => event.stopPropagation());
+        document.addEventListener('mousedown', event => {
+            if (edgeEditor.style.display !== 'none' && !edgeEditor.contains(event.target) && event.target !== canvas) {
+                closeEdgeEditor();
+            }
+        });
+        edgeEditor.addEventListener('submit', event => {
+            event.preventDefault();
+            const detail = selectedDirectionDetail();
+            if (!detail || !edgeBridge) {
+                edgeError.textContent = 'Edge editor is not connected.';
+                return;
+            }
+            const payload = {
+                from: detail.from, to: detail.to,
+                travel_time: Number(edgeTime.value), risk: Number(edgeRisk.value),
+                congestion: Number(edgeCongestion.value),
+            };
+            edgeBridge.updateEdge(payload, response => {
+                if (!response || !response.ok) {
+                    edgeError.textContent = response && response.error ? response.error : 'Update failed.';
+                    return;
+                }
+                updateEdgeDirection(response.edge);
+                closeEdgeEditor();
+            });
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') closeEdgeEditor();
         });
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();

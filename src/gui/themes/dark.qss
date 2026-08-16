@@ -54,7 +54,9 @@ QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px; }
 QComboBox#fieldInput { min-height: 26px; padding: 5px 28px 5px 9px; border: 1px solid #3b4960; border-radius: 7px; color: #eef2f8; background: #111925; selection-background-color: #344c91; }
 QComboBox#fieldInput:hover, QComboBox#fieldInput:focus { border-color: #6686ff; }
 QComboBox#fieldInput:disabled { color: #66758b; background: #18202d; }
+QComboBox#fieldInput QLineEdit { border: none; background: transparent; }
 QComboBox QAbstractItemView { padding: 4px; border: 1px solid #3b4960; color: #eef2f8; background: #171f2e; selection-color: #ffffff; selection-background-color: #4969e8; }
+QAbstractItemView#nodeSuggestions { padding: 4px; border: 1px solid #3b4960; color: #eef2f8; background: #171f2e; selection-color: #ffffff; selection-background-color: #4969e8; }
 QListWidget#goalList { padding: 4px; border: 1px solid #3b4960; border-radius: 7px; color: #eef2f8; background: #111925; alternate-background-color: #171f2e; selection-color: #ffffff; selection-background-color: #4969e8; }
 QListWidget#goalList:disabled { color: #66758b; background: #18202d; }
 QCheckBox { color: #dbe4f0; spacing: 7px; }
