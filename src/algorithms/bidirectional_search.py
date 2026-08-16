@@ -1,4 +1,4 @@
-# #NhatHuyChanged: add optimal weighted Bidirectional Search for single routes.
+# src.algorithms.bidirectional_search
 """Bidirectional Uniform-Cost Search for directed road graphs.
 
 The search runs Dijkstra/UCS from the start over outgoing edges and from the
@@ -14,7 +14,6 @@ import math
 
 from src.constants import StepType
 from src.models.models import SearchResult, SearchStep
-
 
 ALGORITHM_NAME = "Bidirectional Search (UCS)"
 _EPSILON = 1e-12
@@ -85,7 +84,9 @@ def _reconstruct_path(start_id, goal_id, meeting, forward_parent, backward_paren
     return path
 
 
-def _failure(message: str, node_id=None, visited_order=None, steps=None) -> SearchResult:
+def _failure(
+    message: str, node_id=None, visited_order=None, steps=None
+) -> SearchResult:
     steps = list(steps or [])
     steps.append(
         SearchStep(
@@ -113,8 +114,10 @@ def bidirectional_search(graph, start_id: str, goal_id: str) -> SearchResult:
 
     if graph is None:
         return _failure("Graph is not loaded.")
+
     if start_id not in graph.nodes:
         return _failure(f"Start node '{start_id}' was not found.")
+
     if goal_id not in graph.nodes:
         return _failure(f"Goal node '{goal_id}' was not found.")
 
@@ -138,6 +141,7 @@ def bidirectional_search(graph, start_id: str, goal_id: str) -> SearchResult:
                 },
             ),
         ]
+
         return SearchResult(
             path=[start_id],
             steps=steps,
@@ -153,6 +157,7 @@ def bidirectional_search(graph, start_id: str, goal_id: str) -> SearchResult:
     forward_distance = {start_id: 0.0}
     backward_distance = {goal_id: 0.0}
     forward_parent = {start_id: None}
+
     # node -> next node on the original directed route toward the goal
     backward_parent = {goal_id: None}
     forward_settled = set()
@@ -188,14 +193,15 @@ def bidirectional_search(graph, start_id: str, goal_id: str) -> SearchResult:
         return False
 
     while forward_frontier and backward_frontier:
-        min_forward = _peek_valid(
-            forward_frontier, forward_distance, forward_settled
-        )
+        min_forward = _peek_valid(forward_frontier, forward_distance, forward_settled)
+
         min_backward = _peek_valid(
             backward_frontier, backward_distance, backward_settled
         )
+
         if not math.isfinite(min_forward) or not math.isfinite(min_backward):
             break
+
         if (
             forward_settled
             and backward_settled
@@ -204,47 +210,55 @@ def bidirectional_search(graph, start_id: str, goal_id: str) -> SearchResult:
             break
 
         if min_forward <= min_backward:
-            popped = _pop_valid(
-                forward_frontier, forward_distance, forward_settled
-            )
+            popped = _pop_valid(forward_frontier, forward_distance, forward_settled)
+
             if popped is None:
                 break
+
             current_cost, current = popped
             forward_settled.add(current)
             record_expansion(current, current_cost, "forward")
 
             if current in backward_distance:
-                consider_meeting(
-                    current, current_cost + backward_distance[current]
-                )
+                consider_meeting(current, current_cost + backward_distance[current])
 
             for edge in graph.get_neighbors(current):
                 edge_cost = _edge_cost(edge)
+
                 if not math.isfinite(edge_cost):
                     continue
+
                 neighbor = edge.to_node
+
                 if neighbor not in graph.nodes:
                     continue
+
                 candidate = current_cost + edge_cost
                 previous = forward_distance.get(neighbor, math.inf)
+
                 if candidate + _EPSILON >= previous:
                     continue
 
                 first_discovery = not math.isfinite(previous)
                 forward_distance[neighbor] = candidate
                 forward_parent[neighbor] = current
+
                 heapq.heappush(forward_frontier, (candidate, neighbor))
                 found_meeting = False
+
                 if neighbor in backward_distance:
                     found_meeting = consider_meeting(
                         neighbor, candidate + backward_distance[neighbor]
                     )
+
                 metrics = {
                     "g": candidate,
                     "search_direction": "forward",
                 }
+
                 if found_meeting:
                     metrics["meeting_cost"] = best_cost
+
                 steps.append(
                     SearchStep(
                         StepType.DISCOVER if first_discovery else StepType.UPDATE,
@@ -256,48 +270,55 @@ def bidirectional_search(graph, start_id: str, goal_id: str) -> SearchResult:
                     )
                 )
         else:
-            popped = _pop_valid(
-                backward_frontier, backward_distance, backward_settled
-            )
+            popped = _pop_valid(backward_frontier, backward_distance, backward_settled)
+
             if popped is None:
                 break
+
             current_cost, current = popped
             backward_settled.add(current)
             record_expansion(current, current_cost, "backward")
 
             if current in forward_distance:
-                consider_meeting(
-                    current, current_cost + forward_distance[current]
-                )
+                consider_meeting(current, current_cost + forward_distance[current])
 
             # Traverse an original edge predecessor -> current in reverse.
             for edge in incoming.get(current, []):
                 edge_cost = _edge_cost(edge)
+
                 if not math.isfinite(edge_cost):
                     continue
+
                 predecessor = edge.from_node
+
                 if predecessor not in graph.nodes:
                     continue
+
                 candidate = current_cost + edge_cost
                 previous = backward_distance.get(predecessor, math.inf)
+
                 if candidate + _EPSILON >= previous:
                     continue
 
                 first_discovery = not math.isfinite(previous)
                 backward_distance[predecessor] = candidate
                 backward_parent[predecessor] = current
+
                 heapq.heappush(backward_frontier, (candidate, predecessor))
                 found_meeting = False
+
                 if predecessor in forward_distance:
                     found_meeting = consider_meeting(
                         predecessor, candidate + forward_distance[predecessor]
                     )
+
                 metrics = {
                     "g": candidate,
                     "search_direction": "backward",
                 }
                 if found_meeting:
                     metrics["meeting_cost"] = best_cost
+
                 steps.append(
                     SearchStep(
                         StepType.DISCOVER if first_discovery else StepType.UPDATE,
