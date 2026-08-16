@@ -266,6 +266,29 @@ class AlgorithmStatePanel(QFrame):
             for key, label in self.metric_values.items():
                 value = ga_values[key]
                 label.setText("—" if value is None else self._format_metric(value))
+
+            # The route itself is already visible on Map/Graph and endpoint badges.
+            # Hide bulky payloads while keeping compact GA operator/candidate metrics.
+            for hidden_key in (
+                "route_frame",
+                "route",
+                "goal_order",
+                "candidate_tour",
+                "generation_best_tour",
+                "global_best_tour",
+                "best_tour",
+                "elite_tours",
+                "parent1",
+                "parent2",
+                "child1_before_mutation",
+                "child2_before_mutation",
+                "child1_before",
+                "child1_after",
+                "child2_before",
+                "child2_after",
+            ):
+                metrics.pop(hidden_key, None)
+
         elif stage.startswith("sa_"):
             # SA has no graph-search G/H/F values. Show the quantities that drive
             # the annealing decision instead.
