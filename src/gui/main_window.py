@@ -1021,6 +1021,8 @@ class MainWindow(QMainWindow):
                     return f"GA {generation_text} · draw initial best{suffix}"
                 if role == "final_global_best":
                     return f"GA {generation_text} · draw final global best{suffix}"
+                if role == "preserved_order":
+                    return f"GA preserved goal order{suffix}"
                 return f"GA {generation_text} · draw route{suffix}"
             if stage == "ga_candidate":
                 cost = metrics.get("candidate_cost")

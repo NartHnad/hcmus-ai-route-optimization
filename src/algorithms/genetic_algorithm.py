@@ -9,6 +9,8 @@ from typing import Sequence
 from src.algorithms.a_star import a_star
 from src.models.models import SearchResult, SearchStep, StepType
 
+
+ALGORITHM_NAME = "Genetic Algorithm (GA)"
 _EPSILON = 1e-12
 
 
@@ -262,6 +264,88 @@ def swap_mutation(
     return mutated, (i, j)
 
 
+def _chromosome_difference(
+    left: Sequence[str],
+    right: Sequence[str] | None,
+) -> int:
+    """Count positional gene differences for visualization diversity only."""
+
+    if right is None:
+        return len(left)
+    width = max(len(left), len(right))
+    return sum(
+        1
+        for index in range(width)
+        if (left[index] if index < len(left) else None)
+        != (right[index] if index < len(right) else None)
+    )
+
+
+def _select_representative_offspring(
+    offspring_records: Sequence[dict],
+    previous_visualized: Sequence[str] | None,
+    start: str,
+    return_to_start: bool,
+    distance_matrix: dict[tuple[str, str], float],
+) -> dict | None:
+    """Choose one real offspring for playback without affecting GA evolution.
+
+    Preference is purely visual: changed from the previous displayed candidate, then
+    mutated, then crossed, then larger positional difference. Route cost is only a
+    deterministic tie-break.
+    """
+
+    ranked: list[tuple[tuple, dict]] = []
+    for record in offspring_records:
+        chromosome = list(record.get("chromosome") or [])
+        if not chromosome:
+            continue
+
+        tour = _tour_from_chromosome(start, chromosome, return_to_start)
+        cost = get_tour_cost(tour, distance_matrix)
+        if not math.isfinite(cost):
+            continue
+
+        difference = _chromosome_difference(chromosome, previous_visualized)
+        changed = previous_visualized is None or difference > 0
+        mutated = bool(record.get("mutated"))
+        crossed = bool(record.get("crossover_performed"))
+
+        enriched = dict(record)
+        enriched.update(
+            {
+                "chromosome": chromosome,
+                "tour": tour,
+                "cost": float(cost),
+                "difference_from_previous": difference,
+                "changed_from_previous": changed,
+                "selection_reason": (
+                    "changed_mutated_offspring"
+                    if changed and mutated
+                    else "changed_crossover_offspring"
+                    if changed and crossed
+                    else "changed_offspring"
+                    if changed
+                    else "only_available_offspring"
+                ),
+            }
+        )
+
+        rank_key = (
+            0 if changed else 1,
+            0 if mutated else 1,
+            0 if crossed else 1,
+            -difference,
+            float(cost),
+            int(record.get("mating_index") or 0),
+            int(record.get("child_index") or 0),
+            tuple(map(str, chromosome)),
+        )
+        ranked.append((rank_key, enriched))
+
+    return min(ranked, key=lambda item: item[0])[1] if ranked else None
+
+
 def _append_route_visualization(
     steps: list[SearchStep],
     tour: Sequence[str],
@@ -272,10 +356,20 @@ def _append_route_visualization(
     generation: int,
     route_cost: float,
     is_global_best: bool,
+    route_role: str = "route",
+    extra_metrics: dict | None = None,
 ) -> None:
     """Emit real road-edge events so the existing playback can draw the GA route."""
 
     leg_count = max(0, len(tour) - 1)
+    goal_order = list(
+        tour[1:-1] if len(tour) > 1 and tour[-1] == tour[0] else tour[1:]
+    )
+    shared_metrics = dict(extra_metrics or {})
+    # Every displayed tour is one atomic UI frame.  The same identifier is copied
+    # onto the marker, road edges and goal-arrival events so MapWidget can batch the
+    # whole route without mixing it with the next GA generation.
+    route_frame = f"ga:{generation}:{route_role}"
 
     # Marker event tells a GA-aware renderer that the next DISCOVER events are a new
     # complete route snapshot. Existing renderers can safely ignore this UPDATE.
@@ -287,9 +381,13 @@ def _append_route_visualization(
                 "stage": f"{stage}_route_start",
                 "generation": generation,
                 "route": _tour_text(tour),
+                "goal_order": goal_order,
                 "route_cost": round(route_cost, 6),
+                "route_role": route_role,
+                "route_frame": route_frame,
                 "is_global_best": is_global_best,
                 "route_reset": True,
+                **shared_metrics,
             },
         )
     )
@@ -312,15 +410,18 @@ def _append_route_visualization(
                         "generation": generation,
                         "route_cost": round(route_cost, 6),
                         "is_global_best": is_global_best,
+                        "route_role": route_role,
+                        "route_frame": route_frame,
                         "leg_index": leg_index,
                         "leg_count": leg_count,
                         "leg_start": source,
                         "leg_goal": target,
-                        "leg_cost": (
-                            round(leg_cost, 6) if math.isfinite(leg_cost) else math.inf
-                        ),
+                        "leg_cost": round(leg_cost, 6)
+                        if math.isfinite(leg_cost)
+                        else math.inf,
                         "edge_index": edge_index,
                         "route_reset": False,
+                        **shared_metrics,
                     },
                 )
             )
@@ -334,13 +435,16 @@ def _append_route_visualization(
                     "generation": generation,
                     "route_cost": round(route_cost, 6),
                     "is_global_best": is_global_best,
+                    "route_role": route_role,
+                    "route_frame": route_frame,
                     "leg_index": leg_index,
                     "leg_count": leg_count,
                     "leg_start": source,
                     "leg_goal": target,
-                    "leg_cost": (
-                        round(leg_cost, 6) if math.isfinite(leg_cost) else math.inf
-                    ),
+                    "leg_cost": round(leg_cost, 6)
+                    if math.isfinite(leg_cost)
+                    else math.inf,
+                    **shared_metrics,
                 },
             )
         )
@@ -375,7 +479,9 @@ def genetic_algorithm(
     tournament_size: int = 3,
     random_seed: int | None = None,
     visualize_every: int = 1,
-    emit_operator_steps: bool = True,
+    emit_operator_steps: bool = False,
+    visualize_candidate: bool = True,
+    visualize_best_on_improvement: bool = True,
 ) -> SearchResult:
     """Optimize a multi-location route with a permutation Genetic Algorithm.
 
@@ -393,10 +499,12 @@ def genetic_algorithm(
 
     SearchStep / playback
     ---------------------
-    GA logic is emitted as UPDATE events (initial population, selection, crossover,
-    mutation, generation summaries and best-so-far). The best route of every
-    ``visualize_every`` generation is expanded into real A* road edges using
-    DISCOVER and goal arrivals using EXPAND so the current map playback can draw it.
+    GA always emits compact generation/candidate/best UPDATE events. Detailed
+    selection/crossover/mutation UPDATE events are optional via ``emit_operator_steps``.
+    For visualization, each
+    ``visualize_every`` generation draws one representative offspring actually
+    created by crossover/mutation. A best route is drawn separately only when a new
+    global best appears. This changes playback only, not GA evolution.
     """
 
     goals = _normalize_goals(goals)
@@ -410,7 +518,9 @@ def genetic_algorithm(
     if len(set(goals)) != len(goals):
         return _failure("Goal nodes must be unique.", start, stage="validation")
     if start in goals:
-        return _failure("Start node cannot also be a goal.", start, stage="validation")
+        return _failure(
+            "Start node cannot also be a goal.", start, stage="validation"
+        )
 
     missing = [goal for goal in goals if goal not in graph.nodes]
     if missing:
@@ -427,6 +537,8 @@ def genetic_algorithm(
     elitism = min(max(0, int(elitism)), population_size)
     tournament_size = min(max(1, int(tournament_size)), population_size)
     visualize_every = max(1, int(visualize_every))
+    visualize_candidate = bool(visualize_candidate)
+    visualize_best_on_improvement = bool(visualize_best_on_improvement)
     rng = random.Random(random_seed)
 
     steps: list[SearchStep] = []
@@ -480,6 +592,8 @@ def genetic_algorithm(
             generation=0,
             route_cost=best_cost,
             is_global_best=True,
+            route_role="preserved_order",
+            extra_metrics={"visualization_reason": "fixed_goal_order"},
         )
 
         full_path = _construct_full_path(best_tour, path_cache)
@@ -490,6 +604,7 @@ def genetic_algorithm(
                 metrics={
                     "stage": "finish",
                     "success": True,
+                    "algorithm": ALGORITHM_NAME,
                     "generations": 0,
                     "total_cost": round(best_cost, 6),
                     "tour": _tour_text(best_tour),
@@ -563,11 +678,16 @@ def genetic_algorithm(
         generation_best_tour,
         path_cache,
         distance_matrix,
-        stage="ga_generation_route",
+        stage="ga_generation_route_best",
         generation=0,
         route_cost=generation_best_cost,
         is_global_best=True,
+        route_role="initial_best",
+        extra_metrics={"visualization_reason": "initial_population_best"},
     )
+
+    # Used only by visualization to prefer a different child next time.
+    previous_visualized_candidate = list(generation_best_chromosome)
 
     # --------------------------- Evolution loop ----------------------------
     completed_generations = 0
@@ -603,6 +723,7 @@ def genetic_algorithm(
                 )
             )
 
+        offspring_records: list[dict] = []
         mating_index = 0
         while len(next_population) < population_size:
             mating_index += 1
@@ -628,10 +749,14 @@ def genetic_algorithm(
                             "parent1_cost": round(parent1_cost, 6),
                             "parent2_cost": round(parent2_cost, 6),
                             "parent1": _tour_text(
-                                _tour_from_chromosome(start, parent1, return_to_start)
+                                _tour_from_chromosome(
+                                    start, parent1, return_to_start
+                                )
                             ),
                             "parent2": _tour_text(
-                                _tour_from_chromosome(start, parent2, return_to_start)
+                                _tour_from_chromosome(
+                                    start, parent2, return_to_start
+                                )
                             ),
                         },
                     )
@@ -665,10 +790,14 @@ def genetic_algorithm(
                             "child1_cuts": list(cuts1) if cuts1 else None,
                             "child2_cuts": list(cuts2) if cuts2 else None,
                             "child1_before_mutation": _tour_text(
-                                _tour_from_chromosome(start, child1, return_to_start)
+                                _tour_from_chromosome(
+                                    start, child1, return_to_start
+                                )
                             ),
                             "child2_before_mutation": _tour_text(
-                                _tour_from_chromosome(start, child2, return_to_start)
+                                _tour_from_chromosome(
+                                    start, child2, return_to_start
+                                )
                             ),
                         },
                     )
@@ -692,19 +821,21 @@ def genetic_algorithm(
                             "mutation_rate": mutation_rate,
                             "child1_mutated": mutation1 is not None,
                             "child2_mutated": mutation2 is not None,
-                            "child1_swap_indices": (
-                                list(mutation1) if mutation1 else None
-                            ),
-                            "child2_swap_indices": (
-                                list(mutation2) if mutation2 else None
-                            ),
+                            "child1_swap_indices": list(mutation1)
+                            if mutation1
+                            else None,
+                            "child2_swap_indices": list(mutation2)
+                            if mutation2
+                            else None,
                             "child1_before": _tour_text(
                                 _tour_from_chromosome(
                                     start, before_mutation1, return_to_start
                                 )
                             ),
                             "child1_after": _tour_text(
-                                _tour_from_chromosome(start, child1, return_to_start)
+                                _tour_from_chromosome(
+                                    start, child1, return_to_start
+                                )
                             ),
                             "child2_before": _tour_text(
                                 _tour_from_chromosome(
@@ -712,15 +843,39 @@ def genetic_algorithm(
                                 )
                             ),
                             "child2_after": _tour_text(
-                                _tour_from_chromosome(start, child2, return_to_start)
+                                _tour_from_chromosome(
+                                    start, child2, return_to_start
+                                )
                             ),
                         },
                     )
                 )
 
             next_population.append(child1)
+            offspring_records.append(
+                {
+                    "chromosome": list(child1),
+                    "mating_index": mating_index,
+                    "child_index": 1,
+                    "crossover_performed": did_crossover,
+                    "mutated": mutation1 is not None,
+                    "mutation_indices": list(mutation1) if mutation1 else None,
+                    "crossover_cuts": list(cuts1) if cuts1 else None,
+                }
+            )
             if len(next_population) < population_size:
                 next_population.append(child2)
+                offspring_records.append(
+                    {
+                        "chromosome": list(child2),
+                        "mating_index": mating_index,
+                        "child_index": 2,
+                        "crossover_performed": did_crossover,
+                        "mutated": mutation2 is not None,
+                        "mutation_indices": list(mutation2) if mutation2 else None,
+                        "crossover_cuts": list(cuts2) if cuts2 else None,
+                    }
+                )
 
         population = next_population[:population_size]
         evaluated = _evaluate_population(
@@ -752,6 +907,16 @@ def genetic_algorithm(
             sum(finite_costs) / len(finite_costs) if finite_costs else math.inf
         )
 
+        representative = _select_representative_offspring(
+            offspring_records,
+            previous_visualized_candidate,
+            start,
+            return_to_start,
+            distance_matrix,
+        )
+        candidate_cost = representative["cost"] if representative else math.inf
+        candidate_tour = representative["tour"] if representative else []
+
         steps.append(
             SearchStep(
                 step_type=StepType.UPDATE,
@@ -765,16 +930,26 @@ def genetic_algorithm(
                     "generation_best_fitness": round(
                         get_fitness(generation_best_cost), 12
                     ),
-                    "average_cost": (
-                        round(average_cost, 6)
-                        if math.isfinite(average_cost)
-                        else math.inf
-                    ),
+                    "average_cost": round(average_cost, 6)
+                    if math.isfinite(average_cost)
+                    else math.inf,
                     "global_best_cost": round(global_best_cost, 6),
                     "global_best_generation": global_best_generation,
                     "is_new_global_best": is_new_global_best,
                     "generation_best_tour": _tour_text(generation_best_tour),
                     "global_best_tour": _tour_text(global_best_tour),
+                    "candidate_cost": round(candidate_cost, 6)
+                    if math.isfinite(candidate_cost)
+                    else math.inf,
+                    "candidate_tour": _tour_text(candidate_tour)
+                    if candidate_tour
+                    else "",
+                    "candidate_changed": bool(
+                        representative and representative["changed_from_previous"]
+                    ),
+                    "candidate_selection_reason": (
+                        representative["selection_reason"] if representative else None
+                    ),
                 },
             )
         )
@@ -795,22 +970,95 @@ def genetic_algorithm(
                 )
             )
 
-        if generation % visualize_every == 0 or generation == generations:
+        should_visualize = generation % visualize_every == 0 or generation == generations
+        if should_visualize and visualize_candidate and representative:
+            steps.append(
+                SearchStep(
+                    step_type=StepType.UPDATE,
+                    node_id=candidate_tour[-1] if candidate_tour else start,
+                    metrics={
+                        "stage": "ga_candidate",
+                        "generation": generation,
+                        "candidate_cost": round(candidate_cost, 6),
+                        "candidate_fitness": round(get_fitness(candidate_cost), 12),
+                        "candidate_tour": _tour_text(candidate_tour),
+                        "mating_index": representative.get("mating_index"),
+                        "child_index": representative.get("child_index"),
+                        "crossover_performed": representative.get(
+                            "crossover_performed", False
+                        ),
+                        "crossover_cuts": representative.get("crossover_cuts"),
+                        "mutated": representative.get("mutated", False),
+                        "mutation_indices": representative.get("mutation_indices"),
+                        "difference_from_previous": representative.get(
+                            "difference_from_previous", 0
+                        ),
+                        "changed_from_previous": representative.get(
+                            "changed_from_previous", False
+                        ),
+                        "selection_reason": representative.get("selection_reason"),
+                        "generation_best_cost": round(generation_best_cost, 6),
+                        "global_best_cost": round(global_best_cost, 6),
+                    },
+                )
+            )
             _append_route_visualization(
                 steps,
-                generation_best_tour,
+                candidate_tour,
                 path_cache,
                 distance_matrix,
-                stage="ga_generation_route",
+                stage="ga_generation_route_candidate",
                 generation=generation,
-                route_cost=generation_best_cost,
+                route_cost=candidate_cost,
                 is_global_best=(
-                    abs(generation_best_cost - global_best_cost) <= _EPSILON
+                    abs(candidate_cost - global_best_cost) <= _EPSILON
                 ),
+                route_role="representative_offspring",
+                extra_metrics={
+                    "visualization_reason": representative.get("selection_reason"),
+                    "mating_index": representative.get("mating_index"),
+                    "child_index": representative.get("child_index"),
+                    "mutated": representative.get("mutated", False),
+                    "crossover_performed": representative.get(
+                        "crossover_performed", False
+                    ),
+                    "difference_from_previous": representative.get(
+                        "difference_from_previous", 0
+                    ),
+                    "generation_best_cost": round(generation_best_cost, 6),
+                    "global_best_cost": round(global_best_cost, 6),
+                },
+            )
+            previous_visualized_candidate = list(representative["chromosome"])
+
+        # Repeated elite best routes are deliberately not redrawn. Only a new
+        # global best gets a dedicated best-route frame.
+        if (
+            should_visualize
+            and visualize_best_on_improvement
+            and is_new_global_best
+        ):
+            _append_route_visualization(
+                steps,
+                global_best_tour,
+                path_cache,
+                distance_matrix,
+                stage="ga_generation_route_best",
+                generation=generation,
+                route_cost=global_best_cost,
+                is_global_best=True,
+                route_role="new_global_best",
+                extra_metrics={
+                    "visualization_reason": "new_global_best",
+                    "generation_best_cost": round(generation_best_cost, 6),
+                    "global_best_cost": round(global_best_cost, 6),
+                },
             )
 
     # --------------------------- Final solution ----------------------------
-    best_tour = _tour_from_chromosome(start, global_best_chromosome, return_to_start)
+    best_tour = _tour_from_chromosome(
+        start, global_best_chromosome, return_to_start
+    )
     best_cost = get_tour_cost(best_tour, distance_matrix)
     full_path = _construct_full_path(best_tour, path_cache)
 
@@ -831,6 +1079,8 @@ def genetic_algorithm(
         generation=global_best_generation,
         route_cost=best_cost,
         is_global_best=True,
+        route_role="final_global_best",
+        extra_metrics={"visualization_reason": "final_solution"},
     )
 
     steps.append(
@@ -840,12 +1090,17 @@ def genetic_algorithm(
             metrics={
                 "stage": "finish",
                 "success": True,
+                "algorithm": ALGORITHM_NAME,
                 "population_size": population_size,
                 "generations": completed_generations,
                 "crossover_rate": crossover_rate,
                 "mutation_rate": mutation_rate,
                 "elitism": elitism,
                 "tournament_size": tournament_size,
+                "emit_operator_steps": emit_operator_steps,
+                "visualize_every": visualize_every,
+                "visualize_candidate": visualize_candidate,
+                "visualize_best_on_improvement": visualize_best_on_improvement,
                 "best_generation": global_best_generation,
                 "total_cost": round(best_cost, 6),
                 "best_fitness": round(get_fitness(best_cost), 12),
@@ -871,3 +1126,7 @@ def genetic_algorithm(
         visited_order=best_tour,
         goal_visit_order=goal_visit_order,
     )
+
+
+# Alias consistent with other multi-location algorithm modules.
+multi_location_genetic_algorithm = genetic_algorithm
