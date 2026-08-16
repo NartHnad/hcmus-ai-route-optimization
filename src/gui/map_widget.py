@@ -226,9 +226,7 @@ class MapWidget(QWebEngineView):
             self._reset_renderer_then(lambda: None)
         else:
             self.playback_state_changed.emit("running")
-            self._reset_renderer_then(
-                lambda: self._schedule_next(token, delay=0)
-            )
+            self._reset_renderer_then(lambda: self._schedule_next(token, delay=0))
 
     def _reset_renderer_then(self, callback):
         """Reset the visible map without making playback depend on a hidden page."""
@@ -248,9 +246,7 @@ class MapWidget(QWebEngineView):
         self._playback_deadline = None
         self._recalculate_auto_batch_size()
 
-    def set_playback_profile(
-        self, interval_ms, target_duration_ms, manual_mode=False
-    ):
+    def set_playback_profile(self, interval_ms, target_duration_ms, manual_mode=False):
         self._manual_mode = bool(manual_mode)
         self._interval_ms = max(0, int(interval_ms))
         self._target_duration_ms = max(0, int(target_duration_ms or 0))
@@ -312,6 +308,74 @@ class MapWidget(QWebEngineView):
         step_dict["_index"] = index + 1
         step_dict["_total"] = len(self._steps)
         return step_dict
+
+    @staticmethod
+    def _step_metrics(step):
+        metrics = step.get("metrics") or {}
+        return metrics if isinstance(metrics, dict) else {}
+
+    @classmethod
+    def _step_stage(cls, step):
+        return str(cls._step_metrics(step).get("stage") or "")
+
+    @classmethod
+    def _is_route_reset_step(cls, step):
+        return bool(cls._step_metrics(step).get("route_reset"))
+
+    @classmethod
+    def _is_ga_route_step(cls, step):
+        stage = cls._step_stage(step)
+        return stage.startswith("ga_generation_route") or stage.startswith(
+            "ga_final_route"
+        )
+
+    @classmethod
+    def _is_ga_logical_update(cls, step):
+        return (
+            step.get("type") == "update"
+            and cls._step_stage(step).startswith("ga_")
+            and not step.get("from")
+            and not step.get("to")
+        )
+
+    def _bounded_playback_end(self, start, requested_end):
+        """Keep GA route frames intact and never mix two generations in one JS draw.
+
+        Normal search algorithms retain the existing auto-batching behavior.  For GA,
+        an UPDATE with ``route_reset=True`` starts a complete route snapshot.  During
+        autoplay, that marker plus all DISCOVER/EXPAND events for the same generation
+        are sent together, producing one clean generation frame.
+        """
+        if self._manual_mode or requested_end <= start + 1:
+            return requested_end
+
+        first = self._step_as_dict(start)
+        if self._is_route_reset_step(first):
+            metrics = self._step_metrics(first)
+            generation = metrics.get("generation")
+            route_stage = self._step_stage(first)
+            if route_stage.endswith("_route_start"):
+                route_stage = route_stage[: -len("_route_start")]
+
+            end = start + 1
+            while end < len(self._steps):
+                candidate = self._step_as_dict(end)
+                if self._is_route_reset_step(candidate):
+                    break
+                candidate_metrics = self._step_metrics(candidate)
+                if candidate_metrics.get("generation") != generation:
+                    break
+                if self._step_stage(candidate) != route_stage:
+                    break
+                end += 1
+            return end
+
+        # Do not let a batch of GA operator/logical events consume the first route
+        # frame of the next generation.  The route reset must be visible to JS.
+        for index in range(start + 1, requested_end):
+            if self._is_route_reset_step(self._step_as_dict(index)):
+                return index
+        return requested_end
 
     def _schedule_next(self, token=None, delay=None):
         token = self._playback_generation if token is None else token
@@ -387,15 +451,14 @@ class MapWidget(QWebEngineView):
         if navigation == "previous":
             self.previous_step()
             return
+
         if navigation == "next":
             self.next_step()
             return
 
-        if (
-            emitted.get("type") == "finish"
-            or self._step_index >= len(self._steps)
-        ):
+        if emitted.get("type") == "finish" or self._step_index >= len(self._steps):
             self._emit_finished_once()
+
         elif not self._is_paused:
             # The selected cadence includes renderer time. The old behavior
             # waited N ms *after* rendering and therefore every speed was much
@@ -461,9 +524,7 @@ class MapWidget(QWebEngineView):
             self._reset_renderer_then(lambda: None)
         else:
             self.playback_state_changed.emit("running")
-            self._reset_renderer_then(
-                lambda: self._schedule_next(token, delay=0)
-            )
+            self._reset_renderer_then(lambda: self._schedule_next(token, delay=0))
 
     def next_step(self):
         if not self._steps or self._step_index >= len(self._steps):
@@ -522,20 +583,40 @@ class MapWidget(QWebEngineView):
         frontier = {}
         explored = {}
         current = None
-        # #NhatHuyChanged: retain the side of each Bidirectional Search event.
+
+        # Bidirectional Search state. Normal algorithms and GA simply leave these None/empty.
         current_direction = None
         node_directions = {}
+
         edge_states = {}
         path = []
 
         for step in steps:
             step_type = step.get("type")
             node = step.get("node")
-            direction = (step.get("metrics") or {}).get("search_direction")
+            metrics = self._step_metrics(step)
+
+            direction = metrics("search_direction")
             if direction not in {"forward", "backward"}:
                 direction = None
+
+            # A GA generation route is a replacement snapshot, not another graph
+            # search frontier.  Reset accumulated visual state before rebuilding it.
+            if self._is_route_reset_step(step):
+                frontier.clear()
+                explored.clear()
+                current = None
+                current_direction = None
+                node_directions.clear()
+                edge_states.clear()
+                path = []
+
+            ga_route_step = self._is_ga_route_step(step)
+            ga_logical_update = self._is_ga_logical_update(step)
+
             if node and direction:
                 node_directions[node] = direction
+
             if step_type == "expand":
                 if current:
                     explored[current] = None
@@ -544,22 +625,43 @@ class MapWidget(QWebEngineView):
                 frontier.pop(node, None)
                 if node:
                     explored[node] = None
-            elif step_type in {"discover", "update"}:
-                if node and node not in explored:
+
+            elif step_type == "discover":
+                # GA route DISCOVER events are edge playback only; they must not
+                # pretend every road node is a search frontier item.
+                if not ga_route_step and node and node not in explored:
                     frontier[node] = None
+
                 source, target = step.get("from"), step.get("to")
+
                 if source and target:
                     key = (source, target)
                     edge_states.pop(key, None)
-                    base_state = (
-                        "relaxed" if step_type == "update" else "inspect"
-                    )
+                    base_state = "inspect"
                     edge_states[key] = (
                         f"{base_state}_{direction}" if direction else base_state
                     )
+
+            elif step_type == "update":
+                # Selection/crossover/mutation/generation updates are informational.
+                # They belong in the log/state metrics, not in frontier visualization.
+                if not ga_logical_update and node and node not in explored:
+                    frontier[node] = None
+
+                source, target = step.get("from"), step.get("to")
+
+                if source and target:
+                    key = (source, target)
+                    edge_states.pop(key, None)
+                    base_state = "relaxed"
+                    edge_states[key] = (
+                        f"{base_state}_{direction}" if direction else base_state
+                    )
+
             elif step_type == "finish":
                 if current:
                     explored[current] = None
+
                 current = None
                 current_direction = None
                 path = list(step.get("path") or [])
@@ -569,6 +671,7 @@ class MapWidget(QWebEngineView):
             {"from": source, "to": target, "state": state}
             for (source, target), state in edge_states.items()
         ]
+
         if self._graph_node_count > 2000:
             # StatePanel still exposes the complete explored/visited lists. The
             # cap applies only to map markers, where thousands of overlapping
@@ -579,6 +682,7 @@ class MapWidget(QWebEngineView):
         visible_state_nodes = set(frontier) | set(explored_nodes)
         if current:
             visible_state_nodes.add(current)
+
         node_directions = {
             node_id: direction
             for node_id, direction in node_directions.items()
@@ -610,7 +714,8 @@ class MapWidget(QWebEngineView):
     def set_start_node(self, node_id):
         """Deprecated: use :meth:`set_route_locations` instead."""
         self._selection_payload = normalize_route_selection(
-            node_id, self._selection_payload["goals"],
+            node_id,
+            self._selection_payload["goals"],
             self._selection_payload["display_order"],
             self._selection_payload["preview_goal"],
         )
