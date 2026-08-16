@@ -323,36 +323,48 @@ class MapWidget(QWebEngineView):
         return bool(cls._step_metrics(step).get("route_reset"))
 
     @classmethod
-    def _is_ga_route_step(cls, step):
+    def _is_optimizer_route_step(cls, step):
+        """Return True for route-edge playback produced by GA or SA."""
         stage = cls._step_stage(step)
-        return stage.startswith("ga_generation_route") or stage.startswith(
-            "ga_final_route"
+        return (
+            stage.startswith("ga_generation_route")
+            or stage.startswith("ga_final_route")
+            or stage.startswith("sa_initial_route")
+            or stage.startswith("sa_iteration_route")
+            or stage.startswith("sa_final_route")
         )
 
     @classmethod
-    def _is_ga_logical_update(cls, step):
+    def _is_optimizer_logical_update(cls, step):
+        """Optimizer metadata UPDATEs must never become search frontier nodes."""
+        stage = cls._step_stage(step)
         return (
             step.get("type") == "update"
-            and cls._step_stage(step).startswith("ga_")
+            and (stage.startswith("ga_") or stage.startswith("sa_"))
             and not step.get("from")
             and not step.get("to")
         )
 
     def _bounded_playback_end(self, start, requested_end):
-        """Keep GA route frames intact and never mix two generations in one JS draw.
+        """Keep optimizer route frames atomic during autoplay.
 
-        Normal search algorithms retain the existing auto-batching behavior.  For GA,
-        an UPDATE with ``route_reset=True`` starts a complete route snapshot.  During
-        autoplay, that marker plus all DISCOVER/EXPAND events for the same generation
-        are sent together, producing one clean generation frame.
+        GA and SA encode a complete route as:
+
+            UPDATE(route_reset=True) -> DISCOVER* -> EXPAND*
+
+        The marker and its road edges must reach JavaScript in one batch; otherwise
+        the user sees a half-drawn tour or multiple generations/iterations mixed
+        together. Normal graph-search algorithms keep the existing auto-batching.
         """
-        if self._manual_mode or requested_end <= start + 1:
+        if self._manual_mode:
             return requested_end
 
         first = self._step_as_dict(start)
         if self._is_route_reset_step(first):
             metrics = self._step_metrics(first)
+            route_frame = metrics.get("route_frame")
             generation = metrics.get("generation")
+            time_step = metrics.get("time_step")
             route_stage = self._step_stage(first)
             if route_stage.endswith("_route_start"):
                 route_stage = route_stage[: -len("_route_start")]
@@ -362,20 +374,36 @@ class MapWidget(QWebEngineView):
                 candidate = self._step_as_dict(end)
                 if self._is_route_reset_step(candidate):
                     break
+
                 candidate_metrics = self._step_metrics(candidate)
-                if candidate_metrics.get("generation") != generation:
-                    break
                 if self._step_stage(candidate) != route_stage:
                     break
+
+                # New producers should use route_frame. Legacy GA falls back to
+                # generation; SA without route_frame falls back to time_step.
+                if route_frame is not None:
+                    if candidate_metrics.get("route_frame") != route_frame:
+                        break
+                elif generation is not None:
+                    if candidate_metrics.get("generation") != generation:
+                        break
+                elif time_step is not None:
+                    if candidate_metrics.get("time_step") != time_step:
+                        break
+
                 end += 1
             return end
 
-        # Do not let a batch of GA operator/logical events consume the first route
-        # frame of the next generation.  The route reset must be visible to JS.
+        if requested_end <= start + 1:
+            return requested_end
+
+        # Do not let unrelated logical/operator events consume the first marker
+        # of the next optimizer route frame.
         for index in range(start + 1, requested_end):
             if self._is_route_reset_step(self._step_as_dict(index)):
                 return index
         return requested_end
+
 
     def _schedule_next(self, token=None, delay=None):
         token = self._playback_generation if token is None else token
@@ -410,20 +438,29 @@ class MapWidget(QWebEngineView):
             return
 
         start = self._step_index
-        end = min(len(self._steps), start + max(1, batch_size))
+        requested_end = min(len(self._steps), start + max(1, batch_size))
+        end = self._bounded_playback_end(start, requested_end)
         step_dicts = [self._step_as_dict(index) for index in range(start, end)]
         self._step_index = end
         self._js_step_in_flight = True
         self._dispatch_started_at = time.perf_counter()
         token = self._playback_generation
-        if instant:
+        # ``instant`` may still be split at optimizer route-frame boundaries. Only
+        # use renderInstantResult when this dispatch truly reaches the FINISH event;
+        # intermediate GA/SA frames must still be applied normally.
+        can_render_instant_result = (
+            instant
+            and end >= len(self._steps)
+            and step_dicts[-1].get("type") == "finish"
+        )
+        if can_render_instant_result:
             function_name = "renderInstantResult"
             payload = step_dicts[-1]
         else:
             function_name = "applyStep" if len(step_dicts) == 1 else "applySteps"
             payload = step_dicts[0] if len(step_dicts) == 1 else step_dicts
         if not self._visual_updates_enabled:
-            QTimer.singleShot(
+            self._single_shot(
                 0,
                 lambda: self._on_steps_rendered(token, step_dicts),
             )
@@ -579,7 +616,7 @@ class MapWidget(QWebEngineView):
             QTimer.singleShot(0, lambda: history_rendered(None))
 
     def _build_visual_snapshot(self, steps):
-        """Build one bounded map state instead of replaying the whole history."""
+        """Build one bounded map state for normal, bidirectional, and GA playback."""
         frontier = {}
         explored = {}
         current = None
@@ -596,12 +633,13 @@ class MapWidget(QWebEngineView):
             node = step.get("node")
             metrics = self._step_metrics(step)
 
-            direction = metrics("search_direction")
+            direction = metrics.get("search_direction")
             if direction not in {"forward", "backward"}:
                 direction = None
 
-            # A GA generation route is a replacement snapshot, not another graph
-            # search frontier.  Reset accumulated visual state before rebuilding it.
+            # Optimizer route frames (GA/SA) replace the previous route. Clear
+            # generic search state and Bidirectional direction metadata so
+            # Previous/snapshot reconstruction cannot leak an older frame.
             if self._is_route_reset_step(step):
                 frontier.clear()
                 explored.clear()
@@ -611,8 +649,8 @@ class MapWidget(QWebEngineView):
                 edge_states.clear()
                 path = []
 
-            ga_route_step = self._is_ga_route_step(step)
-            ga_logical_update = self._is_ga_logical_update(step)
+            optimizer_route_step = self._is_optimizer_route_step(step)
+            optimizer_logical_update = self._is_optimizer_logical_update(step)
 
             if node and direction:
                 node_directions[node] = direction
@@ -627,13 +665,11 @@ class MapWidget(QWebEngineView):
                     explored[node] = None
 
             elif step_type == "discover":
-                # GA route DISCOVER events are edge playback only; they must not
-                # pretend every road node is a search frontier item.
-                if not ga_route_step and node and node not in explored:
+                # Optimizer road-edge playback is not a graph-search frontier.
+                if not optimizer_route_step and node and node not in explored:
                     frontier[node] = None
 
                 source, target = step.get("from"), step.get("to")
-
                 if source and target:
                     key = (source, target)
                     edge_states.pop(key, None)
@@ -643,13 +679,12 @@ class MapWidget(QWebEngineView):
                     )
 
             elif step_type == "update":
-                # Selection/crossover/mutation/generation updates are informational.
-                # They belong in the log/state metrics, not in frontier visualization.
-                if not ga_logical_update and node and node not in explored:
+                # GA/SA logical events are metadata, not frontier nodes.
+                # Bidirectional UPDATE remains a normal relaxed edge.
+                if not optimizer_logical_update and node and node not in explored:
                     frontier[node] = None
 
                 source, target = step.get("from"), step.get("to")
-
                 if source and target:
                     key = (source, target)
                     edge_states.pop(key, None)
@@ -661,7 +696,6 @@ class MapWidget(QWebEngineView):
             elif step_type == "finish":
                 if current:
                     explored[current] = None
-
                 current = None
                 current_direction = None
                 path = list(step.get("path") or [])
@@ -673,16 +707,12 @@ class MapWidget(QWebEngineView):
         ]
 
         if self._graph_node_count > 2000:
-            # StatePanel still exposes the complete explored/visited lists. The
-            # cap applies only to map markers, where thousands of overlapping
-            # points are neither readable nor responsive.
             explored_nodes = explored_nodes[-1000:]
             edges = edges[-1200:]
 
         visible_state_nodes = set(frontier) | set(explored_nodes)
         if current:
             visible_state_nodes.add(current)
-
         node_directions = {
             node_id: direction
             for node_id, direction in node_directions.items()

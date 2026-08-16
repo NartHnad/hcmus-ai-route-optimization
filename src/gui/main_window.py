@@ -974,6 +974,28 @@ class MainWindow(QMainWindow):
             )
 
     @staticmethod
+    def _optimizer_summary_metrics(step):
+        """Return route-start metadata when a GA/SA frame was rendered atomically."""
+        metrics = step.get("metrics") or {}
+        if not isinstance(metrics, dict):
+            metrics = {}
+        route_frame = metrics.get("route_frame")
+        if route_frame is None:
+            return metrics
+
+        events = step.get("_batch") or step.get("_history") or []
+        for event in reversed(events):
+            event_metrics = event.get("metrics") or {}
+            if not isinstance(event_metrics, dict):
+                continue
+            if (
+                event_metrics.get("route_frame") == route_frame
+                and event_metrics.get("route_reset")
+            ):
+                return event_metrics
+        return metrics
+
+    @staticmethod
     def _step_log_detail(step):
         event_type = step.get("type", "unknown").upper()
         node = step.get("node")
@@ -981,14 +1003,30 @@ class MainWindow(QMainWindow):
         if not isinstance(metrics, dict):
             metrics = {}
         stage = str(metrics.get("stage") or "")
+        summary_metrics = MainWindow._optimizer_summary_metrics(step)
+        summary_stage = str(summary_metrics.get("stage") or stage)
         generation = metrics.get("generation")
-        generation_text = (
-            f"generation {generation}" if generation is not None else "generation"
-        )
+        generation_text = f"generation {generation}" if generation is not None else "generation"
 
         if stage.startswith("ga_"):
             if metrics.get("route_reset"):
-                return f"GA {generation_text} · draw best route"
+                role = str(metrics.get("route_role") or "route")
+                cost = metrics.get("route_cost")
+                suffix = f" · cost {cost}" if cost is not None else ""
+                if role == "representative_offspring":
+                    return f"GA {generation_text} · draw representative offspring{suffix}"
+                if role == "new_global_best":
+                    return f"GA {generation_text} · draw NEW GLOBAL BEST{suffix}"
+                if role == "initial_best":
+                    return f"GA {generation_text} · draw initial best{suffix}"
+                if role == "final_global_best":
+                    return f"GA {generation_text} · draw final global best{suffix}"
+                return f"GA {generation_text} · draw route{suffix}"
+            if stage == "ga_candidate":
+                cost = metrics.get("candidate_cost")
+                changed = metrics.get("changed_from_previous")
+                change_text = "changed" if changed else "same order"
+                return f"GA {generation_text} · representative offspring · {change_text}" + (f" · cost {cost}" if cost is not None else "")
             if stage == "ga_selection":
                 return f"GA {generation_text} · tournament selection"
             if stage == "ga_crossover":
@@ -999,24 +1037,68 @@ class MainWindow(QMainWindow):
                 return f"GA {generation_text} · elitism"
             if stage == "ga_generation":
                 best = metrics.get("generation_best_cost", metrics.get("best_cost"))
-                return f"GA {generation_text} complete" + (
-                    f" · best {best}" if best is not None else ""
-                )
+                return f"GA {generation_text} complete" + (f" · best {best}" if best is not None else "")
             if stage == "ga_best":
                 best = metrics.get("best_cost", metrics.get("global_best_cost"))
-                return f"GA {generation_text} · new global best" + (
-                    f" {best}" if best is not None else ""
-                )
-            if stage.startswith("ga_generation_route") or stage.startswith(
-                "ga_final_route"
-            ):
+                return f"GA {generation_text} · new global best" + (f" {best}" if best is not None else "")
+            if stage.startswith("ga_generation_route") or stage.startswith("ga_final_route"):
                 if event_type == "DISCOVER":
                     return f"GA {generation_text} · route edge {step.get('from')} → {step.get('to')}"
                 if event_type == "EXPAND":
                     return f"GA {generation_text} · reach {node}"
-            return (
-                f"GA {generation_text} · {stage.replace('ga_', '').replace('_', ' ')}"
-            )
+            return f"GA {generation_text} · {stage.replace('ga_', '').replace('_', ' ')}"
+
+        if stage.startswith("sa_") or summary_stage.startswith("sa_"):
+            sa_metrics = summary_metrics if summary_stage.startswith("sa_") else metrics
+            sa_stage = summary_stage if summary_stage.startswith("sa_") else stage
+            iteration = sa_metrics.get("time_step")
+            iteration_text = f"iteration {iteration}" if iteration is not None else "iteration"
+            decision = str(sa_metrics.get("decision") or "").upper()
+            current_cost = sa_metrics.get("current_distance", sa_metrics.get("route_cost"))
+            best_cost = sa_metrics.get("best_distance")
+
+            if sa_metrics.get("route_reset"):
+                role = str(sa_metrics.get("route_role") or "route")
+                if role == "initial_current":
+                    return f"SA initial route · cost {current_cost}"
+                if role == "final_best":
+                    return f"SA final best route · cost {sa_metrics.get('route_cost')}"
+                if role == "preserved_order":
+                    return f"SA preserved goal order · cost {sa_metrics.get('route_cost')}"
+                suffix = f" · {decision}" if decision else ""
+                if current_cost is not None:
+                    suffix += f" · current {current_cost}"
+                if best_cost is not None:
+                    suffix += f" · best {best_cost}"
+                if sa_metrics.get("is_new_best"):
+                    suffix += " · NEW BEST"
+                return f"SA {iteration_text}{suffix}"
+
+            if sa_stage == "sa_iteration":
+                suffix = f" · {decision}" if decision else ""
+                if current_cost is not None:
+                    suffix += f" · current {current_cost}"
+                if best_cost is not None:
+                    suffix += f" · best {best_cost}"
+                return f"SA {iteration_text}{suffix}"
+            if sa_stage == "sa_best":
+                return f"SA {iteration_text} · new best {best_cost}"
+            if event_type == "DISCOVER":
+                return f"SA {iteration_text} · route edge {step.get('from')} → {step.get('to')}"
+            if event_type == "EXPAND":
+                return f"SA {iteration_text} · reach {node}"
+            return f"SA {iteration_text} · {sa_stage.replace('sa_', '').replace('_', ' ')}"
+
+        direction = metrics.get("search_direction")
+        if direction in {"forward", "backward"}:
+            side = "forward" if direction == "forward" else "backward"
+            if event_type == "EXPAND":
+                return f"Bidirectional {side} · expand {node}"
+            if event_type in {"DISCOVER", "UPDATE"}:
+                return (
+                    f"Bidirectional {side} · {event_type.lower()} "
+                    f"{step.get('from')} → {step.get('to')}"
+                )
 
         if event_type == "EXPAND":
             return f"expand {node}"
@@ -1027,6 +1109,7 @@ class MainWindow(QMainWindow):
         if event_type == "RESET":
             return "return to initial state"
         return event_type.lower()
+
 
     @staticmethod
     def _latest_playback_goal_order(step):
@@ -1045,8 +1128,8 @@ class MainWindow(QMainWindow):
         return None
 
     def on_step_changed(self, step):
-        # GA route-start events carry the generation's visit order.  Update endpoint
-        # badges on both Map and Graph so their 1..N labels match the route on screen.
+        # GA/SA route-start events carry the displayed visit order. Update endpoint
+        # badges on both Map and Graph so 1..N labels match the route on screen.
         if step.get("type") == "reset":
             self._update_route_locations()
         else:
