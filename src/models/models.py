@@ -19,6 +19,7 @@ class RouteRequest:
     start_node: str
     delivery_nodes: tuple[str, ...]
     respect_goal_order: bool = False
+    return_to_start: bool = False
 
     @property
     def route_mode(self) -> str:
@@ -111,6 +112,13 @@ class Edge:
         Safest Route
         Optimal Route
         """
+        # Lightweight/test graphs may be assembled directly without the
+        # factory's normalization pass. Preserve the legacy raw-cost fallback
+        # for those graphs while loaded datasets continue to use the weighted
+        # normalized formula below.
+        if self.norm_distance == 0.0 and self.norm_travel_time == 0.0:
+            return self.distance + self.travel_time
+
         return (
             (alpha * self.norm_distance)
             + (beta * self.norm_travel_time)
@@ -120,7 +128,12 @@ class Edge:
 
     def reversed(self):
         """Return a reversed copy of this edge for legacy two-way graph building."""
-        return Edge(
+        if self.is_one_way:
+            raise ValueError(
+                f"Cannot reverse one-way edge: " f"{self.from_node} -> {self.to_node}"
+            )
+
+        rev_edge = Edge(
             from_node=self.to_node,
             to_node=self.from_node,
             distance=self.distance,
@@ -131,6 +144,12 @@ class Edge:
             risk=self.risk,
             note=self.note,
         )
+
+        rev_edge.norm_distance = self.norm_distance
+        rev_edge.norm_travel_time = self.norm_travel_time
+        rev_edge.weight = self.weight
+
+        return rev_edge
 
     def __repr__(self):
         return f"Edge({self.from_node} -> {self.to_node}, cost={self.calculate_cost()})"
@@ -179,9 +198,7 @@ class SearchStep:
         # to move both forwards and backwards without re-running an algorithm.
         self.frontier = None if frontier is None else list(frontier)
         self.explored = None if explored is None else list(explored)
-        self.visited_order = (
-            None if visited_order is None else list(visited_order)
-        )
+        self.visited_order = None if visited_order is None else list(visited_order)
         self.frontier_position = frontier_position
 
     def to_dict(self):
@@ -256,12 +273,8 @@ class SearchResult:
         self.message = message
         self.visited_order = visited_order or []
         self.runtime_ms = float(runtime_ms)
-        self.total_distance = (
-            None if total_distance is None else float(total_distance)
-        )
-        self.estimated_time = (
-            None if estimated_time is None else float(estimated_time)
-        )
+        self.total_distance = None if total_distance is None else float(total_distance)
+        self.estimated_time = None if estimated_time is None else float(estimated_time)
         # Ordered delivery destinations for multi-location searches. This is
         # intentionally separate from ``visited_order``, which records graph
         # nodes expanded by the search algorithm.
@@ -281,7 +294,6 @@ class SearchResult:
             "total_distance": self.total_distance,
             "estimated_time": self.estimated_time,
             "goal_visit_order": list(self.goal_visit_order),
-
             # Accept both SearchStep objects and plain dicts (mock steps),
             # so mixed lists still serialize cleanly.
             "steps": [
