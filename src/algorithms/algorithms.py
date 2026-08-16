@@ -4,7 +4,7 @@ ALGORITHMS = {}
 MULTI_LOCATION_ALGORITHMS = {}
 
 # ====================
-# IMPORT ALGORITHMS
+# IMPORT SINGLE-ROUTE ALGORITHMS
 # ====================
 
 try:
@@ -49,6 +49,13 @@ try:
 except ImportError:
     pass
 
+try:
+    from src.algorithms.genetic_algorithm import genetic_algorithm
+
+    ALGORITHMS["Genetic Algorithm (GA)"] = genetic_algorithm
+except ImportError:
+    pass
+
 
 # ====================
 # IMPORT MULTI LOCATION ALGORITHMS
@@ -68,6 +75,13 @@ try:
 except ImportError:
     pass
 
+try:
+    from src.algorithms.genetic_algorithm import genetic_algorithm
+
+    MULTI_LOCATION_ALGORITHMS["Genetic Algorithm (GA)"] = genetic_algorithm
+except ImportError:
+    pass
+
 # #NhatHuyChanged: expose the deterministic multi-location optimizer.
 try:
     from src.algorithms.nearest_neighbor_2opt import (
@@ -78,6 +92,10 @@ try:
     MULTI_LOCATION_ALGORITHMS[NEAREST_NEIGHBOR_2OPT_NAME] = nearest_neighbor_2opt
 except ImportError:
     pass
+
+# ====================
+# REGISTRY HELPERS
+# ====================
 
 
 # Get Algorithms from dictionary
@@ -141,14 +159,7 @@ def run_route_request(name, graph, request: RouteRequest):
             request.start_node,
             request.delivery_nodes,
             respect_goal_order=request.respect_goal_order,
+            return_to_start=request.return_to_start,
         )
 
-    return run_multi_location_algorithm(
-        name,
-        graph,
-        request.start_node,
-        request.delivery_nodes,
-        respect_goal_order=request.respect_goal_order,
-        return_to_start=request.return_to_start,
-    )
-
+    raise ValueError(f"Unknown route mode: {request.route_mode}")

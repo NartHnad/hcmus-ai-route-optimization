@@ -144,10 +144,13 @@ class AlgorithmStatePanel(QFrame):
         metric_frame = QFrame()
         metric_frame.setObjectName("metricStrip")
         metric_frame.setMinimumHeight(58)
+
         metric_layout = QGridLayout(metric_frame)
         metric_layout.setContentsMargins(8, 7, 8, 7)
         metric_layout.setHorizontalSpacing(8)
         self.metric_values = {}
+        self.metric_titles = {}
+
         for column, key in enumerate(("g", "h", "f")):
             label = QLabel(key.upper())
             label.setObjectName("metricTitle")
@@ -155,6 +158,7 @@ class AlgorithmStatePanel(QFrame):
             value.setObjectName("stateMetricValue")
             metric_layout.addWidget(label, 0, column, alignment=Qt.AlignCenter)
             metric_layout.addWidget(value, 1, column, alignment=Qt.AlignCenter)
+            self.metric_titles[key] = label
             self.metric_values[key] = value
         outer.addWidget(metric_frame)
 
@@ -162,6 +166,7 @@ class AlgorithmStatePanel(QFrame):
         scroll.setObjectName("stateScroll")
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
+
         scroll_content = QWidget()
         state_layout = QVBoxLayout(scroll_content)
         state_layout.setContentsMargins(0, 0, 0, 0)
@@ -221,9 +226,7 @@ class AlgorithmStatePanel(QFrame):
         else:
             self._apply_delta(step)
 
-        self.current_label.setText(
-            self._current or "—"
-        )
+        self.current_label.setText(self._current or "—")
         self.step_label.setText(
             f"Step {step.get('_index', 0)} / {step.get('_total', 0)}"
         )
@@ -232,9 +235,43 @@ class AlgorithmStatePanel(QFrame):
         self.visited.set_items(self._visited)
 
         metrics = dict(step.get("metrics") or {})
-        for key, label in self.metric_values.items():
-            value = metrics.pop(key, None)
-            label.setText("—" if value is None else self._format_metric(value))
+        metrics.pop("route_reset", None)
+        stage = str(metrics.get("stage") or "")
+
+        if stage.startswith("ga_"):
+            # Reuse the compact 3-value strip for GA instead of showing meaningless
+            # A* G/H/F placeholders.  Operator events may not have all three values.
+            self.metric_titles["g"].setText("GEN")
+            self.metric_titles["h"].setText("ROUTE")
+            self.metric_titles["f"].setText("GLOBAL")
+
+            generation = metrics.pop("generation", None)
+            route_value = None
+            for candidate_key in (
+                "generation_best_cost",
+                "route_cost",
+                "best_cost",
+                "parent1_cost",
+            ):
+                if candidate_key in metrics:
+                    route_value = metrics.pop(candidate_key)
+                    break
+            global_value = metrics.pop("global_best_cost", None)
+            if global_value is None and stage == "ga_best":
+                global_value = route_value
+
+            ga_values = {"g": generation, "h": route_value, "f": global_value}
+            for key, label in self.metric_values.items():
+                value = ga_values[key]
+                label.setText("—" if value is None else self._format_metric(value))
+        else:
+            for key, title in (("g", "G"), ("h", "H"), ("f", "F")):
+                self.metric_titles[key].setText(title)
+                value = metrics.pop(key, None)
+                self.metric_values[key].setText(
+                    "—" if value is None else self._format_metric(value)
+                )
+
         self.extra_metrics.setText(
             "  ·  ".join(
                 f"{key.replace('_', ' ').title()}: {self._format_metric(value)}"
@@ -250,10 +287,40 @@ class AlgorithmStatePanel(QFrame):
         self._visited = []
         self._current = None
 
+    @staticmethod
+    def _stage(step):
+        metrics = step.get("metrics") or {}
+        return str(metrics.get("stage") or "") if isinstance(metrics, dict) else ""
+
+    @classmethod
+    def _is_ga_route_step(cls, step):
+        stage = cls._stage(step)
+        return stage.startswith("ga_generation_route") or stage.startswith(
+            "ga_final_route"
+        )
+
+    @classmethod
+    def _is_ga_logical_update(cls, step):
+        return (
+            step.get("type") == "update"
+            and cls._stage(step).startswith("ga_")
+            and not step.get("from")
+            and not step.get("to")
+        )
+
     def _apply_delta(self, step):
         """Apply one visualization event without changing search semantics."""
         step_type = step.get("type")
         node = step.get("node")
+        metrics = step.get("metrics") or {}
+
+        # Each visualized GA generation replaces the previous tour.  Clear the
+        # state lists as well so Previous/Next and the panel match Map/Graph View.
+        if isinstance(metrics, dict) and metrics.get("route_reset"):
+            self._reset_state()
+
+        ga_route_step = self._is_ga_route_step(step)
+        ga_logical_update = self._is_ga_logical_update(step)
 
         # Backward compatibility for bounded producers such as the GA and for
         # external/legacy SearchStep instances that still provide snapshots.
@@ -270,7 +337,9 @@ class AlgorithmStatePanel(QFrame):
             key in step for key in ("frontier", "explored", "visited_order")
         )
         if not uses_snapshot:
-            if step_type in {"discover", "update"} and node:
+            if step_type == "discover" and node and not ga_route_step:
+                self._add_frontier(node, step)
+            elif step_type == "update" and node and not ga_logical_update:
                 self._add_frontier(node, step)
             elif step_type == "expand" and node:
                 self._remove_frontier(node)
@@ -289,6 +358,7 @@ class AlgorithmStatePanel(QFrame):
             return
         self._remove_frontier(node)
         position = step.get("frontier_position", "back")
+
         if position == "front":
             self._frontier.insert(0, node)
         else:
@@ -296,6 +366,7 @@ class AlgorithmStatePanel(QFrame):
 
         metrics = step.get("metrics") or {}
         priority = None
+
         if position == "priority" and "f" in metrics:
             priority = (float(metrics["f"]), float(metrics.get("g", 0.0)), str(node))
         elif position == "priority" and "g" in metrics:

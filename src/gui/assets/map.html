@@ -629,9 +629,33 @@
             if (state !== 'default') layer.bringToFront();
         }
 
+        function stepStage(step) {
+            return String((step.metrics && step.metrics.stage) || '');
+        }
+
+        function isGaRouteStep(step) {
+            const stage = stepStage(step);
+            return stage.startsWith('ga_generation_route') || stage.startsWith('ga_final_route');
+        }
+
+        function isGaLogicalUpdate(step) {
+            return step.type === 'update'
+                && stepStage(step).startsWith('ga_')
+                && !step.from
+                && !step.to;
+        }
+
         function applyStep(rawStep) {
             const step = normalizeInput(rawStep);
             if (!step.type) return;
+
+            const metrics = step.metrics || {};
+            const gaRouteStep = isGaRouteStep(step);
+            const gaLogicalUpdate = isGaLogicalUpdate(step);
+
+            // GA replaces the displayed tour at each visualized generation.  Endpoint
+            // selection markers live in separate layers, so this only clears playback.
+            if (metrics.route_reset) resetVisualization();
 
             if (step.type === 'expand') {
                 if (currentNode && currentNode !== step.node && nodeStates[currentNode] !== 'path') {
@@ -649,17 +673,17 @@
                     }
                 }
             } else if (step.type === 'discover') {
-                if (step.node && step.node !== currentNode && !exploredNodes.has(step.node)) {
+                if (!gaRouteStep && step.node && step.node !== currentNode && !exploredNodes.has(step.node)) {
                     frontierNodes.add(step.node);
                     styleNode(step.node, 'frontier');
                 }
-                styleEdge(step.from, step.to, 'inspect');
+                if (step.from && step.to) styleEdge(step.from, step.to, 'inspect');
             } else if (step.type === 'update') {
-                if (step.node && step.node !== currentNode && !exploredNodes.has(step.node)) {
+                if (!gaLogicalUpdate && step.node && step.node !== currentNode && !exploredNodes.has(step.node)) {
                     frontierNodes.add(step.node);
                     styleNode(step.node, 'frontier');
                 }
-                styleEdge(step.from, step.to, 'relaxed');
+                if (step.from && step.to) styleEdge(step.from, step.to, 'relaxed');
             } else if (step.type === 'finish') {
                 if (currentNode && nodeStates[currentNode] !== 'path') {
                     exploredNodes.add(currentNode);

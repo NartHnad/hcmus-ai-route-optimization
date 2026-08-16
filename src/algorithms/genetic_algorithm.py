@@ -9,8 +9,6 @@ from typing import Sequence
 from src.algorithms.a_star import a_star
 from src.models.models import SearchResult, SearchStep, StepType
 
-
-ALGORITHM_NAME = "Genetic Algorithm (GA)"
 _EPSILON = 1e-12
 
 
@@ -318,9 +316,9 @@ def _append_route_visualization(
                         "leg_count": leg_count,
                         "leg_start": source,
                         "leg_goal": target,
-                        "leg_cost": round(leg_cost, 6)
-                        if math.isfinite(leg_cost)
-                        else math.inf,
+                        "leg_cost": (
+                            round(leg_cost, 6) if math.isfinite(leg_cost) else math.inf
+                        ),
                         "edge_index": edge_index,
                         "route_reset": False,
                     },
@@ -340,9 +338,9 @@ def _append_route_visualization(
                     "leg_count": leg_count,
                     "leg_start": source,
                     "leg_goal": target,
-                    "leg_cost": round(leg_cost, 6)
-                    if math.isfinite(leg_cost)
-                    else math.inf,
+                    "leg_cost": (
+                        round(leg_cost, 6) if math.isfinite(leg_cost) else math.inf
+                    ),
                 },
             )
         )
@@ -412,9 +410,7 @@ def genetic_algorithm(
     if len(set(goals)) != len(goals):
         return _failure("Goal nodes must be unique.", start, stage="validation")
     if start in goals:
-        return _failure(
-            "Start node cannot also be a goal.", start, stage="validation"
-        )
+        return _failure("Start node cannot also be a goal.", start, stage="validation")
 
     missing = [goal for goal in goals if goal not in graph.nodes]
     if missing:
@@ -494,7 +490,6 @@ def genetic_algorithm(
                 metrics={
                     "stage": "finish",
                     "success": True,
-                    "algorithm": ALGORITHM_NAME,
                     "generations": 0,
                     "total_cost": round(best_cost, 6),
                     "tour": _tour_text(best_tour),
@@ -633,14 +628,10 @@ def genetic_algorithm(
                             "parent1_cost": round(parent1_cost, 6),
                             "parent2_cost": round(parent2_cost, 6),
                             "parent1": _tour_text(
-                                _tour_from_chromosome(
-                                    start, parent1, return_to_start
-                                )
+                                _tour_from_chromosome(start, parent1, return_to_start)
                             ),
                             "parent2": _tour_text(
-                                _tour_from_chromosome(
-                                    start, parent2, return_to_start
-                                )
+                                _tour_from_chromosome(start, parent2, return_to_start)
                             ),
                         },
                     )
@@ -674,14 +665,10 @@ def genetic_algorithm(
                             "child1_cuts": list(cuts1) if cuts1 else None,
                             "child2_cuts": list(cuts2) if cuts2 else None,
                             "child1_before_mutation": _tour_text(
-                                _tour_from_chromosome(
-                                    start, child1, return_to_start
-                                )
+                                _tour_from_chromosome(start, child1, return_to_start)
                             ),
                             "child2_before_mutation": _tour_text(
-                                _tour_from_chromosome(
-                                    start, child2, return_to_start
-                                )
+                                _tour_from_chromosome(start, child2, return_to_start)
                             ),
                         },
                     )
@@ -705,21 +692,19 @@ def genetic_algorithm(
                             "mutation_rate": mutation_rate,
                             "child1_mutated": mutation1 is not None,
                             "child2_mutated": mutation2 is not None,
-                            "child1_swap_indices": list(mutation1)
-                            if mutation1
-                            else None,
-                            "child2_swap_indices": list(mutation2)
-                            if mutation2
-                            else None,
+                            "child1_swap_indices": (
+                                list(mutation1) if mutation1 else None
+                            ),
+                            "child2_swap_indices": (
+                                list(mutation2) if mutation2 else None
+                            ),
                             "child1_before": _tour_text(
                                 _tour_from_chromosome(
                                     start, before_mutation1, return_to_start
                                 )
                             ),
                             "child1_after": _tour_text(
-                                _tour_from_chromosome(
-                                    start, child1, return_to_start
-                                )
+                                _tour_from_chromosome(start, child1, return_to_start)
                             ),
                             "child2_before": _tour_text(
                                 _tour_from_chromosome(
@@ -727,9 +712,7 @@ def genetic_algorithm(
                                 )
                             ),
                             "child2_after": _tour_text(
-                                _tour_from_chromosome(
-                                    start, child2, return_to_start
-                                )
+                                _tour_from_chromosome(start, child2, return_to_start)
                             ),
                         },
                     )
@@ -782,9 +765,11 @@ def genetic_algorithm(
                     "generation_best_fitness": round(
                         get_fitness(generation_best_cost), 12
                     ),
-                    "average_cost": round(average_cost, 6)
-                    if math.isfinite(average_cost)
-                    else math.inf,
+                    "average_cost": (
+                        round(average_cost, 6)
+                        if math.isfinite(average_cost)
+                        else math.inf
+                    ),
                     "global_best_cost": round(global_best_cost, 6),
                     "global_best_generation": global_best_generation,
                     "is_new_global_best": is_new_global_best,
@@ -825,9 +810,7 @@ def genetic_algorithm(
             )
 
     # --------------------------- Final solution ----------------------------
-    best_tour = _tour_from_chromosome(
-        start, global_best_chromosome, return_to_start
-    )
+    best_tour = _tour_from_chromosome(start, global_best_chromosome, return_to_start)
     best_cost = get_tour_cost(best_tour, distance_matrix)
     full_path = _construct_full_path(best_tour, path_cache)
 
@@ -857,7 +840,6 @@ def genetic_algorithm(
             metrics={
                 "stage": "finish",
                 "success": True,
-                "algorithm": ALGORITHM_NAME,
                 "population_size": population_size,
                 "generations": completed_generations,
                 "crossover_rate": crossover_rate,
@@ -889,7 +871,3 @@ def genetic_algorithm(
         visited_order=best_tour,
         goal_visit_order=goal_visit_order,
     )
-
-
-# Alias consistent with other multi-location algorithm modules.
-multi_location_genetic_algorithm = genetic_algorithm
