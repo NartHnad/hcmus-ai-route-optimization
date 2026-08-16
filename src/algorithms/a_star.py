@@ -1,32 +1,8 @@
 import heapq
-import math
 
 from src.models.models import SearchResult, SearchStep, StepType
+from src.utils.heuristics import geographic_heuristic
 
-
-def haversine_distance(lat1, lon1, lat2, lon2):
-    """
-    Calculate the great circle distance in meters between two points
-    on the earth (specified in decimal degrees)
-    """
-    if None in (lat1, lon1, lat2, lon2):
-        return 0.0
-
-    # Convert decimal degrees to radians
-    lon1, lat1, lon2, lat2 = map(math.radians, [lon1, lat1, lon2, lat2])
-
-    # Haversine formula
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-
-    a = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
-    )
-
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-    return 6371 * c
 
 
 def a_star(graph, start_id, goal_id):
@@ -51,19 +27,13 @@ def a_star(graph, start_id, goal_id):
             message="Graph is not loaded or start/goal node not found.",
         )
 
-    goal_node = graph.get_node(goal_id)
-
-    def heuristic(node_id):
-        node = graph.get_node(node_id)
-        if node and goal_node:
-            return haversine_distance(node.lat, node.lon, goal_node.lat, goal_node.lon)
-        return 0.0
 
     # Priority queue: stores tuples of (f_score, g_score, node_id)
     # Note: We include g_score in the tuple so that in case of an f_score tie,
     # the node with the lower g_score (closer to start) is preferred, or just to avoid tuple comparison errors on node_id string
     open_set = []
-    heapq.heappush(open_set, (0.0, 0.0, start_id))
+    start_h = geographic_heuristic(graph, start_id, goal_id)
+    heapq.heappush(open_set, (start_h, 0.0, start_id))
 
     # Track the best known cost to reach each node from the start
     g_score = {start_id: 0.0}
@@ -87,7 +57,11 @@ def a_star(graph, start_id, goal_id):
             SearchStep(
                 StepType.EXPAND,
                 node_id=current,
-                metrics={"g": current_g, "f": current_f},
+                metrics={
+                    "g": current_g,
+                    "h": max(0.0, current_f - current_g),
+                    "f": current_f,
+                },
             )
         )
 
@@ -109,7 +83,17 @@ def a_star(graph, start_id, goal_id):
 
             total_cost = current_g
 
-            steps.append(SearchStep(StepType.FINISH, node_id=goal_id))
+            steps.append(
+                SearchStep(
+                    StepType.FINISH,
+                    node_id=goal_id,
+                    metrics={
+                        "g": current_g,
+                        "h": 0.0,
+                        "f": current_f,
+                    },
+                )
+            )
 
             return SearchResult(
                 path=path,
@@ -133,7 +117,7 @@ def a_star(graph, start_id, goal_id):
                 # Found a new or better path to neighbor
                 came_from[neighbor] = (current, edge)
                 g_score[neighbor] = tentative_g
-                h = heuristic(neighbor)
+                h = geographic_heuristic(graph, neighbor, goal_id)
                 f = tentative_g + h
 
                 heapq.heappush(open_set, (f, tentative_g, neighbor))
@@ -146,11 +130,14 @@ def a_star(graph, start_id, goal_id):
                         edge_from=current,
                         edge_to=neighbor,
                         metrics={"g": tentative_g, "h": h, "f": f},
+                        frontier_position="priority",
                     )
                 )
 
     # Queue empty and goal not reached
-    steps.append(SearchStep(StepType.FINISH))
+    steps.append(
+        SearchStep(StepType.FINISH)
+    )
     return SearchResult(
         path=[],
         steps=steps,
