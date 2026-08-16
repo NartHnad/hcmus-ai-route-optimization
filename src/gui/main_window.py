@@ -55,9 +55,7 @@ class SearchWorker(QObject):
     def run(self):
         try:
             started = time.perf_counter()
-            result = run_route_request(
-                self.algorithm, self.graph, self.route_request
-            )
+            result = run_route_request(self.algorithm, self.graph, self.route_request)
             runtime_ms = (time.perf_counter() - started) * 1000
             self.completed.emit(result, runtime_ms)
         except Exception as exc:
@@ -284,7 +282,9 @@ class MainWindow(QMainWindow):
             self.algorithm_combo.addItem("No algorithms available")
             self.algorithm_combo.setEnabled(False)
         layout.addWidget(self.algorithm_combo)
-        self.algorithm_hint = QLabel("Frontier and explored state updates at every step.")
+        self.algorithm_hint = QLabel(
+            "Frontier and explored state updates at every step."
+        )
         self.algorithm_hint.setObjectName("mutedLabel")
         self.algorithm_hint.setWordWrap(True)
         layout.addWidget(self.algorithm_hint)
@@ -369,6 +369,7 @@ class MainWindow(QMainWindow):
             ),
         ):
             self.speed_combo.addItem(label, profile)
+
         self.speed_combo.setCurrentIndex(2)
         layout.addWidget(self.speed_combo)
         self.speed_hint = QLabel("")
@@ -553,7 +554,10 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def natural_node_key(node_id):
-        return [int(part) if part.isdigit() else part.lower() for part in re.split(r"(\d+)", node_id)]
+        return [
+            int(part) if part.isdigit() else part.lower()
+            for part in re.split(r"(\d+)", node_id)
+        ]
 
     def current_start_id(self):
         return self.route_setup.route_request().start_node
@@ -586,7 +590,7 @@ class MainWindow(QMainWindow):
 
     def _update_route_context(self, request):
         is_multi = request.route_mode == "multi"
-        # #NhatHuyChanged: multi-location mode now has real route optimizers.
+        # multi-location mode now has real route optimizers.
         self.route_scope_label.setText(
             f"Multi-location mode · {len(request.delivery_nodes)} goals · "
             "route optimization enabled."
@@ -601,7 +605,9 @@ class MainWindow(QMainWindow):
         )
         if hasattr(self, "subtitle_label"):
             view_name = "Graph" if self._active_view == "graph" else "Map"
-            self.subtitle_label.setText(f"{view_name} View · {self._route_mode_label()}")
+            self.subtitle_label.setText(
+                f"{view_name} View · {self._route_mode_label()}"
+            )
 
     def _update_route_locations(self, request=None, display_order=None):
         request = request or self.route_request()
@@ -658,7 +664,9 @@ class MainWindow(QMainWindow):
                 len(node_ids),
                 edge_count,
             )
-            self.log_event("INFO", f"Loaded {filename}; rendering map layers in batches.")
+            self.log_event(
+                "INFO", f"Loaded {filename}; rendering map layers in batches."
+            )
             if self._compact_mode:
                 self.sidebar_scroll.hide()
         except Exception as exc:
@@ -746,7 +754,9 @@ class MainWindow(QMainWindow):
         goals = request.delivery_nodes
         algorithm = self.algorithm_combo.currentText()
         if not start_id or not goals or not algorithm:
-            self.show_alert("Choose a valid start, at least one goal and an algorithm.", "error")
+            self.show_alert(
+                "Choose a valid start, at least one goal and an algorithm.", "error"
+            )
             return
 
         self._active_algorithm = algorithm
@@ -929,7 +939,9 @@ class MainWindow(QMainWindow):
         self.result_panel.reset(self._route_mode_label())
         self._active_result = None
         self._set_execution_state("ready" if self.graph is not None else "idle")
-        self.log_event("INFO", "Visualization reset; graph and route selection preserved.")
+        self.log_event(
+            "INFO", "Visualization reset; graph and route selection preserved."
+        )
 
     def on_animation_finished(self):
         self._set_execution_state("finished")
@@ -943,7 +955,9 @@ class MainWindow(QMainWindow):
         )
         self.info_tabs.setCurrentWidget(self.result_scroll)
         if self._active_result.success:
-            self.map_widget.show_message("Search completed · final path highlighted", "success")
+            self.map_widget.show_message(
+                "Search completed · final path highlighted", "success"
+            )
             self.show_alert("Search completed and a route was found.", "success")
             self.log_event(
                 "SUCCESS",
@@ -952,26 +966,99 @@ class MainWindow(QMainWindow):
             )
         else:
             self.map_widget.show_message("Search completed · no route found", "error")
-            self.show_alert(self._active_result.message or "No route was found.", "error")
-            self.log_event("ERROR", self._active_result.message or "No route was found.")
+            self.show_alert(
+                self._active_result.message or "No route was found.", "error"
+            )
+            self.log_event(
+                "ERROR", self._active_result.message or "No route was found."
+            )
+
+    @staticmethod
+    def _step_log_detail(step):
+        event_type = step.get("type", "unknown").upper()
+        node = step.get("node")
+        metrics = step.get("metrics") or {}
+        if not isinstance(metrics, dict):
+            metrics = {}
+        stage = str(metrics.get("stage") or "")
+        generation = metrics.get("generation")
+        generation_text = (
+            f"generation {generation}" if generation is not None else "generation"
+        )
+
+        if stage.startswith("ga_"):
+            if metrics.get("route_reset"):
+                return f"GA {generation_text} · draw best route"
+            if stage == "ga_selection":
+                return f"GA {generation_text} · tournament selection"
+            if stage == "ga_crossover":
+                return f"GA {generation_text} · OX crossover"
+            if stage == "ga_mutation":
+                return f"GA {generation_text} · swap mutation"
+            if stage == "ga_elitism":
+                return f"GA {generation_text} · elitism"
+            if stage == "ga_generation":
+                best = metrics.get("generation_best_cost", metrics.get("best_cost"))
+                return f"GA {generation_text} complete" + (
+                    f" · best {best}" if best is not None else ""
+                )
+            if stage == "ga_best":
+                best = metrics.get("best_cost", metrics.get("global_best_cost"))
+                return f"GA {generation_text} · new global best" + (
+                    f" {best}" if best is not None else ""
+                )
+            if stage.startswith("ga_generation_route") or stage.startswith(
+                "ga_final_route"
+            ):
+                if event_type == "DISCOVER":
+                    return f"GA {generation_text} · route edge {step.get('from')} → {step.get('to')}"
+                if event_type == "EXPAND":
+                    return f"GA {generation_text} · reach {node}"
+            return (
+                f"GA {generation_text} · {stage.replace('ga_', '').replace('_', ' ')}"
+            )
+
+        if event_type == "EXPAND":
+            return f"expand {node}"
+        if event_type in {"DISCOVER", "UPDATE"}:
+            return f"{event_type.lower()} {step.get('from')} → {step.get('to')}"
+        if event_type == "FINISH":
+            return "finish search"
+        if event_type == "RESET":
+            return "return to initial state"
+        return event_type.lower()
+
+    @staticmethod
+    def _latest_playback_goal_order(step):
+        events = step.get("_history")
+        if events is None:
+            events = step.get("_batch")
+        if not events:
+            events = [step]
+        for event in reversed(events):
+            metrics = event.get("metrics") or {}
+            if not isinstance(metrics, dict):
+                continue
+            goal_order = metrics.get("goal_order")
+            if isinstance(goal_order, list):
+                return list(goal_order)
+        return None
 
     def on_step_changed(self, step):
+        # GA route-start events carry the generation's visit order.  Update endpoint
+        # badges on both Map and Graph so their 1..N labels match the route on screen.
+        if step.get("type") == "reset":
+            self._update_route_locations()
+        else:
+            playback_order = self._latest_playback_goal_order(step)
+            if playback_order is not None:
+                self._update_route_locations(display_order=playback_order)
+
         self.graph_widget.apply_playback_event(step)
         self.algorithm_state.update_step(step)
-        event_type = step.get("type", "unknown").upper()
         index = step.get("_index", 0)
         total = step.get("_total", 0)
-        node = step.get("node")
-        if event_type == "EXPAND":
-            detail = f"expand {node}"
-        elif event_type in {"DISCOVER", "UPDATE"}:
-            detail = f"{event_type.lower()} {step.get('from')} → {step.get('to')}"
-        elif event_type == "FINISH":
-            detail = "finish search"
-        elif event_type == "RESET":
-            detail = "return to initial state"
-        else:
-            detail = event_type.lower()
+        detail = self._step_log_detail(step)
         batch_size = int(step.get("_batch_size", 1))
         if batch_size > 1:
             detail = f"processed {batch_size} events · latest: {detail}"
@@ -1060,9 +1147,7 @@ class MainWindow(QMainWindow):
         if changed:
             self.log_event(
                 "INFO",
-                "Switched to Graph View."
-                if graph_active
-                else "Switched to Map View.",
+                "Switched to Graph View." if graph_active else "Switched to Map View.",
             )
         if (
             self.execution_state == "loading"
@@ -1083,17 +1168,15 @@ class MainWindow(QMainWindow):
             and bool(self.route_request().delivery_nodes)
             and bool(self.available_algorithms)
         )
-        self.pause_button.setEnabled(
-            not manual_mode and state in {"running", "paused"}
-        )
+        self.pause_button.setEnabled(not manual_mode and state in {"running", "paused"})
         if manual_mode:
             self.pause_button.setText("Manual mode")
         else:
             self.pause_button.setText("Resume" if state == "paused" else "Pause")
-        self.replay_button.setEnabled(state in {"paused", "finished"} and self._active_result is not None)
-        self.reset_button.setEnabled(
-            state not in {"idle", "loading", "computing"}
+        self.replay_button.setEnabled(
+            state in {"paused", "finished"} and self._active_result is not None
         )
+        self.reset_button.setEnabled(state not in {"idle", "loading", "computing"})
         self._refresh_playback_buttons()
 
         controls_locked = state in {"loading", "computing", "running", "paused"}
@@ -1182,9 +1265,9 @@ class MainWindow(QMainWindow):
                 self.setStyleSheet(file.read())
             self.current_theme = theme_name
             self.theme_button.setText(
-                "◐" if self._compact_mode else (
-                    "Light mode" if theme_name == "dark" else "Dark mode"
-                )
+                "◐"
+                if self._compact_mode
+                else ("Light mode" if theme_name == "dark" else "Dark mode")
             )
             if hasattr(self, "map_widget"):
                 self.map_widget.set_theme(theme_name)
@@ -1212,8 +1295,8 @@ class MainWindow(QMainWindow):
         self.event_log.append(
             f'<span style="color:#64748b">[{timestamp}]</span> '
             f'<span style="color:{color};font-weight:700">'
-            f'[{html.escape(level)}]</span> '
-            f'<span>{html.escape(str(message))}</span>'
+            f"[{html.escape(level)}]</span> "
+            f"<span>{html.escape(str(message))}</span>"
         )
         scrollbar = self.event_log.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
@@ -1242,7 +1325,9 @@ class MainWindow(QMainWindow):
             else ("◐" if self._compact_mode else "Dark mode")
         )
         self.theme_button.setToolTip(
-            "Switch to light mode" if self.current_theme == "dark" else "Switch to dark mode"
+            "Switch to light mode"
+            if self.current_theme == "dark"
+            else "Switch to dark mode"
         )
         if self._compact_mode:
             self._position_sidebar_drawer()

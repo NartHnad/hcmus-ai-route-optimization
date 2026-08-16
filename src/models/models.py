@@ -316,6 +316,8 @@ class Graph:
         self.nodes = {}
         # Directed Adjacency List mapping Node ID to its outgoing Edge objects
         self.adjacency_list = {}
+        # #NhatHuyChanged: maintain incoming edges for efficient reverse search.
+        self.incoming_adjacency_list = {}
 
         # Max distance
         self.max_distance = 1.0
@@ -327,6 +329,8 @@ class Graph:
         self.nodes[node.id] = node
         if node.id not in self.adjacency_list:
             self.adjacency_list[node.id] = []
+        if node.id not in self.incoming_adjacency_list:
+            self.incoming_adjacency_list[node.id] = []
 
     def add_edge(self, edge: Edge):
         """
@@ -338,6 +342,7 @@ class Graph:
             self.adjacency_list[edge.from_node] = []
 
         self.adjacency_list[edge.from_node].append(edge)
+        self.incoming_adjacency_list.setdefault(edge.to_node, []).append(edge)
 
         # If it is a two-way street, create the reverse path
         if not edge.is_one_way:
@@ -347,6 +352,9 @@ class Graph:
                 self.adjacency_list[reverse_edge.from_node] = []
 
             self.adjacency_list[reverse_edge.from_node].append(reverse_edge)
+            self.incoming_adjacency_list.setdefault(
+                reverse_edge.to_node, []
+            ).append(reverse_edge)
 
     def get_node(self, node_id):
         return self.nodes.get(node_id)
@@ -354,6 +362,10 @@ class Graph:
     def get_neighbors(self, node_id: str):
         """Return all outgoing edges from a node."""
         return self.adjacency_list.get(node_id, [])
+
+    def get_incoming_neighbors(self, node_id: str):
+        """Return directed edges whose destination is ``node_id``."""
+        return self.incoming_adjacency_list.get(node_id, [])
 
     def get_edge(self, from_node: str, to_node: str):
         """Return the first edge from from_node to to_node, or None."""
@@ -365,3 +377,4 @@ class Graph:
     def clear(self):
         self.nodes.clear()
         self.adjacency_list.clear()
+        self.incoming_adjacency_list.clear()
