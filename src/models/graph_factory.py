@@ -122,4 +122,4 @@ def build_graph(json_path: str) -> Graph:
         f"[METRICS] Max Distance: {max_distance:.2f} km | Max Time: {max_time:.2f} mins"
     )
 
-    return graph
+    return graph    

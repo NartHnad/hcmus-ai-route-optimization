@@ -1,11 +1,18 @@
-# #NhatHuyChanged: implement the production multi-location NN + 2-Opt route optimizer.
-"""Multi-location routing with Nearest Neighbor followed by 2-Opt.
+# #NhatHuyChanged: production multi-location NN + 2-Opt optimizer with UI playback.
+"""Multi-location routing with Nearest Neighbor followed by directed 2-Opt.
 
-The optimizer works on a metric closure of the selected locations: shortest
-road-network costs are calculated between the start and every goal, Nearest
-Neighbor builds a deterministic initial order, and 2-Opt improves that open
-route while keeping the start fixed. The final result contains the complete
-road-node path so the existing map and graph renderers can animate it.
+The optimizer works on a directed metric closure of the selected delivery
+locations.  One multi-target Dijkstra run is performed per selected location so
+both shortest-path costs and real road-node paths can be reused by the
+optimization and by Map/Graph playback.
+
+Visualization follows the same optimizer protocol used by GA and SA:
+
+* logical optimizer events use ``stage='nn2opt_*'``;
+* every displayed route frame starts with ``route_reset=True``;
+* ``route_frame`` keeps one complete route atomic during autoplay;
+* route edges are emitted as ``DISCOVER`` and reached goals as ``EXPAND``;
+* ``goal_order`` keeps numbered endpoint markers synchronized with the route.
 """
 
 from __future__ import annotations
@@ -13,6 +20,7 @@ from __future__ import annotations
 import heapq
 import math
 from collections.abc import Mapping, Sequence
+from typing import Iterable
 
 from src.constants import StepType
 from src.models.models import SearchResult, SearchStep
@@ -23,16 +31,14 @@ _EPSILON = 1e-12
 
 
 def _edge_cost(edge) -> float:
-    """Return a non-negative edge cost compatible with project algorithms."""
-
+    """Return a finite, non-negative directed edge cost when possible."""
     cost = float(edge.calculate_cost())
     if not math.isfinite(cost) or cost < 0.0:
         return math.inf
     if cost > 0.0:
         return cost
 
-    # Hand-built graphs used in tests may not have normalized values yet.
-    # Physical distance is a safe deterministic fallback in that situation.
+    # Small hand-built test graphs may not have normalized composite costs yet.
     distance = float(getattr(edge, "distance", 0.0))
     return distance if math.isfinite(distance) and distance >= 0.0 else math.inf
 
@@ -45,94 +51,114 @@ def _normalize_goals(goal_ids) -> list[str]:
     return [str(goal).strip() for goal in goal_ids if str(goal).strip()]
 
 
-def _shortest_costs_from(graph, source: str, targets: Sequence[str]) -> dict[str, float]:
-    """Run one multi-target Dijkstra search from ``source``."""
+def _shortest_routes_from(
+    graph,
+    source: str,
+    targets: Sequence[str],
+) -> tuple[dict[str, float], dict[str, list[str]]]:
+    """Run one directed multi-target Dijkstra search from ``source``.
 
+    Returns both exact costs and reconstructed road-node paths for all requested
+    targets.  Unreachable targets receive ``math.inf`` and an empty path.
+    """
     requested = set(targets)
     requested.discard(source)
-    found: dict[str, float] = {}
+
     distances = {source: 0.0}
+    parents: dict[str, str | None] = {source: None}
     frontier = [(0.0, source)]
     settled = set()
+    found = set()
 
-    while frontier and requested:
+    while frontier and requested - found:
         current_cost, current = heapq.heappop(frontier)
         if current in settled or current_cost > distances.get(current, math.inf):
             continue
         settled.add(current)
 
         if current in requested:
-            found[current] = current_cost
-            requested.remove(current)
+            found.add(current)
 
         for edge in graph.get_neighbors(current):
             edge_cost = _edge_cost(edge)
             if not math.isfinite(edge_cost):
                 continue
-            candidate = current_cost + edge_cost
-            if candidate + _EPSILON < distances.get(edge.to_node, math.inf):
-                distances[edge.to_node] = candidate
-                heapq.heappush(frontier, (candidate, edge.to_node))
 
-    return {target: found.get(target, math.inf) for target in targets}
+            candidate = current_cost + edge_cost
+            neighbor = edge.to_node
+            if candidate + _EPSILON < distances.get(neighbor, math.inf):
+                distances[neighbor] = candidate
+                parents[neighbor] = current
+                heapq.heappush(frontier, (candidate, neighbor))
+
+    costs: dict[str, float] = {}
+    paths: dict[str, list[str]] = {}
+
+    for target in targets:
+        if target == source:
+            costs[target] = 0.0
+            paths[target] = [source]
+            continue
+
+        target_cost = distances.get(target, math.inf)
+        costs[target] = target_cost
+        if not math.isfinite(target_cost):
+            paths[target] = []
+            continue
+
+        path = []
+        cursor: str | None = target
+        while cursor is not None:
+            path.append(cursor)
+            cursor = parents.get(cursor)
+        path.reverse()
+        paths[target] = path if path and path[0] == source else []
+
+    return costs, paths
+
+
+def _shortest_costs_from(graph, source: str, targets: Sequence[str]) -> dict[str, float]:
+    """Compatibility wrapper returning only multi-target shortest-path costs."""
+    costs, _ = _shortest_routes_from(graph, source, targets)
+    return costs
 
 
 def _shortest_path(graph, source: str, target: str) -> tuple[float, list[str]]:
-    """Return the exact lowest-cost road path for one final route leg."""
+    """Compatibility helper for tests and callers expecting a single path."""
+    costs, paths = _shortest_routes_from(graph, source, [target])
+    return costs.get(target, math.inf), paths.get(target, [])
 
-    if source == target:
-        return 0.0, [source]
 
-    distances = {source: 0.0}
-    parents = {source: None}
-    frontier = [(0.0, source)]
-    settled = set()
+def build_route_matrices(
+    graph,
+    locations: Sequence[str],
+) -> tuple[dict[tuple[str, str], float], dict[tuple[str, str], list[str]]]:
+    """Build directed metric-closure costs and matching real road paths."""
+    unique_locations = list(dict.fromkeys(locations))
+    costs: dict[tuple[str, str], float] = {}
+    paths: dict[tuple[str, str], list[str]] = {}
 
-    while frontier:
-        current_cost, current = heapq.heappop(frontier)
-        if current in settled or current_cost > distances.get(current, math.inf):
-            continue
-        settled.add(current)
+    for source in unique_locations:
+        source_costs, source_paths = _shortest_routes_from(
+            graph,
+            source,
+            unique_locations,
+        )
+        for target in unique_locations:
+            costs[(source, target)] = source_costs.get(target, math.inf)
+            paths[(source, target)] = list(source_paths.get(target, []))
 
-        if current == target:
-            path = []
-            cursor = target
-            while cursor is not None:
-                path.append(cursor)
-                cursor = parents[cursor]
-            path.reverse()
-            return current_cost, path
-
-        for edge in graph.get_neighbors(current):
-            edge_cost = _edge_cost(edge)
-            if not math.isfinite(edge_cost):
-                continue
-            candidate = current_cost + edge_cost
-            if candidate + _EPSILON < distances.get(edge.to_node, math.inf):
-                distances[edge.to_node] = candidate
-                parents[edge.to_node] = current
-                heapq.heappush(frontier, (candidate, edge.to_node))
-
-    return math.inf, []
+    return costs, paths
 
 
 def build_cost_matrix(graph, locations: Sequence[str]) -> dict[tuple[str, str], float]:
-    """Build directed shortest-path costs using one graph search per location."""
-
-    unique_locations = list(dict.fromkeys(locations))
-    costs: dict[tuple[str, str], float] = {}
-    for source in unique_locations:
-        targets = [target for target in unique_locations if target != source]
-        source_costs = _shortest_costs_from(graph, source, targets)
-        costs[(source, source)] = 0.0
-        for target in targets:
-            costs[(source, target)] = source_costs[target]
+    """Backward-compatible directed metric-closure cost builder."""
+    costs, _ = build_route_matrices(graph, locations)
     return costs
 
 
 def route_cost(route: Sequence[str], costs: Mapping[tuple[str, str], float]) -> float:
-    """Return the directed cost of an open route."""
-
+    """Return the full directed cost of a route."""
     total = 0.0
     for source, target in zip(route, route[1:]):
         leg_cost = costs.get((source, target), math.inf)
@@ -142,26 +168,54 @@ def route_cost(route: Sequence[str], costs: Mapping[tuple[str, str], float]) -> 
     return total
 
 
+def _goal_order(route: Iterable[str], start_id: str, return_to_start: bool) -> list[str]:
+    """Return only delivery goals, in the order represented by ``route``."""
+    items = list(route)
+    if not items:
+        return []
+    order = items[1:]
+    if return_to_start and order and order[-1] == start_id:
+        order = order[:-1]
+    return list(order)
+
+
 def nearest_neighbor_order(
     start_id: str,
     goal_ids: Sequence[str],
     costs: Mapping[tuple[str, str], float],
+    *,
+    return_to_start: bool = False,
+    trace: list[dict] | None = None,
 ) -> list[str] | None:
-    """Create a deterministic nearest-neighbor order with a fixed start."""
+    """Create a deterministic directed nearest-neighbor order.
 
+    When building a round trip, the final remaining goal must also be able to
+    reach Start.  This avoids constructing an obviously impossible closed tour.
+    ``trace`` receives one accepted NN choice per step for UI playback.
+    """
     remaining = list(goal_ids)
     input_rank = {goal: index for index, goal in enumerate(remaining)}
     order = [start_id]
     current = start_id
+    accumulated_cost = 0.0
 
     while remaining:
-        reachable = [
-            goal
-            for goal in remaining
-            if math.isfinite(costs.get((current, goal), math.inf))
-        ]
+        reachable = []
+        for goal in remaining:
+            leg_cost = costs.get((current, goal), math.inf)
+            if not math.isfinite(leg_cost):
+                continue
+            if (
+                return_to_start
+                and len(remaining) == 1
+                and not math.isfinite(costs.get((goal, start_id), math.inf))
+            ):
+                continue
+            reachable.append(goal)
+
         if not reachable:
             return None
+
         next_goal = min(
             reachable,
             key=lambda goal: (
@@ -170,9 +224,38 @@ def nearest_neighbor_order(
                 str(goal),
             ),
         )
+        leg_cost = costs[(current, next_goal)]
+        accumulated_cost += leg_cost
         order.append(next_goal)
         remaining.remove(next_goal)
+
+        if trace is not None:
+            display_order = list(order[1:]) + list(remaining)
+            trace.append(
+                {
+                    "iteration": len(order) - 1,
+                    "from": current,
+                    "selected_goal": next_goal,
+                    "leg_cost": leg_cost,
+                    "partial_cost": accumulated_cost,
+                    "partial_route": list(order),
+                    "remaining_goals": list(remaining),
+                    "goal_order": display_order,
+                }
+            )
+
         current = next_goal
+
+    if return_to_start:
+        close_cost = costs.get((current, start_id), math.inf)
+        if not math.isfinite(close_cost):
+            return None
+        order.append(start_id)
+        if trace:
+            trace[-1]["return_leg_cost"] = close_cost
+            trace[-1]["closed_route_cost"] = accumulated_cost + close_cost
+            trace[-1]["partial_route"] = list(order)
+            trace[-1]["goal_order"] = list(order[1:-1])
 
     return order
 
@@ -181,24 +264,29 @@ def two_opt(
     route: Sequence[str],
     costs: Mapping[tuple[str, str], float],
     max_iterations: int = 100,
+    *,
+    return_to_start: bool = False,
 ) -> tuple[list[str], float, list[dict]]:
-    """Improve an open, directed route while keeping index zero fixed.
+    """Improve a directed route while keeping fixed endpoints fixed.
 
-    Candidate costs are recomputed in full. This is slightly more work than
-    the symmetric four-edge shortcut but remains correct for one-way roads.
-    Best-improvement selection makes the result deterministic.
+    Candidate costs are recomputed in full instead of using the symmetric-TSP
+    four-edge shortcut.  That remains correct on one-way road networks.  Start
+    at index zero is always fixed; for round trips, the final Start is fixed too.
+    Best-improvement selection makes accepted moves deterministic.
     """
-
     best = list(route)
     best_cost = route_cost(best, costs)
     improvements: list[dict] = []
-    if len(best) < 3 or not math.isfinite(best_cost):
+
+    mutable_end = len(best) - 1 if return_to_start else len(best)
+    if mutable_end - 1 < 2 or not math.isfinite(best_cost):
         return best, best_cost, improvements
 
     for iteration in range(1, max(0, int(max_iterations)) + 1):
         iteration_best = None
-        for left in range(1, len(best) - 1):
-            for right in range(left + 1, len(best)):
+
+        for left in range(1, mutable_end - 1):
+            for right in range(left + 1, mutable_end):
                 candidate = (
                     best[:left]
                     + list(reversed(best[left : right + 1]))
@@ -207,6 +295,7 @@ def two_opt(
                 candidate_cost = route_cost(candidate, costs)
                 if candidate_cost + _EPSILON >= best_cost:
                     continue
+
                 candidate_key = (
                     candidate_cost,
                     tuple(map(str, candidate)),
@@ -226,6 +315,7 @@ def two_opt(
             break
 
         _, candidate, candidate_cost, left, right = iteration_best
+        previous_route = list(best)
         previous_cost = best_cost
         best = candidate
         best_cost = candidate_cost
@@ -236,6 +326,7 @@ def two_opt(
                 "right": right,
                 "previous_cost": previous_cost,
                 "optimized_cost": best_cost,
+                "previous_route": previous_route,
                 "route": list(best),
             }
         )
@@ -243,14 +334,147 @@ def two_opt(
     return best, best_cost, improvements
 
 
+def _construct_full_path(
+    route: Sequence[str],
+    path_matrix: Mapping[tuple[str, str], Sequence[str]],
+) -> list[str]:
+    full_path: list[str] = []
+    for source, target in zip(route, route[1:]):
+        leg_path = list(path_matrix.get((source, target), []))
+        if not leg_path:
+            return []
+        full_path.extend(leg_path if not full_path else leg_path[1:])
+    return full_path
+
+
+def _append_route_visualization(
+    steps: list,
+    route: Sequence[str],
+    path_matrix: Mapping[tuple[str, str], Sequence[str]],
+    costs: Mapping[tuple[str, str], float],
+    *,
+    stage: str,
+    route_frame: str,
+    route_role: str,
+    start_id: str,
+    return_to_start: bool,
+    route_cost_value: float | None = None,
+    summary_metrics: dict | None = None,
+) -> None:
+    """Emit one complete optimizer route frame using the GA/SA protocol."""
+    route = list(route)
+    if not route:
+        return
+
+    computed_cost = route_cost(route, costs)
+    route_value = computed_cost if route_cost_value is None else route_cost_value
+    summary = dict(summary_metrics or {})
+    display_order = summary.pop(
+        "goal_order",
+        _goal_order(route, start_id, return_to_start),
+    )
+
+    common = {
+        "route_frame": route_frame,
+        "route_role": route_role,
+        "route": " -> ".join(route),
+        "route_cost": (
+            round(route_value, 6) if math.isfinite(route_value) else float("inf")
+        ),
+        "goal_order": list(display_order),
+        **summary,
+    }
+
+    # Match the existing GA/SA atomic-frame convention.  MapWidget strips the
+    # trailing ``_route_start`` and then consumes events whose stage equals
+    # ``stage`` and route_frame matches this marker.
+    steps.append(
+        SearchStep(
+            step_type=StepType.UPDATE,
+            node_id=route[0],
+            metrics={
+                **common,
+                "stage": f"{stage}_route_start",
+                "route_reset": True,
+            },
+        )
+    )
+
+    leg_count = max(0, len(route) - 1)
+    for leg_index, (source, target) in enumerate(zip(route, route[1:]), start=1):
+        leg_path = list(path_matrix.get((source, target), []))
+        leg_cost = costs.get((source, target), math.inf)
+        if not leg_path:
+            continue
+
+        for edge_index, (edge_from, edge_to) in enumerate(
+            zip(leg_path, leg_path[1:]),
+            start=1,
+        ):
+            steps.append(
+                SearchStep(
+                    step_type=StepType.DISCOVER,
+                    node_id=edge_to,
+                    edge_from=edge_from,
+                    edge_to=edge_to,
+                    metrics={
+                        "stage": stage,
+                        "route_frame": route_frame,
+                        "route_role": route_role,
+                        "route_cost": common["route_cost"],
+                        "leg_index": leg_index,
+                        "leg_count": leg_count,
+                        "leg_start": source,
+                        "leg_goal": target,
+                        "leg_cost": (
+                            round(leg_cost, 6)
+                            if math.isfinite(leg_cost)
+                            else float("inf")
+                        ),
+                        "edge_index": edge_index,
+                    },
+                )
+            )
+
+        steps.append(
+            SearchStep(
+                step_type=StepType.EXPAND,
+                node_id=target,
+                metrics={
+                    "stage": stage,
+                    "route_frame": route_frame,
+                    "route_role": route_role,
+                    "route_cost": common["route_cost"],
+                    "leg_index": leg_index,
+                    "leg_count": leg_count,
+                    "leg_start": source,
+                    "leg_goal": target,
+                    "leg_cost": (
+                        round(leg_cost, 6)
+                        if math.isfinite(leg_cost)
+                        else float("inf")
+                    ),
+                },
+            )
+        )
+
+
 def _failure(message: str, node_id: str | None = None, **metrics) -> SearchResult:
-    finish_metrics = {"success": False, **metrics}
+    finish_metrics = {"stage": "nn2opt_finish", "success": False, **metrics}
     return SearchResult(
         path=[],
-        steps=[SearchStep(StepType.FINISH, node_id=node_id, metrics=finish_metrics)],
+        steps=[
+            SearchStep(
+                step_type=StepType.FINISH,
+                node_id=node_id,
+                metrics=finish_metrics,
+            )
+        ],
         total_cost=0.0,
         success=False,
         message=message,
+        visited_order=[],
+        goal_visit_order=[],
     )
 
 
@@ -259,11 +483,12 @@ def nearest_neighbor_2opt(
     start_id: str,
     goal_ids,
     respect_goal_order: bool = False,
+    return_to_start: bool = False,
     max_two_opt_iterations: int = 100,
 ) -> SearchResult:
-    """Visit every goal once using Nearest Neighbor followed by 2-Opt."""
-
+    """Visit all goals using NN initialization followed by directed 2-Opt."""
     goals = _normalize_goals(goal_ids)
+
     if graph is None or start_id not in getattr(graph, "nodes", {}):
         return _failure("Graph or start node is invalid.", stage="validation")
     if not goals:
@@ -272,8 +497,11 @@ def nearest_neighbor_2opt(
         return _failure("Goal nodes must be unique.", start_id, stage="validation")
     if start_id in goals:
         return _failure(
-            "Start node cannot also be a goal.", start_id, stage="validation"
+            "Start node cannot also be a goal.",
+            start_id,
+            stage="validation",
         )
+
     missing = [goal for goal in goals if goal not in graph.nodes]
     if missing:
         return _failure(
@@ -282,134 +510,255 @@ def nearest_neighbor_2opt(
             stage="validation",
         )
 
-    costs = build_cost_matrix(graph, [start_id, *goals])
+    # The metric closure contains Start and each delivery goal exactly once.
+    # Return-to-start uses the already-computed goal -> Start entries.
+    costs, path_matrix = build_route_matrices(graph, [start_id, *goals])
+    steps: list[SearchStep] = []
+
     if respect_goal_order:
         initial_order = [start_id, *goals]
+        if return_to_start:
+            initial_order.append(start_id)
         initial_cost = route_cost(initial_order, costs)
+        if not math.isfinite(initial_cost):
+            return _failure(
+                "The selected goal order contains an unreachable road leg.",
+                start_id,
+                stage="nn2opt_preserved_order",
+            )
+
         optimized_order = list(initial_order)
         optimized_cost = initial_cost
-        improvements = []
+        improvements: list[dict] = []
+
+        steps.append(
+            SearchStep(
+                step_type=StepType.UPDATE,
+                node_id=optimized_order[-1],
+                metrics={
+                    "stage": "nn2opt_preserved_order",
+                    "route": " -> ".join(optimized_order),
+                    "route_cost": round(optimized_cost, 6),
+                    "goal_order": list(goals),
+                    "2opt_improvements": 0,
+                },
+            )
+        )
+        _append_route_visualization(
+            steps,
+            optimized_order,
+            path_matrix,
+            costs,
+            stage="nn2opt_preserved_route",
+            route_frame="nn2opt:preserved",
+            route_role="preserved_order",
+            start_id=start_id,
+            return_to_start=return_to_start,
+            route_cost_value=optimized_cost,
+            summary_metrics={
+                "iteration": 0,
+                "nearest_neighbor_cost": optimized_cost,
+                "optimized_cost": optimized_cost,
+                "2opt_improvements": 0,
+                "goal_order": list(goals),
+            },
+        )
     else:
-        initial_order = nearest_neighbor_order(start_id, goals, costs)
+        nn_trace: list[dict] = []
+        initial_order = nearest_neighbor_order(
+            start_id,
+            goals,
+            costs,
+            return_to_start=return_to_start,
+            trace=nn_trace,
+        )
         if initial_order is None:
             return _failure(
-                "Nearest Neighbor could not reach every selected goal.",
+                "Nearest Neighbor could not construct a feasible route through every selected goal.",
                 start_id,
-                stage="nearest_neighbor",
+                stage="nn2opt_nearest_neighbor",
             )
+
         initial_cost = route_cost(initial_order, costs)
+        if not math.isfinite(initial_cost):
+            return _failure(
+                "Nearest Neighbor produced a route containing an unreachable road leg.",
+                start_id,
+                stage="nn2opt_nearest_neighbor",
+            )
+
+        # Visualize NN construction after each accepted nearest-goal choice.
+        for selection in nn_trace:
+            iteration = int(selection["iteration"])
+            partial_route = list(selection["partial_route"])
+            partial_cost = route_cost(partial_route, costs)
+            display_order = list(selection.get("goal_order") or [])
+
+            steps.append(
+                SearchStep(
+                    step_type=StepType.UPDATE,
+                    node_id=selection["selected_goal"],
+                    metrics={
+                        "stage": "nn2opt_nn_select",
+                        "iteration": iteration,
+                        "selected_goal": selection["selected_goal"],
+                        "from_node": selection["from"],
+                        "leg_cost": round(selection["leg_cost"], 6),
+                        "partial_cost": round(partial_cost, 6),
+                        "remaining_goals": list(selection["remaining_goals"]),
+                        "route": " -> ".join(partial_route),
+                        "goal_order": display_order,
+                    },
+                )
+            )
+            _append_route_visualization(
+                steps,
+                partial_route,
+                path_matrix,
+                costs,
+                stage="nn2opt_nn_route",
+                route_frame=f"nn2opt:nn:{iteration}",
+                route_role=(
+                    "nearest_neighbor_initial"
+                    if iteration == len(goals)
+                    else "nearest_neighbor_partial"
+                ),
+                start_id=start_id,
+                return_to_start=(return_to_start and iteration == len(goals)),
+                route_cost_value=partial_cost,
+                summary_metrics={
+                    "iteration": iteration,
+                    "selected_goal": selection["selected_goal"],
+                    "nearest_neighbor_cost": (
+                        initial_cost if iteration == len(goals) else None
+                    ),
+                    "goal_order": display_order,
+                },
+            )
+
+        steps.append(
+            SearchStep(
+                step_type=StepType.UPDATE,
+                node_id=initial_order[-1],
+                metrics={
+                    "stage": "nn2opt_nn_complete",
+                    "iteration": len(goals),
+                    "nearest_neighbor_cost": round(initial_cost, 6),
+                    "route_cost": round(initial_cost, 6),
+                    "route": " -> ".join(initial_order),
+                    "goal_order": _goal_order(
+                        initial_order, start_id, return_to_start
+                    ),
+                },
+            )
+        )
+
         optimized_order, optimized_cost, improvements = two_opt(
             initial_order,
             costs,
             max_iterations=max_two_opt_iterations,
+            return_to_start=return_to_start,
         )
 
-    if not math.isfinite(optimized_cost):
-        unreachable_leg = next(
-            (
-                (source, target)
-                for source, target in zip(optimized_order, optimized_order[1:])
-                if not math.isfinite(costs.get((source, target), math.inf))
-            ),
-            None,
-        )
-        leg_text = (
-            f" from '{unreachable_leg[0]}' to '{unreachable_leg[1]}'"
-            if unreachable_leg
-            else ""
-        )
-        return _failure(
-            f"No road route exists{leg_text}.",
-            start_id,
-            stage="route_construction",
-        )
-
-    steps = [
-        SearchStep(
-            StepType.UPDATE,
-            node_id=initial_order[1],
-            metrics={
-                "stage": "selected_order" if respect_goal_order else "nearest_neighbor",
-                "route": " -> ".join(initial_order),
-                "cost": initial_cost,
-            },
-        )
-    ]
-    for improvement in improvements:
-        steps.append(
-            SearchStep(
-                StepType.UPDATE,
-                node_id=improvement["route"][-1],
-                metrics={
-                    "stage": "2-opt",
-                    "iteration": improvement["iteration"],
+        for improvement in improvements:
+            iteration = int(improvement["iteration"])
+            improved_route = list(improvement["route"])
+            goal_order = _goal_order(improved_route, start_id, return_to_start)
+            steps.append(
+                SearchStep(
+                    step_type=StepType.UPDATE,
+                    node_id=(goal_order[-1] if goal_order else start_id),
+                    metrics={
+                        "stage": "nn2opt_2opt_iteration",
+                        "iteration": iteration,
+                        "reversed_segment": (
+                            f"{improvement['left']}:{improvement['right']}"
+                        ),
+                        "previous_cost": round(improvement["previous_cost"], 6),
+                        "optimized_cost": round(improvement["optimized_cost"], 6),
+                        "nearest_neighbor_cost": round(initial_cost, 6),
+                        "route": " -> ".join(improved_route),
+                        "goal_order": goal_order,
+                    },
+                )
+            )
+            _append_route_visualization(
+                steps,
+                improved_route,
+                path_matrix,
+                costs,
+                stage="nn2opt_2opt_route",
+                route_frame=f"nn2opt:2opt:{iteration}",
+                route_role="2opt_improvement",
+                start_id=start_id,
+                return_to_start=return_to_start,
+                route_cost_value=improvement["optimized_cost"],
+                summary_metrics={
+                    "iteration": iteration,
                     "reversed_segment": (
                         f"{improvement['left']}:{improvement['right']}"
                     ),
                     "previous_cost": improvement["previous_cost"],
                     "optimized_cost": improvement["optimized_cost"],
-                    "route": " -> ".join(improvement["route"]),
+                    "nearest_neighbor_cost": initial_cost,
+                    "goal_order": goal_order,
                 },
             )
+
+    if not math.isfinite(optimized_cost):
+        return _failure(
+            "2-Opt could not produce a finite route on the directed road network.",
+            start_id,
+            stage="nn2opt_2opt",
         )
 
-    full_path: list[str] = []
-    actual_cost = 0.0
-    leg_count = len(optimized_order) - 1
-    for leg_index, (source, target) in enumerate(
-        zip(optimized_order, optimized_order[1:]), start=1
-    ):
-        leg_cost, leg_path = _shortest_path(graph, source, target)
-        if not leg_path or not math.isfinite(leg_cost):
-            return _failure(
-                f"No road path exists from '{source}' to '{target}'.",
-                source,
-                stage="route_construction",
-                leg_index=leg_index,
-            )
-        full_path.extend(leg_path if not full_path else leg_path[1:])
-        actual_cost += leg_cost
-
-        for edge_from, edge_to in zip(leg_path, leg_path[1:]):
-            steps.append(
-                SearchStep(
-                    StepType.DISCOVER,
-                    node_id=edge_to,
-                    edge_from=edge_from,
-                    edge_to=edge_to,
-                    metrics={
-                        "stage": "route_leg",
-                        "leg_index": leg_index,
-                        "leg_count": leg_count,
-                        "leg_start": source,
-                        "leg_goal": target,
-                    },
-                )
-            )
-        steps.append(
-            SearchStep(
-                StepType.EXPAND,
-                node_id=target,
-                metrics={
-                    "stage": "goal_reached",
-                    "leg_index": leg_index,
-                    "leg_count": leg_count,
-                    "leg_cost": leg_cost,
-                },
-            )
+    full_path = _construct_full_path(optimized_order, path_matrix)
+    if len(optimized_order) > 1 and not full_path:
+        return _failure(
+            "The optimized visit order contains a road leg that cannot be reconstructed.",
+            start_id,
+            stage="nn2opt_route_construction",
         )
+
+    final_goal_order = _goal_order(optimized_order, start_id, return_to_start)
+
+    # Always finish with a dedicated best/final route frame, even when 2-Opt made
+    # no improvement.  This gives the UI one canonical route immediately before
+    # FINISH highlights the result path in green.
+    _append_route_visualization(
+        steps,
+        optimized_order,
+        path_matrix,
+        costs,
+        stage="nn2opt_final_route",
+        route_frame="nn2opt:final",
+        route_role="final_optimized",
+        start_id=start_id,
+        return_to_start=return_to_start,
+        route_cost_value=optimized_cost,
+        summary_metrics={
+            "iteration": len(improvements),
+            "nearest_neighbor_cost": initial_cost,
+            "optimized_cost": optimized_cost,
+            "2opt_improvements": len(improvements),
+            "goal_order": final_goal_order,
+        },
+    )
 
     steps.append(
         SearchStep(
-            StepType.FINISH,
+            step_type=StepType.FINISH,
             node_id=optimized_order[-1],
             metrics={
+                "stage": "nn2opt_finish",
                 "success": True,
                 "goals": len(goals),
-                "nearest_neighbor_cost": initial_cost,
-                "optimized_cost": actual_cost,
+                "nearest_neighbor_cost": round(initial_cost, 6),
+                "optimized_cost": round(optimized_cost, 6),
                 "2opt_improvements": len(improvements),
                 "route": " -> ".join(optimized_order),
+                "goal_order": final_goal_order,
+                "return_to_start": bool(return_to_start),
             },
         )
     )
@@ -417,23 +766,23 @@ def nearest_neighbor_2opt(
     if respect_goal_order:
         message = (
             f"Visited {len(goals)} goal(s) in the selected order; "
-            f"route cost {actual_cost:.4f}."
+            f"route cost {optimized_cost:.4f}."
         )
     else:
         message = (
             f"Nearest Neighbor + 2-Opt visited {len(goals)} goal(s), "
-            f"improved cost from {initial_cost:.4f} to {actual_cost:.4f} "
+            f"improved cost from {initial_cost:.4f} to {optimized_cost:.4f} "
             f"with {len(improvements)} accepted 2-Opt move(s)."
         )
 
     return SearchResult(
         path=full_path,
         steps=steps,
-        total_cost=actual_cost,
+        total_cost=optimized_cost,
         success=True,
         message=message,
-        visited_order=list(full_path),
-        goal_visit_order=optimized_order[1:],
+        visited_order=list(optimized_order),
+        goal_visit_order=final_goal_order,
     )
 
 

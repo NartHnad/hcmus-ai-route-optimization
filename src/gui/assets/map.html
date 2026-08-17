@@ -118,7 +118,7 @@
         .legend__dot--frontier { color: #8b5cf6; }
         .legend__dot--explored { color: #64748b; }
 
-        .legend__dot--forward { color: #ff2323; }
+        .legend__dot--forward { color: #7c3aed; }
         .legend__dot--backward { color: #db2777; }
         .legend__line { width: 18px; height: 0; border-top: 4px solid #16a34a; border-radius: 4px; }
 
@@ -674,14 +674,27 @@
             return String((step.metrics && step.metrics.stage) || '');
         }   
 
-        function isGaRouteStep(step) {
+        function isOptimizerRouteStep(step) {
             const stage = stepStage(step);
-            return stage.startsWith('ga_generation_route') || stage.startsWith('ga_final_route');
+            return stage.startsWith('ga_generation_route')
+                || stage.startsWith('ga_final_route')
+                || stage.startsWith('sa_initial_route')
+                || stage.startsWith('sa_iteration_route')
+                || stage.startsWith('sa_final_route')
+                || stage.startsWith('nn2opt_nn_route')
+                || stage.startsWith('nn2opt_2opt_route')
+                || stage.startsWith('nn2opt_preserved_route')
+                || stage.startsWith('nn2opt_final_route');
         }
 
-        function isGaLogicalUpdate(step) {
+        function isOptimizerLogicalUpdate(step) {
+            const stage = stepStage(step);
             return step.type === 'update'
-                && stepStage(step).startsWith('ga_')
+                && (
+                    stage.startsWith('ga_')
+                    || stage.startsWith('sa_')
+                    || stage.startsWith('nn2opt_')
+                )
                 && !step.from
                 && !step.to;
         }
@@ -693,11 +706,11 @@
             if (step.node && direction) nodeDirections[step.node] = direction;
 
             const metrics = step.metrics || {};
-            const gaRouteStep = isGaRouteStep(step);
-            const gaLogicalUpdate = isGaLogicalUpdate(step);
+            const optimizerRouteStep = isOptimizerRouteStep(step);
+            const optimizerLogicalUpdate = isOptimizerLogicalUpdate(step);
 
-            // GA replaces the displayed tour at each visualized generation.  Endpoint
-            // selection markers live in separate layers, so this only clears playback.
+            // GA/SA route frames replace the displayed tour. Endpoint selection
+            // markers live in separate layers, so this only clears playback state.
             if (metrics.route_reset) resetVisualization();
 
             if (step.type === 'expand') {
@@ -717,7 +730,7 @@
                     }
                 }
             } else if (step.type === 'discover') {
-                if (!gaRouteStep && step.node && step.node !== currentNode && !exploredNodes.has(step.node)) {
+                if (!optimizerRouteStep && step.node && step.node !== currentNode && !exploredNodes.has(step.node)) {
                     frontierNodes.add(step.node);
                     styleNode(step.node, directionalState('frontier', direction));
                 }
@@ -725,7 +738,7 @@
                     styleEdge(step.from, step.to, directionalState('inspect', direction));
                 }
             } else if (step.type === 'update') {
-                if (!gaLogicalUpdate && step.node && step.node !== currentNode && !exploredNodes.has(step.node)) {
+                if (!optimizerLogicalUpdate && step.node && step.node !== currentNode && !exploredNodes.has(step.node)) {
                     frontierNodes.add(step.node);
                     styleNode(step.node, directionalState('frontier', direction));
                 }
