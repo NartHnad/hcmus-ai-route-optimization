@@ -233,3 +233,5 @@ __marimo__/
 # Personal files
 graphify-out
 PLAN.md
+.claude
+.agents
