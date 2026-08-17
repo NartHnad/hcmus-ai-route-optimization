@@ -38,7 +38,12 @@ def build_multi_goal_graph():
 
 def test_algorithm_registry_keeps_single_and_multi_modes_separate():
     assert "A* Search" in get_algorithms("single")
-    assert get_algorithms("multi") == ["Mock Multi-location Search"]
+    # #NhatHuyChanged: registry includes every production multi-location optimizer.
+    assert get_algorithms("multi") == [
+        "Mock Multi-location Search",
+        "Nearest Neighbor + 2-Opt",
+        "Simulated Annealing (SA)",
+    ]
 
 
 def test_ordered_multi_location_uses_ui_order_and_merges_real_legs():

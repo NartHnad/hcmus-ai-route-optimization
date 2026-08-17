@@ -40,15 +40,33 @@ def get_value(tour: list, distance_matrix: dict) -> float:
     return -dist
 
 
-def swap_two_locations(tour: list) -> list:
+def swap_two_locations(
+    tour: list,
+    respect_goal_order: bool = False,
+    return_to_start: bool = False,
+) -> list:
     next_tour = tour.copy()
 
-    if len(next_tour) <= 2:
+    if respect_goal_order:
+        return tour
+
+    # No return:
+    #   [START, G1, G2, G3]
+    #    ^     ^^^^^^^^^^
+    #    fixed   can swap
+    #
+    # Return:
+    #   [START, G1, G2, G3, START]
+    #    ^                    ^
+    #    fixed              fixed
+    start_idx = 1
+    end_idx = len(next_tour) - 1 if return_to_start else len(next_tour)
+
+    if end_idx - start_idx < 2:
         return next_tour
 
     # Randomly select two indices to swap
-    # just start node is fixed
-    i, j = random.sample(range(1, len(next_tour)), 2)
+    i, j = random.sample(range(start_idx, end_idx), 2)
 
     # Swap the two locations
     next_tour[i], next_tour[j] = next_tour[j], next_tour[i]
@@ -91,6 +109,7 @@ def simulated_annealing(
     start,
     goals,
     respect_goal_order=False,
+    return_to_start=False,
     initial_temp: float = 1000.0,
     decay_rate: float = 0.995,
 ) -> SearchResult:
@@ -122,6 +141,9 @@ def simulated_annealing(
     # Start must always be the first location
     locations = [start] + goals
 
+    if return_to_start:
+        locations.append(start)
+
     if len(locations) < 2:
         return SearchResult(
             path=[start],
@@ -150,6 +172,8 @@ def simulated_annealing(
     if respect_goal_order:
         best_tour = locations.copy()
         best_val = get_value(best_tour, dist_matrix)
+
+        message = "Route constructed with preserved goal order."
 
         if best_val != float("-inf"):
             steps.append(
@@ -191,7 +215,11 @@ def simulated_annealing(
                 break
 
             # next = a randomly selected successor of current (Swap two cities)
-            next_state = swap_two_locations(current)
+            next_state = swap_two_locations(
+                current,
+                respect_goal_order=respect_goal_order,
+                return_to_start=return_to_start,
+            )
             next_val = get_value(next_state, dist_matrix)
 
             # Difference in value
@@ -230,6 +258,7 @@ def simulated_annealing(
                 )
 
             t += 1
+        message = f"Simulated Annealing completed after {t - 1} time steps."
 
     # =========================================================
     # Construct actual graph path
@@ -266,6 +295,6 @@ def simulated_annealing(
         steps=steps,
         total_cost=best_distance,
         success=True if best_distance < float("inf") else False,
-        message=f"Simulated Annealing completed after {t} time steps.",
+        message=message,
         visited_order=best_tour,
     )
