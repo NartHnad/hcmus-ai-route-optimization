@@ -304,11 +304,16 @@ class NodeSearchComboBox(QComboBox):
         return True
 
     def showPopup(self):
-        """Turn arrow clicks into edit focus instead of a huge full-node popup."""
+        """Show every available node when the combo-box arrow is clicked.
+
+        Typing continues to use the compact ranked-suggestions completer, but
+        the arrow preserves the standard combo-box affordance: opening the
+        complete list of nodes.
+        """
         if not self.isEnabled():
             return
-        self.lineEdit().setFocus(Qt.MouseFocusReason)
-        self.lineEdit().selectAll()
+        self._search_completer.popup().hide()
+        super().showPopup()
 
     def hidePopup(self):
         super().hidePopup()
