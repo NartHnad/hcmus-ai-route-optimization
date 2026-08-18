@@ -359,8 +359,8 @@
       "travel_time": 0.21,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Lê Hồng Phong"
     },
     {
@@ -370,8 +370,8 @@
       "travel_time": 0.33,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Trần Phú"
     },
     {
@@ -381,8 +381,8 @@
       "travel_time": 0.19,
       "road_type": "primary",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Tri Phương"
     },
     {
@@ -392,8 +392,8 @@
       "travel_time": 0.35,
       "road_type": "residential",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Phan Văn Trị"
     },
     {
@@ -403,8 +403,8 @@
       "travel_time": 0.15,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Bùi Hữu Nghĩa"
     },
     {
@@ -414,8 +414,8 @@
       "travel_time": 0.17,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Bùi Hữu Nghĩa"
     },
     {
@@ -425,8 +425,8 @@
       "travel_time": 0.21,
       "road_type": "residential",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Phan Văn Trị"
     },
     {
@@ -436,8 +436,8 @@
       "travel_time": 0.01,
       "road_type": "primary_link",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Unknown Road"
     },
     {
@@ -447,8 +447,8 @@
       "travel_time": 0.29,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường An Bình"
     },
     {
@@ -458,8 +458,8 @@
       "travel_time": 0.01,
       "road_type": "primary_link",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Unknown Road"
     },
     {
@@ -469,8 +469,8 @@
       "travel_time": 0.17,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Bùi Hữu Nghĩa"
     },
     {
@@ -480,8 +480,8 @@
       "travel_time": 0.21,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Lê Hồng Phong"
     },
     {
@@ -491,8 +491,8 @@
       "travel_time": 0.21,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Lê Hồng Phong"
     },
     {
@@ -502,8 +502,8 @@
       "travel_time": 0.34,
       "road_type": "residential",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Phan Văn Trị"
     },
     {
@@ -513,8 +513,8 @@
       "travel_time": 0.02,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "An Dương Vương"
     },
     {
@@ -524,8 +524,8 @@
       "travel_time": 0.33,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Trần Phú"
     },
     {
@@ -535,8 +535,8 @@
       "travel_time": 0.16,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Trần Phú"
     },
     {
@@ -546,8 +546,8 @@
       "travel_time": 0.09,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường An Bình"
     },
     {
@@ -557,8 +557,8 @@
       "travel_time": 0.29,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường An Bình"
     },
     {
@@ -568,8 +568,8 @@
       "travel_time": 0.21,
       "road_type": "residential",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Phan Văn Trị"
     },
     {
@@ -579,8 +579,8 @@
       "travel_time": 0.15,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Bùi Hữu Nghĩa"
     },
     {
@@ -590,8 +590,8 @@
       "travel_time": 0.22,
       "road_type": "primary",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Trần Hưng Đạo"
     },
     {
@@ -601,8 +601,8 @@
       "travel_time": 0.08,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Trần Tuấn Khải"
     },
     {
@@ -612,8 +612,8 @@
       "travel_time": 0.38,
       "road_type": "residential",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Văn Đừng"
     },
     {
@@ -623,8 +623,8 @@
       "travel_time": 0.17,
       "road_type": "primary",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Trần Hưng Đạo"
     },
     {
@@ -634,8 +634,8 @@
       "travel_time": 0.01,
       "road_type": "primary_link",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Unknown Road"
     },
     {
@@ -645,8 +645,8 @@
       "travel_time": 0.15,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Bùi Hữu Nghĩa"
     },
     {
@@ -656,8 +656,8 @@
       "travel_time": 0.14,
       "road_type": "primary",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Trần Hưng Đạo"
     },
     {
@@ -667,8 +667,8 @@
       "travel_time": 0.2,
       "road_type": "primary",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Trần Hưng Đạo"
     },
     {
@@ -678,8 +678,8 @@
       "travel_time": 0.41,
       "road_type": "primary",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Nguyễn Tri Phương"
     },
     {
@@ -689,8 +689,8 @@
       "travel_time": 0.06,
       "road_type": "primary",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Nguyễn Tri Phương"
     },
     {
@@ -700,8 +700,8 @@
       "travel_time": 0.03,
       "road_type": "primary_link",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Nguyễn Tri Phương"
     },
     {
@@ -711,8 +711,8 @@
       "travel_time": 0.04,
       "road_type": "primary",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Nguyễn Tri Phương"
     },
     {
@@ -722,8 +722,8 @@
       "travel_time": 0.07,
       "road_type": "secondary",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Lê Hồng Phong"
     },
     {
@@ -733,8 +733,8 @@
       "travel_time": 0.08,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Trần Tuấn Khải"
     },
     {
@@ -744,8 +744,8 @@
       "travel_time": 0.37,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Trần Nhân Tôn"
     },
     {
@@ -755,8 +755,8 @@
       "travel_time": 0.13,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Huỳnh Mẫn Đạt"
     },
     {
@@ -766,8 +766,8 @@
       "travel_time": 0.35,
       "road_type": "primary",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Trần Phú"
     },
     {
@@ -777,8 +777,8 @@
       "travel_time": 0.37,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Trần Nhân Tôn"
     },
     {
@@ -788,8 +788,8 @@
       "travel_time": 0.35,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Trãi"
     },
     {
@@ -799,8 +799,8 @@
       "travel_time": 0.39,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Trãi"
     },
     {
@@ -810,8 +810,8 @@
       "travel_time": 0.15,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Bùi Hữu Nghĩa"
     },
     {
@@ -821,8 +821,8 @@
       "travel_time": 0.01,
       "road_type": "primary_link",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Unknown Road"
     },
     {
@@ -832,8 +832,8 @@
       "travel_time": 0.01,
       "road_type": "primary_link",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Unknown Road"
     },
     {
@@ -843,8 +843,8 @@
       "travel_time": 0.19,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Huỳnh Mẫn Đạt"
     },
     {
@@ -854,8 +854,8 @@
       "travel_time": 0.35,
       "road_type": "residential",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Phan Văn Trị"
     },
     {
@@ -865,8 +865,8 @@
       "travel_time": 0.19,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Huỳnh Mẫn Đạt"
     },
     {
@@ -876,8 +876,8 @@
       "travel_time": 0.34,
       "road_type": "residential",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Phan Văn Trị"
     },
     {
@@ -887,8 +887,8 @@
       "travel_time": 0.19,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Huỳnh Mẫn Đạt"
     },
     {
@@ -898,8 +898,8 @@
       "travel_time": 0.3,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Huỳnh Mẫn Đạt"
     },
     {
@@ -909,8 +909,8 @@
       "travel_time": 0.35,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Trãi"
     },
     {
@@ -920,8 +920,8 @@
       "travel_time": 0.19,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Huỳnh Mẫn Đạt"
     },
     {
@@ -931,8 +931,8 @@
       "travel_time": 0.34,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Trãi"
     },
     {
@@ -942,8 +942,8 @@
       "travel_time": 0.02,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Trãi"
     },
     {
@@ -953,8 +953,8 @@
       "travel_time": 0.21,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Trãi"
     },
     {
@@ -964,8 +964,8 @@
       "travel_time": 0.12,
       "road_type": "residential",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Hẻm 94 An Bình"
     },
     {
@@ -975,8 +975,8 @@
       "travel_time": 0.14,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường An Bình"
     },
     {
@@ -986,8 +986,8 @@
       "travel_time": 0.2,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường An Bình"
     },
     {
@@ -997,8 +997,8 @@
       "travel_time": 0.14,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường An Bình"
     },
     {
@@ -1008,8 +1008,8 @@
       "travel_time": 0.12,
       "road_type": "residential",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Hẻm 94 An Bình"
     },
     {
@@ -1019,8 +1019,8 @@
       "travel_time": 0.07,
       "road_type": "residential",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Hẻm 517 Đường Nguyễn Trãi"
     },
     {
@@ -1030,8 +1030,8 @@
       "travel_time": 0.18,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Trãi"
     },
     {
@@ -1041,8 +1041,8 @@
       "travel_time": 0.09,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường An Bình"
     },
     {
@@ -1052,8 +1052,8 @@
       "travel_time": 0.21,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Trãi"
     },
     {
@@ -1063,8 +1063,8 @@
       "travel_time": 0.02,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "An Dương Vương"
     },
     {
@@ -1074,8 +1074,8 @@
       "travel_time": 0.23,
       "road_type": "secondary",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Lê Hồng Phong"
     },
     {
@@ -1085,8 +1085,8 @@
       "travel_time": 0.33,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "An Dương Vương"
     },
     {
@@ -1096,8 +1096,8 @@
       "travel_time": 0.28,
       "road_type": "secondary",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Lê Hồng Phong"
     },
     {
@@ -1107,8 +1107,8 @@
       "travel_time": 0.04,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Trần Phú"
     },
     {
@@ -1118,8 +1118,8 @@
       "travel_time": 0.03,
       "road_type": "secondary",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Trãi"
     },
     {
@@ -1129,8 +1129,8 @@
       "travel_time": 0.1,
       "road_type": "primary",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Tri Phương"
     },
     {
@@ -1140,8 +1140,8 @@
       "travel_time": 0.07,
       "road_type": "residential",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Hẻm 517 Đường Nguyễn Trãi"
     },
     {
@@ -1151,8 +1151,8 @@
       "travel_time": 0.08,
       "road_type": "secondary",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Trãi"
     },
     {
@@ -1162,8 +1162,8 @@
       "travel_time": 0.02,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Trãi"
     },
     {
@@ -1173,8 +1173,8 @@
       "travel_time": 0.19,
       "road_type": "primary",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Tri Phương"
     },
     {
@@ -1184,8 +1184,8 @@
       "travel_time": 0.04,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Trần Phú"
     },
     {
@@ -1195,8 +1195,8 @@
       "travel_time": 0.2,
       "road_type": "residential",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Trần Tuấn Khải"
     },
     {
@@ -1206,8 +1206,8 @@
       "travel_time": 0.16,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Trần Phú"
     },
     {
@@ -1217,8 +1217,8 @@
       "travel_time": 0.18,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Trãi"
     },
     {
@@ -1228,8 +1228,8 @@
       "travel_time": 0.39,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Trãi"
     },
     {
@@ -1239,8 +1239,8 @@
       "travel_time": 0.3,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Huỳnh Mẫn Đạt"
     },
     {
@@ -1250,8 +1250,8 @@
       "travel_time": 0.13,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Huỳnh Mẫn Đạt"
     },
     {
@@ -1261,8 +1261,8 @@
       "travel_time": 0.33,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "An Dương Vương"
     },
     {
@@ -1272,8 +1272,8 @@
       "travel_time": 0.04,
       "road_type": "primary",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Tri Phương"
     },
     {
@@ -1283,8 +1283,8 @@
       "travel_time": 0.07,
       "road_type": "primary",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Trần Hưng Đạo"
     },
     {
@@ -1294,8 +1294,8 @@
       "travel_time": 0.01,
       "road_type": "primary_link",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Unknown Road"
     },
     {
@@ -1305,8 +1305,8 @@
       "travel_time": 0.23,
       "road_type": "primary",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Trần Hưng Đạo"
     },
     {
@@ -1316,8 +1316,8 @@
       "travel_time": 0.2,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường An Bình"
     },
     {
@@ -1327,8 +1327,8 @@
       "travel_time": 0.01,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Trãi"
     },
     {
@@ -1338,8 +1338,8 @@
       "travel_time": 0.29,
       "road_type": "secondary",
       "is_one_way": true,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Lê Hồng Phong"
     },
     {
@@ -1349,8 +1349,8 @@
       "travel_time": 0.01,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Trãi"
     },
     {
@@ -1360,8 +1360,8 @@
       "travel_time": 0.01,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Trãi"
     },
     {
@@ -1371,8 +1371,8 @@
       "travel_time": 0.01,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Trãi"
     },
     {
@@ -1382,8 +1382,8 @@
       "travel_time": 0.21,
       "road_type": "tertiary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Lê Hồng Phong"
     },
     {
@@ -1393,8 +1393,8 @@
       "travel_time": 0.34,
       "road_type": "secondary",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Trãi"
     },
     {
@@ -1404,8 +1404,8 @@
       "travel_time": 0.38,
       "road_type": "residential",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Nguyễn Văn Đừng"
     },
     {
@@ -1415,8 +1415,8 @@
       "travel_time": 0.2,
       "road_type": "residential",
       "is_one_way": false,
-      "congestion": 1,
-      "risk": 1,
+      "congestion": 0,
+      "risk": 0,
       "note": "Đường Trần Tuấn Khải"
     }
   ],
