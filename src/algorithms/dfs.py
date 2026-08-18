@@ -55,7 +55,7 @@ def dfs(graph, start_id, goal_id):
             for i in range(len(path) - 1):
                 edge = graph.get_edge(path[i], path[i + 1])
                 if edge:
-                    total_cost += edge.distance
+                    total_cost += edge.calculate_cost()
 
             return SearchResult(
                 path=path,

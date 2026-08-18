@@ -76,7 +76,8 @@ class Edge:
 
         # Compulsory Attributes
         self.distance = float(distance)  # Raw physical distance (kilometers)
-        self.travel_time = float(travel_time)  # Estimated travel time (minutes)
+        self.travel_time = float(travel_time)  # Current estimated travel time (minutes)
+        self._base_travel_time = self.travel_time  # Uncongested baseline for session updates
         self.road_type = road_type
         self.is_one_way = is_one_way  # Traffic direction: 'one-way' or 'two-way'
 
