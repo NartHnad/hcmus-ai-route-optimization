@@ -106,7 +106,7 @@ def test_delta_steps_preserve_algorithm_selection_and_costs():
     assert bfs_result.path == ["A", "B", "G"]
     assert bfs_result.total_cost == 18.0
     assert dfs_result.path == ["A", "C", "G"]
-    assert dfs_result.total_cost == 2.0
+    assert dfs_result.total_cost == 4.0
     assert ucs_result.path == ["A", "C", "G"]
     assert ucs_result.total_cost == 4.0
     assert astar_result.path == ["A", "C", "G"]
