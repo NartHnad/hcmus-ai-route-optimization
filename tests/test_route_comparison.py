@@ -460,6 +460,45 @@ def test_comparison_panel_switches_between_both_modes():
     app.processEvents()
 
 
+def test_comparison_panel_presents_structured_explanation_sections():
+    app = QApplication.instance() or QApplication([])
+    graph = make_graph(
+        ("A", "B", "C", "D", "G"),
+        (
+            ("A", "B", 1.0, 1.0, "local", 0.75, 0.0, "Đường Một"),
+            ("B", "G", 1.0, 1.0, "local", 0.75, 0.0, "Đường Hai"),
+            ("A", "C", 2.0, 2.0, "local", 1.0, 0.0, "Đường Ba"),
+            ("C", "D", 2.0, 2.0, "local", 1.0, 0.0, "Đường Bốn"),
+            ("D", "G", 2.0, 2.0, "local", 1.0, 0.0, "Đường Năm"),
+        ),
+    )
+    selected = calculate_route_metrics(graph, ["A", "B", "G"])
+    alternative = calculate_route_metrics(graph, ["A", "C", "D", "G"])
+    comparison = compare_routes(selected, alternative, ASTAR, graph=graph)
+    panel = RouteComparisonPanel([ASTAR, UCS])
+
+    panel.set_comparison(comparison)
+
+    assert panel.recommendation_title_label.text() == "Đề xuất: Selected · A* Search"
+    assert "Total cost thấp hơn" in panel.recommendation_detail_label.text()
+    assert "Alternative được tính lại" in panel.method_label.text()
+    assert panel.congestion_toggle.text() == "Ùn tắc nặng (5 đoạn) · Xem chi tiết"
+    assert panel.congestion_details.isHidden()
+    assert "Đường Một · mức 0.75" in panel.selected_congestion_label.text()
+    assert "A → B" in panel.selected_congestion_label.text()
+    assert "Đường Ba · mức 1.00" in panel.alternative_congestion_label.text()
+
+    panel.congestion_toggle.setChecked(True)
+
+    assert not panel.congestion_details.isHidden()
+    assert panel.congestion_toggle.text() == "Ùn tắc nặng (5 đoạn) · Thu gọn"
+    assert "không tự khẳng định" in panel.optimality_label.text()
+    assert panel.explanation_label.isHidden()
+    assert "Gợi ý theo total cost" in panel.explanation_label.text()
+    panel.deleteLater()
+    app.processEvents()
+
+
 def test_panel_handles_missing_second_route_without_crashing():
     app = QApplication.instance() or QApplication([])
     selected = RouteMetrics(

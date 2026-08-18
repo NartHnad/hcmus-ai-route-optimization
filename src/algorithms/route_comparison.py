@@ -1,6 +1,7 @@
 """Canonical route comparison and rule-based Vietnamese explanations."""
 
 import math
+import random
 from typing import Iterable, Optional, Sequence
 
 from src.algorithms.algorithms import run_algorithm, run_route_request
@@ -17,6 +18,15 @@ from src.models.models import (
 CURRENT_COST_PROFILE = "current_composite"
 HIGH_CONGESTION_THRESHOLD = CongestionLevel.HEAVY.value
 METRIC_EPSILON = 1e-6
+
+
+def _run_comparison_search(search, *args, **kwargs):
+    """Run a secondary search without advancing the shared random stream."""
+    random_state = random.getstate()
+    try:
+        return search(*args, **kwargs)
+    finally:
+        random.setstate(random_state)
 
 
 def _finite_number(value, default=0.0):
@@ -209,14 +219,16 @@ class AlternativeRouteSelector:
         for excluded_edge in reversed(selected_edges):
             graph_view = _EdgeFilteredGraph(graph, {excluded_edge})
             if route_request is None:
-                candidate_result = run_algorithm(
+                candidate_result = _run_comparison_search(
+                    run_algorithm,
                     algorithm,
                     graph_view,
                     start_id,
                     goal_id,
                 )
             else:
-                candidate_result = run_route_request(
+                candidate_result = _run_comparison_search(
+                    run_route_request,
                     algorithm,
                     graph_view,
                     route_request,
@@ -554,14 +566,16 @@ def build_route_comparison(
         if second_algorithm == algorithm:
             raise ValueError("Different-algorithms mode requires two algorithms.")
         if route_request is None:
-            second_result = run_algorithm(
+            second_result = _run_comparison_search(
+                run_algorithm,
                 second_algorithm,
                 graph,
                 start_id or (selected.path[0] if selected.path else ""),
                 goal_id or (selected.path[-1] if selected.path else ""),
             )
         else:
-            second_result = run_route_request(
+            second_result = _run_comparison_search(
+                run_route_request,
                 second_algorithm,
                 graph,
                 route_request,

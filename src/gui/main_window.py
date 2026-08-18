@@ -52,14 +52,18 @@ class SearchWorker(QObject):
         algorithm,
         graph,
         route_request,
-        comparison_mode=ComparisonMode.SAME_ALGORITHM_ALTERNATIVE,
+        comparison_mode=None,
         comparison_algorithm="",
     ):
         super().__init__()
         self.algorithm = algorithm
         self.graph = graph
         self.route_request = route_request
-        self.comparison_mode = ComparisonMode.coerce(comparison_mode)
+        self.comparison_mode = (
+            None
+            if comparison_mode is None
+            else ComparisonMode.coerce(comparison_mode)
+        )
         self.comparison_algorithm = comparison_algorithm
 
     @pyqtSlot()
@@ -70,21 +74,22 @@ class SearchWorker(QObject):
             runtime_ms = (time.perf_counter() - started) * 1000
             result.runtime_ms = runtime_ms
             result.processing_time_ms = runtime_ms
-            try:
-                build_route_comparison(
-                    self.graph,
-                    result,
-                    self.algorithm,
-                    mode=self.comparison_mode,
-                    comparison_algorithm=self.comparison_algorithm,
-                    route_request=self.route_request,
-                )
-                result.comparison_error = ""
-            except Exception as exc:
-                # Comparison is additive: it must never invalidate the primary
-                # route result produced by the current branch.
-                result.comparison = None
-                result.comparison_error = str(exc)
+            if self.comparison_mode is not None:
+                try:
+                    build_route_comparison(
+                        self.graph,
+                        result,
+                        self.algorithm,
+                        mode=self.comparison_mode,
+                        comparison_algorithm=self.comparison_algorithm,
+                        route_request=self.route_request,
+                    )
+                    result.comparison_error = ""
+                except Exception as exc:
+                    # Comparison is additive: it must never invalidate the primary
+                    # route result produced by the current branch.
+                    result.comparison = None
+                    result.comparison_error = str(exc)
             self.completed.emit(result, runtime_ms)
         except Exception as exc:
             self.failed.emit(str(exc))
