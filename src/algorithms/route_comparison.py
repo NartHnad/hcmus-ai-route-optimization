@@ -2,6 +2,8 @@
 
 import math
 import random
+import time
+from dataclasses import replace
 from typing import Iterable, Optional, Sequence
 
 from src.algorithms.algorithms import run_algorithm, run_route_request
@@ -23,8 +25,13 @@ METRIC_EPSILON = 1e-6
 def _run_comparison_search(search, *args, **kwargs):
     """Run a secondary search without advancing the shared random stream."""
     random_state = random.getstate()
+    started = time.perf_counter()
     try:
-        return search(*args, **kwargs)
+        result = search(*args, **kwargs)
+        runtime_ms = (time.perf_counter() - started) * 1000
+        result.runtime_ms = runtime_ms
+        result.processing_time_ms = runtime_ms
+        return result
     finally:
         random.setstate(random_state)
 
@@ -128,6 +135,7 @@ def enrich_search_result(
     graph,
     algorithm: str,
     cost_mode: str = CURRENT_COST_PROFILE,
+    route_request=None,
 ) -> RouteMetrics:
     """Attach comparison metrics without replacing algorithm-reported cost."""
     metrics = calculate_route_metrics(
@@ -150,6 +158,22 @@ def enrich_search_result(
         metrics.path[0] if metrics.path else None,
     )
     result.route_details = [segment.to_dict() for segment in metrics.segments]
+    metrics.goal_visit_order = list(
+        getattr(result, "goal_visit_order", []) or []
+    )
+    metrics.start_node = str(
+        getattr(route_request, "start_node", "")
+        or (metrics.path[0] if metrics.path else "")
+    )
+    metrics.return_to_start = bool(
+        getattr(route_request, "return_to_start", False)
+    )
+    metrics.processing_time_ms = result.processing_time_ms
+    metrics.explored_nodes = (
+        None
+        if getattr(route_request, "route_mode", "single") == "multi"
+        else result.explored_nodes
+    )
     return metrics
 
 
@@ -331,6 +355,55 @@ class RouteExplanationGenerator:
     """Generate concise deterministic Vietnamese text from current metrics."""
 
     @staticmethod
+    def _goal_order_text(order: Sequence[str]) -> str:
+        return " → ".join(str(node_id) for node_id in (order or [])) or "—"
+
+    def _visiting_order_sentence(
+        self,
+        mode: ComparisonMode,
+        primary_algorithm: str,
+        second_algorithm: str,
+        selected: RouteMetrics,
+        alternative: Optional[RouteMetrics],
+        original_goal_order: Sequence[str],
+        respect_goal_order: bool,
+    ) -> str:
+        supplied_order = self._goal_order_text(original_goal_order)
+        first_order = self._goal_order_text(selected.goal_visit_order)
+        second_order = self._goal_order_text(
+            alternative.goal_visit_order if alternative is not None else []
+        )
+
+        if respect_goal_order:
+            return (
+                f"Yêu cầu giữ nguyên thứ tự ghé {supplied_order}; thuật toán không "
+                "tối ưu lại thứ tự các điểm giao hàng."
+            )
+        if mode is ComparisonMode.ORIGINAL_VS_OPTIMIZED:
+            if alternative is None or not alternative.valid:
+                return f"Thứ tự ghé ban đầu là {supplied_order}."
+            if list(selected.goal_visit_order) == list(alternative.goal_visit_order):
+                return (
+                    f"Thứ tự ghé ban đầu và thứ tự {primary_algorithm} tìm được "
+                    f"đều là {first_order}."
+                )
+            return (
+                f"Thứ tự ghé ban đầu là {first_order}, trong khi "
+                f"{primary_algorithm} tìm được thứ tự {second_order}."
+            )
+        if alternative is None or not alternative.valid:
+            return f"{primary_algorithm} trả về thứ tự ghé {first_order}."
+        if list(selected.goal_visit_order) == list(alternative.goal_visit_order):
+            return (
+                f"{primary_algorithm} và {second_algorithm} cùng trả về thứ tự ghé "
+                f"{first_order}."
+            )
+        return (
+            f"{primary_algorithm} chọn thứ tự ghé {first_order}, trong khi "
+            f"{second_algorithm} chọn {second_order}."
+        )
+
+    @staticmethod
     def _difference_sentence(
         first_value: float,
         second_value: float,
@@ -346,6 +419,64 @@ class RouteExplanationGenerator:
         winner = first_label if delta < 0 else second_label
         return (
             f"{metric_label}: {winner} tốt hơn {abs(delta):.{decimals}f} {unit}."
+        )
+
+    @staticmethod
+    def _processing_time_sentence(
+        first_value: float,
+        second_value: float,
+        first_label: str,
+        second_label: str,
+    ) -> str:
+        """Describe only the runtime observed for this comparison execution."""
+        delta = _finite_number(first_value) - _finite_number(second_value)
+        if abs(delta) <= METRIC_EPSILON:
+            return (
+                "Trong lần chạy hiện tại, thời gian xử lý của hai tuyến gần như "
+                "bằng nhau."
+            )
+        faster = first_label if delta < 0 else second_label
+        slower = second_label if delta < 0 else first_label
+        return (
+            f"Trong lần chạy hiện tại, {faster} có thời gian xử lý thấp hơn "
+            f"{slower} {abs(delta):.2f} ms."
+        )
+
+    @staticmethod
+    def _actual_returns_to_start(metrics: Optional[RouteMetrics]) -> bool:
+        if metrics is None or not metrics.valid:
+            return False
+        path = list(metrics.path or [])
+        start_node = str(metrics.start_node or "")
+        return bool(path and start_node and path[-1] == start_node)
+
+    def _return_to_start_sentence(
+        self,
+        first_label: str,
+        second_label: str,
+        selected: RouteMetrics,
+        alternative: Optional[RouteMetrics],
+    ) -> str:
+        first_returns = self._actual_returns_to_start(selected)
+        second_returns = self._actual_returns_to_start(alternative)
+        start_node = selected.start_node or (
+            alternative.start_node if alternative is not None else ""
+        )
+        destination = f" {start_node}" if start_node else ""
+        if first_returns and second_returns:
+            return f"Cả hai tuyến đều quay về điểm bắt đầu{destination}."
+        if first_returns:
+            return (
+                f"{first_label} quay về điểm bắt đầu{destination}, nhưng "
+                f"{second_label} không hoàn tất yêu cầu quay về điểm bắt đầu."
+            )
+        if second_returns:
+            return (
+                f"{second_label} quay về điểm bắt đầu{destination}, nhưng "
+                f"{first_label} không hoàn tất yêu cầu quay về điểm bắt đầu."
+            )
+        return (
+            "Hai kết quả hiện tại không hoàn tất yêu cầu quay về điểm bắt đầu."
         )
 
     @staticmethod
@@ -371,6 +502,10 @@ class RouteExplanationGenerator:
         alternative: Optional[RouteMetrics],
         graph=None,
         cost_mode: str = CURRENT_COST_PROFILE,
+        route_mode: str = "single",
+        original_goal_order: Optional[Sequence[str]] = None,
+        respect_goal_order: bool = False,
+        return_to_start: bool = False,
     ) -> RouteExplanation:
         mode = ComparisonMode.coerce(mode)
         second_algorithm = comparison_algorithm or primary_algorithm
@@ -385,6 +520,8 @@ class RouteExplanationGenerator:
             )
         optimality = " ".join(optimality_parts)
 
+        is_multi = str(route_mode or "single") == "multi"
+        original_goal_order = list(original_goal_order or [])
         if mode is ComparisonMode.DIFFERENT_ALGORITHMS:
             first_label, second_label = "Route A", "Route B"
             intro = (
@@ -393,6 +530,14 @@ class RouteExplanationGenerator:
                 "và công thức total cost hiện tại."
             )
             missing = f"{second_algorithm} không tìm thấy Route B hợp lệ."
+        elif mode is ComparisonMode.ORIGINAL_VS_OPTIMIZED:
+            first_label, second_label = "Thứ tự ban đầu", "Thứ tự tối ưu hóa"
+            intro = (
+                f"So sánh thứ tự điểm giao hàng ban đầu với kết quả do "
+                f"{primary_algorithm} tạo ra trên cùng graph, dữ liệu giao thông "
+                "và công thức total cost hiện tại."
+            )
+            missing = f"{primary_algorithm} không tìm thấy tuyến tối ưu hóa hợp lệ."
         else:
             first_label, second_label = "Selected", "Alternative"
             intro = (
@@ -410,6 +555,32 @@ class RouteExplanationGenerator:
             return RouteExplanation(text=text, optimality_statement=optimality)
 
         sentences = [intro]
+        if is_multi:
+            sentences.append(
+                self._visiting_order_sentence(
+                    mode,
+                    primary_algorithm,
+                    second_algorithm,
+                    selected,
+                    alternative,
+                    original_goal_order,
+                    respect_goal_order,
+                )
+            )
+            if return_to_start:
+                sentences.append(
+                    self._return_to_start_sentence(
+                        first_label,
+                        second_label,
+                        selected,
+                        alternative,
+                    )
+                )
+            if mode is ComparisonMode.DIFFERENT_ALGORITHMS:
+                sentences.append(
+                    "Kết luận chỉ mô tả các nghiệm tìm được trong lần chạy hiện "
+                    "tại, không khẳng định một thuật toán luôn vượt trội."
+                )
         if alternative is None or not alternative.valid:
             sentences.extend(
                 [
@@ -465,6 +636,18 @@ class RouteExplanationGenerator:
                 ),
             ]
         )
+        if (
+            selected.processing_time_ms is not None
+            and alternative.processing_time_ms is not None
+        ):
+            sentences.append(
+                self._processing_time_sentence(
+                    selected.processing_time_ms,
+                    alternative.processing_time_ms,
+                    first_label,
+                    second_label,
+                )
+            )
         cost_winner = _winner(selected.total_cost, alternative.total_cost)
         if cost_winner == "tie":
             sentences.append("Gợi ý theo total cost: hai route tương đương.")
@@ -502,6 +685,10 @@ def compare_routes(
     comparison_algorithm: Optional[str] = None,
     graph=None,
     cost_mode: str = CURRENT_COST_PROFILE,
+    route_mode: str = "single",
+    original_goal_order: Optional[Sequence[str]] = None,
+    respect_goal_order: bool = False,
+    return_to_start: bool = False,
 ) -> RouteComparison:
     """Compare two routes that were measured with current graph semantics."""
     mode = ComparisonMode.coerce(mode)
@@ -518,6 +705,22 @@ def compare_routes(
             ),
             "total_cost": (selected.total_cost, alternative.total_cost),
         }
+        if (
+            selected.processing_time_ms is not None
+            and alternative.processing_time_ms is not None
+        ):
+            metric_pairs["processing_time_ms"] = (
+                selected.processing_time_ms,
+                alternative.processing_time_ms,
+            )
+        if (
+            selected.explored_nodes is not None
+            and alternative.explored_nodes is not None
+        ):
+            metric_pairs["explored_nodes"] = (
+                selected.explored_nodes,
+                alternative.explored_nodes,
+            )
         for metric_name, (first_value, second_value) in metric_pairs.items():
             winners[metric_name] = _winner(first_value, second_value)
             differences[metric_name] = _finite_number(first_value - second_value)
@@ -530,6 +733,10 @@ def compare_routes(
         alternative,
         graph=graph,
         cost_mode=cost_mode,
+        route_mode=route_mode,
+        original_goal_order=original_goal_order,
+        respect_goal_order=respect_goal_order,
+        return_to_start=return_to_start,
     )
     return RouteComparison(
         algorithm=str(algorithm or ""),
@@ -538,6 +745,10 @@ def compare_routes(
         mode=mode,
         comparison_algorithm=str(second_algorithm or ""),
         cost_mode=str(cost_mode or CURRENT_COST_PROFILE),
+        route_mode=str(route_mode or "single"),
+        original_goal_order=list(original_goal_order or []),
+        respect_goal_order=bool(respect_goal_order),
+        return_to_start=bool(return_to_start),
         winners=winners,
         differences=differences,
         explanation=explanation,
@@ -557,7 +768,21 @@ def build_route_comparison(
 ) -> RouteComparison:
     """Build one comparison and attach it to an existing SearchResult."""
     mode = ComparisonMode.coerce(mode)
-    selected = enrich_search_result(result, graph, algorithm, cost_mode=cost_mode)
+    route_mode = str(getattr(route_request, "route_mode", "single") or "single")
+    original_goal_order = list(
+        getattr(route_request, "delivery_nodes", ()) or ()
+    )
+    respect_goal_order = bool(
+        getattr(route_request, "respect_goal_order", False)
+    )
+    return_to_start = bool(getattr(route_request, "return_to_start", False))
+    selected = enrich_search_result(
+        result,
+        graph,
+        algorithm,
+        cost_mode=cost_mode,
+        route_request=route_request,
+    )
 
     if mode is ComparisonMode.DIFFERENT_ALGORITHMS:
         second_algorithm = str(comparison_algorithm or "")
@@ -585,7 +810,35 @@ def build_route_comparison(
             graph,
             second_algorithm,
             cost_mode=cost_mode,
+            route_request=route_request,
         )
+    elif mode is ComparisonMode.ORIGINAL_VS_OPTIMIZED:
+        if route_request is None or route_mode != "multi":
+            raise ValueError(
+                "Original-order comparison requires a multi-location RouteRequest."
+            )
+        if respect_goal_order:
+            raise ValueError(
+                "The current request preserves the supplied visiting order, so "
+                "there is no optimized visiting order to compare."
+            )
+        second_algorithm = algorithm
+        optimized = selected
+        original_request = replace(route_request, respect_goal_order=True)
+        original_result = _run_comparison_search(
+            run_route_request,
+            algorithm,
+            graph,
+            original_request,
+        )
+        selected = enrich_search_result(
+            original_result,
+            graph,
+            algorithm,
+            cost_mode=cost_mode,
+            route_request=original_request,
+        )
+        alternative = optimized
     else:
         second_algorithm = algorithm
         alternative = None
@@ -606,6 +859,10 @@ def build_route_comparison(
         comparison_algorithm=second_algorithm,
         graph=graph,
         cost_mode=cost_mode,
+        route_mode=route_mode,
+        original_goal_order=original_goal_order,
+        respect_goal_order=respect_goal_order,
+        return_to_start=return_to_start,
     )
     result.comparison = comparison
     return comparison
