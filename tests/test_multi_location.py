@@ -40,6 +40,7 @@ def test_algorithm_registry_keeps_single_and_multi_modes_separate():
     assert "A* Search" in get_algorithms("single")
     # #NhatHuyChanged: registry includes every production multi-location optimizer.
     assert get_algorithms("multi") == [
+        "Genetic Algorithm (GA)",
         "Mock Multi-location Search",
         "Nearest Neighbor + 2-Opt",
         "Simulated Annealing (SA)",

@@ -1,0 +1,6 @@
+﻿dataset,graph_nodes,graph_edges,algorithm_key,algorithm,runs,successful_runs,success_rate_pct,runtime_mean_ms,runtime_median_ms,runtime_stdev_ms,runtime_min_ms,runtime_max_ms,peak_memory_mean_kb,visited_nodes_mean,path_nodes_mean,weighted_path_cost_mean,distance_km_mean
+map_district_1.json,700,2239,a_star,A*,3,3,100.0,9.845333,7.2602,10.598848,0.7782,21.4976,220.063802,223.0,20.667,7.295794946,1.656
+map_district_1.json,700,2239,beam,BeamSearch,3,3,100.0,4.8522,3.7168,4.995331,0.5223,10.3175,112.457357,134.667,20.667,7.295794946,1.656
+map_district_1.json,700,2239,bfs,BFS,3,3,100.0,4.264167,3.1595,3.770098,1.1698,8.4632,146.337565,238.667,20.333,7.438541195,1.948333333
+map_district_1.json,700,2239,dfs,DFS,3,3,100.0,11.552,12.8657,10.608333,0.348,21.4423,357.513672,364.333,51.0,18.697496831,4.388666667
+map_district_1.json,700,2239,ucs,UCS,3,3,100.0,9.3438,10.4457,8.533077,0.3133,17.2724,210.348633,232.667,20.667,7.295794946,1.656

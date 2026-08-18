@@ -1,0 +1,98 @@
+{
+  "generated_at_utc": "2026-08-18T08:00:40.432903+00:00",
+  "python": "3.13.11 | packaged by Anaconda, Inc. | (main, Dec 10 2025, 21:21:58) [MSC v.1929 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "processor": "Intel64 Family 6 Model 141 Stepping 1, GenuineIntel",
+  "logical_cpu_count": 12,
+  "git_branch": "develop",
+  "git_commit": "64dd855b9f9f64b8ef4b04b7a25c8fcf60a8e048",
+  "configuration": {
+    "datasets": [
+      "map_district_1.json"
+    ],
+    "algorithms": [
+      "bfs",
+      "dfs",
+      "ucs",
+      "a_star",
+      "beam"
+    ],
+    "scenarios_per_type": 1,
+    "repeats": 1,
+    "warmups": 0,
+    "seed": 20260808
+  },
+  "scenario_definitions": {
+    "map_district_1.json": [
+      {
+        "scenario_id": "S1_Short_1",
+        "scenario_type": "S1_Short",
+        "start_id": "4610643517",
+        "goal_id": "2364030596",
+        "intermediate_ids": [],
+        "is_multi": false
+      },
+      {
+        "scenario_id": "S2_Medium_1",
+        "scenario_type": "S2_Medium",
+        "start_id": "411918789",
+        "goal_id": "1769173835",
+        "intermediate_ids": [],
+        "is_multi": false
+      },
+      {
+        "scenario_id": "S3_Long_1",
+        "scenario_type": "S3_Long",
+        "start_id": "4605453644",
+        "goal_id": "411917818",
+        "intermediate_ids": [],
+        "is_multi": false
+      },
+      {
+        "scenario_id": "M3_1",
+        "scenario_type": "M3",
+        "start_id": "411923507",
+        "goal_id": "411926586",
+        "intermediate_ids": [
+          "12584655705",
+          "411919051"
+        ],
+        "is_multi": true
+      },
+      {
+        "scenario_id": "M5_1",
+        "scenario_type": "M5",
+        "start_id": "411918862",
+        "goal_id": "5762711578",
+        "intermediate_ids": [
+          "411926545",
+          "3338020171",
+          "13075589603",
+          "5742669198"
+        ],
+        "is_multi": true
+      },
+      {
+        "scenario_id": "M8_1",
+        "scenario_type": "M8",
+        "start_id": "411923629",
+        "goal_id": "11383674413",
+        "intermediate_ids": [
+          "411926237",
+          "13271508799",
+          "4122304294",
+          "11383642762",
+          "411926202",
+          "411917818",
+          "411919688"
+        ],
+        "is_multi": true
+      }
+    ]
+  },
+  "measurement_notes": {
+    "runtime": "perf_counter_ns; excludes JSON loading and warm-up runs",
+    "memory": "tracemalloc peak Python allocation; excludes native allocations",
+    "cost": "recomputed from Edge.calculate_cost for cross-algorithm comparison"
+  }
+}

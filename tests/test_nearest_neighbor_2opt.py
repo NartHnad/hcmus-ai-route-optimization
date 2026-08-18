@@ -101,7 +101,7 @@ def test_unreachable_goal_fails_without_partial_route():
     assert result.path == []
     assert len(result.steps) == 1
     assert result.steps[0].step_type == StepType.FINISH
-    assert "could not reach" in result.message
+    assert "feasible route" in result.message.lower()
 
 
 def test_invalid_goal_requests_are_rejected():
