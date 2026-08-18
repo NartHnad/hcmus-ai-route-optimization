@@ -1,31 +1,16 @@
 import heapq
-import math
 
 from src.models.models import SearchResult, SearchStep, StepType
+from src.utils.heuristics import geographic_heuristic
 
 
-def haversine_distance(lat1, lon1, lat2, lon2):
-    """Return the great-circle distance between two coordinates in kilometres."""
-    if None in (lat1, lon1, lat2, lon2):
-        return 0.0
+def beam_search(graph, start_id, goal_id, beam_width=10):
+    """Find a route using heuristic, bounded-width beam search.
 
-    lon1, lat1, lon2, lat2 = map(math.radians, [lon1, lat1, lon2, lat2])
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-
-    a = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
-    )
-    a = min(1.0, max(0.0, a))
-    return 6371.0 * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-
-def beam_search(graph, start_id, goal_id, beam_width=10, mode="optimal"):
-    """Find a route using bounded-width best-first beam search.
-
-    Beam search is not guaranteed to find a path or an optimal path because
-    candidates outside the beam are deliberately pruned.
+    Candidates are ranked by ``f(n) = g(n) + h(n)``, where ``h`` is the
+    project's shared geographic heuristic. Candidates outside the beam are
+    deliberately pruned, so the returned route is not guaranteed to have the
+    minimum cost.
     """
     steps = []
     visited_order = []
@@ -43,20 +28,6 @@ def beam_search(graph, start_id, goal_id, beam_width=10, mode="optimal"):
             success=False,
             message="Graph is not loaded or start/goal node not found.",
         )
-
-    goal_node = graph.get_node(goal_id)
-
-    def heuristic(node_id):
-        # Geographic distance is comparable to edge distance only in shortest
-        # mode. Other modes combine different units, so no safe h estimate is
-        # available without a speed/penalty model.
-        if mode != "shortest":
-            return 0.0
-
-        node = graph.get_node(node_id)
-        if node is None or goal_node is None:
-            return 0.0
-        return haversine_distance(node.lat, node.lon, goal_node.lat, goal_node.lon)
 
     def build_success_result():
         path = []
@@ -109,8 +80,9 @@ def beam_search(graph, start_id, goal_id, beam_width=10, mode="optimal"):
 
                 edge_cost = edge.calculate_cost()
                 tentative_g = path_cost[current] + edge_cost
-                f = tentative_g + heuristic(neighbor)
-                candidate = (f, tentative_g, neighbor, current, edge)
+                h = geographic_heuristic(graph, neighbor, goal_id)
+                f = tentative_g + h
+                candidate = (f, tentative_g, neighbor, current, edge, h)
 
                 previous = candidate_by_node.get(neighbor)
                 if previous is None or candidate[:2] < previous[:2]:
@@ -126,7 +98,7 @@ def beam_search(graph, start_id, goal_id, beam_width=10, mode="optimal"):
         )
 
         current_beam = []
-        for priority, tentative_g, neighbor, parent, edge in next_candidates:
+        for priority, tentative_g, neighbor, parent, edge, h in next_candidates:
             discovered.add(neighbor)
             came_from[neighbor] = (parent, edge)
             path_cost[neighbor] = tentative_g
@@ -137,7 +109,7 @@ def beam_search(graph, start_id, goal_id, beam_width=10, mode="optimal"):
                     node_id=neighbor,
                     edge_from=parent,
                     edge_to=neighbor,
-                    metrics={"g": tentative_g, "h": heuristic(neighbor), "f": priority},
+                    metrics={"g": tentative_g, "h": h, "f": priority},
                 )
             )
 

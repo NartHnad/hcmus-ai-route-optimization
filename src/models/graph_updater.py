@@ -89,17 +89,25 @@ def update_edge_attributes(
     if not 0.0 <= new_congestion <= 1.0:
         raise EdgeUpdateError("Congestion must be between 0 and 1.")
 
+    # The editor's time field is the uncongested baseline. Derive the
+    # current time from that baseline so returning congestion to zero restores it.
+    edge._base_travel_time = new_time
+    edge.risk = new_risk
+    edge.congestion = new_congestion
+    _recalculate_dynamic_edge_state(graph, edge)
+    return edge_direction_payload(edge)
+
+
+def _recalculate_dynamic_edge_state(graph: Graph, edge) -> None:
+    """Recompute current travel time, normalization, and cached cost."""
+    speed_factor = max(0.1, 1.0 - (edge.congestion * 0.7))
+    edge.travel_time = edge._base_travel_time / speed_factor
     safe_max_time = max(
         _finite_float(getattr(graph, "max_time", 1.0), "Maximum time"),
         1e-12,
     )
-
-    edge.travel_time = new_time
-    edge.risk = new_risk
-    edge.congestion = new_congestion
-    edge.norm_travel_time = min(1.0, max(0.0, new_time / safe_max_time))
+    edge.norm_travel_time = min(1.0, max(0.0, edge.travel_time / safe_max_time))
     edge.weight = edge.calculate_cost()
-    return edge_direction_payload(edge)
 
 
 def update_single_edge_traffic(
@@ -110,32 +118,7 @@ def update_single_edge_traffic(
     if edge is None:
         return False
 
-    # 1. Update user-selected congestion and risk attributes
     edge.congestion = float(congestion)
     edge.risk = float(risk)
-
-    # 2. Recalculate dynamic travel time (Heavy congestion reduces travel speed by up to 70%)
-    """
-    Mức độ kẹt xe (congestion)  Trạng thái              speed_factor    Tốc độ còn lại
-    0.0 (CLEAR)                 Thông thoáng            1.0             100% tốc độ gốc
-    0.25 (LIGHT)                Đông nhẹ                0.825           82.5% tốc độ gốc
-    0.50 (MODERATE)             Kẹt trung bình          0.65            65% tốc độ gốc
-    0.75 (HEAVY)                Kẹt nặng                0.475           47.5% tốc độ gốc
-    1.0 (GRIDLOCK)              Tắc nghẽn hoàn toàn     0.3             30% tốc độ gốc
-    """
-    speed_factor = max(0.1, 1.0 - (edge.congestion * 0.7))
-
-    # Cache the original base travel time if not previously stored
-    if not hasattr(edge, "_base_travel_time"):
-        edge._base_travel_time = edge.travel_time
-
-    # Calculate travel time
-    edge.travel_time = edge._base_travel_time / speed_factor
-
-    # 3. Normalize updated travel time against graph's maximum time metric
-    safe_max_time = getattr(graph, "max_time", 1.0)
-    edge.norm_travel_time = min(1.0, edge.travel_time / safe_max_time)
-
-    # 4. Recalculate final composite edge weight (Cost Function)
-    edge.weight = edge.calculate_cost()
+    _recalculate_dynamic_edge_state(graph, edge)
     return True
