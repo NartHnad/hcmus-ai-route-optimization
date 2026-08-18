@@ -73,13 +73,6 @@ except ImportError:
 # ====================
 
 try:
-    from src.algorithms.mock_multi_location import mock_multi_location_search
-
-    MULTI_LOCATION_ALGORITHMS["Mock Multi-location Search"] = mock_multi_location_search
-except ImportError:
-    pass
-
-try:
     from src.algorithms.simulated_annealing import simulated_annealing
 
     MULTI_LOCATION_ALGORITHMS["Simulated Annealing (SA)"] = simulated_annealing
@@ -113,8 +106,10 @@ except ImportError:
 def get_algorithms(route_mode="single"):
     if route_mode == "single":
         return sorted(ALGORITHMS.keys())
+
     if route_mode == "multi":
         return sorted(MULTI_LOCATION_ALGORITHMS.keys())
+
     raise ValueError(f"Unknown route mode: {route_mode}")
 
 
