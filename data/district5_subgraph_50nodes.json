@@ -1,0 +1,1430 @@
+{
+  "nodes": [
+    {
+      "id": "6757735276",
+      "name": "Giao Nguyễn Tri Phương × Đường Nguyễn Tri Phương (+1 đường)",
+      "lat": 10.7528343,
+      "lon": 106.6694624,
+      "node_type": "intersection"
+    },
+    {
+      "id": "6548820007",
+      "name": "Giao Đường An Bình × Đường Nguyễn Trãi",
+      "lat": 10.7548529,
+      "lon": 106.6708579,
+      "node_type": "intersection"
+    },
+    {
+      "id": "5813970751",
+      "name": "Giao Hẻm 94 An Bình × Đường An Bình",
+      "lat": 10.7517997,
+      "lon": 106.6726172,
+      "node_type": "intersection"
+    },
+    {
+      "id": "2364075314",
+      "name": "Giao Đường Nhiêu Tâm × Đường Trần Hưng Đạo",
+      "lat": 10.7537789,
+      "lon": 106.6756329,
+      "node_type": "intersection"
+    },
+    {
+      "id": "13420539060",
+      "name": "Giao Lê Hồng Phong × Đường Nguyễn Trãi",
+      "lat": 10.7571834,
+      "lon": 106.6781278,
+      "node_type": "intersection"
+    },
+    {
+      "id": "12912166070",
+      "name": "Giao Đường An Bình × Đường Trần Hưng Đạo",
+      "lat": 10.7528761,
+      "lon": 106.6721012,
+      "node_type": "intersection"
+    },
+    {
+      "id": "12001952420",
+      "name": "Giao Trần Phú × Đường Nguyễn Duy Dương (+3 đường)",
+      "lat": 10.7550737,
+      "lon": 106.6719469,
+      "node_type": "intersection"
+    },
+    {
+      "id": "2364075317",
+      "name": "Giao Trần Tuấn Khải × Đường Trần Hưng Đạo",
+      "lat": 10.7532083,
+      "lon": 106.6734684,
+      "node_type": "intersection"
+    },
+    {
+      "id": "12912127582",
+      "name": "Giao Nguyễn Tri Phương × Đường Nguyễn Tri Phương (+1 đường)",
+      "lat": 10.7526067,
+      "lon": 106.6694794,
+      "node_type": "intersection"
+    },
+    {
+      "id": "6639599303",
+      "name": "Giao An Dương Vương × Lê Hồng Phong",
+      "lat": 10.7588634,
+      "lon": 106.6775851,
+      "node_type": "intersection"
+    },
+    {
+      "id": "366473174",
+      "name": "Giao Đường An Bình × Đường Trần Phú",
+      "lat": 10.7544447,
+      "lon": 106.6712429,
+      "node_type": "intersection"
+    },
+    {
+      "id": "366386196",
+      "name": "Giao Lê Hồng Phong × Đường Trần Hưng Đạo",
+      "lat": 10.7547713,
+      "lon": 106.6789487,
+      "node_type": "intersection"
+    },
+    {
+      "id": "5598914625",
+      "name": "Giao Hẻm 133 Lê Hồng Phong × Lê Hồng Phong",
+      "lat": 10.7575782,
+      "lon": 106.6780576,
+      "node_type": "intersection"
+    },
+    {
+      "id": "5674570742",
+      "name": "Giao Hẻm 150 Trần Tuấn Khải × Trần Tuấn Khải",
+      "lat": 10.7527715,
+      "lon": 106.6736902,
+      "node_type": "intersection"
+    },
+    {
+      "id": "14000646609",
+      "name": "Điểm trên Đường Trần Tuấn Khải",
+      "lat": 10.7541593,
+      "lon": 106.6727279,
+      "node_type": "intersection"
+    },
+    {
+      "id": "12783406448",
+      "name": "Giao An Dương Vương × Đường Huỳnh Mẫn Đạt",
+      "lat": 10.7581234,
+      "lon": 106.6757476,
+      "node_type": "intersection"
+    },
+    {
+      "id": "6783652547",
+      "name": "Điểm nối Nguyễn Tri Phương / Đường Võ Văn Kiệt lên Cầu Nguyễn Tri Phương",
+      "lat": 10.7499094,
+      "lon": 106.6692146,
+      "node_type": "intersection"
+    },
+    {
+      "id": "2364075321",
+      "name": "Giao Đường Bùi Hữu Nghĩa × Đường Trần Hưng Đạo",
+      "lat": 10.7535489,
+      "lon": 106.6747903,
+      "node_type": "intersection"
+    },
+    {
+      "id": "13420539058",
+      "name": "Giao Lê Hồng Phong × Đường Nguyễn Trãi",
+      "lat": 10.7572392,
+      "lon": 106.6782666,
+      "node_type": "intersection"
+    },
+    {
+      "id": "2364075318",
+      "name": "Giao Đường Nguyễn Văn Đừng × Đường Trần Hưng Đạo",
+      "lat": 10.7528033,
+      "lon": 106.6710868,
+      "node_type": "intersection"
+    },
+    {
+      "id": "4631143726",
+      "name": "Nút giao trên Nguyễn Tri Phương",
+      "lat": 10.7523422,
+      "lon": 106.669473,
+      "node_type": "intersection"
+    },
+    {
+      "id": "5794771158",
+      "name": "Giao Nguyễn Chí Thanh × Trần Nhân Tôn",
+      "lat": 10.7610599,
+      "lon": 106.6750864,
+      "node_type": "intersection"
+    },
+    {
+      "id": "366432387",
+      "name": "Giao Đường An Bình × Đường Trần Hưng Đạo",
+      "lat": 10.7529498,
+      "lon": 106.6720693,
+      "node_type": "intersection"
+    },
+    {
+      "id": "13420539059",
+      "name": "Giao Lê Hồng Phong × Đường Nguyễn Trãi",
+      "lat": 10.7572097,
+      "lon": 106.6781932,
+      "node_type": "intersection"
+    },
+    {
+      "id": "5802993726",
+      "name": "Giao Nguyễn Tri Phương × Đường Nguyễn Tri Phương (+1 đường)",
+      "lat": 10.754606,
+      "lon": 106.6696124,
+      "node_type": "intersection"
+    },
+    {
+      "id": "5794854826",
+      "name": "Giao Đường Huỳnh Mẫn Đạt × Đường Phan Văn Trị",
+      "lat": 10.7553148,
+      "lon": 106.6765651,
+      "node_type": "intersection"
+    },
+    {
+      "id": "5813971157",
+      "name": "Giao Đường An Bình × Đường Bạch Vân",
+      "lat": 10.751002,
+      "lon": 106.6729597,
+      "node_type": "intersection"
+    },
+    {
+      "id": "11938365412",
+      "name": "Giao Nguyễn Tri Phương × Đường Nguyễn Tri Phương (+1 đường)",
+      "lat": 10.7545855,
+      "lon": 106.6695217,
+      "node_type": "intersection"
+    },
+    {
+      "id": "5794854825",
+      "name": "Giao Đường Huỳnh Mẫn Đạt × Đường Trần Hưng Đạo",
+      "lat": 10.7542066,
+      "lon": 106.6768759,
+      "node_type": "intersection"
+    },
+    {
+      "id": "366426543",
+      "name": "Giao Đường Bùi Hữu Nghĩa × Đường Phan Văn Trị",
+      "lat": 10.7546463,
+      "lon": 106.674515,
+      "node_type": "intersection"
+    },
+    {
+      "id": "4631143725",
+      "name": "Giao Nguyễn Tri Phương × Đường Trần Hưng Đạo",
+      "lat": 10.7526957,
+      "lon": 106.6693212,
+      "node_type": "intersection"
+    },
+    {
+      "id": "5794854830",
+      "name": "Giao Đường Huỳnh Mẫn Đạt × Đường Nguyễn Trãi",
+      "lat": 10.7563802,
+      "lon": 106.6762427,
+      "node_type": "intersection"
+    },
+    {
+      "id": "3462850856",
+      "name": "Giao Đường Nguyễn Thời Trung × Đường Trần Hưng Đạo",
+      "lat": 10.7527056,
+      "lon": 106.6698729,
+      "node_type": "intersection"
+    },
+    {
+      "id": "366466647",
+      "name": "Giao An Dương Vương × Lê Hồng Phong",
+      "lat": 10.7589002,
+      "lon": 106.6776764,
+      "node_type": "intersection"
+    },
+    {
+      "id": "5794771156",
+      "name": "Giao Trần Nhân Tôn × Trần Phú (+1 đường)",
+      "lat": 10.7588798,
+      "lon": 106.6755515,
+      "node_type": "intersection"
+    },
+    {
+      "id": "5813971180",
+      "name": "Điểm trên Hẻm 94 An Bình",
+      "lat": 10.7519445,
+      "lon": 106.6733354,
+      "node_type": "intersection"
+    },
+    {
+      "id": "6751088051",
+      "name": "Giao Đường Nguyễn Trãi × Đường Phước Hưng",
+      "lat": 10.754463,
+      "lon": 106.6688584,
+      "node_type": "intersection"
+    },
+    {
+      "id": "5794854817",
+      "name": "Giao Đường Bùi Hữu Nghĩa × Đường Nguyễn Trãi",
+      "lat": 10.7555484,
+      "lon": 106.6742898,
+      "node_type": "intersection"
+    },
+    {
+      "id": "6786085047",
+      "name": "Giao Hẻm 517 Đường Nguyễn Trãi × Đường Nguyễn Trãi",
+      "lat": 10.7544958,
+      "lon": 106.6690395,
+      "node_type": "intersection"
+    },
+    {
+      "id": "1997154139",
+      "name": "Điểm trên Đường Phan Văn Trị",
+      "lat": 10.7542339,
+      "lon": 106.6732753,
+      "node_type": "intersection"
+    },
+    {
+      "id": "6750681562",
+      "name": "Nút giao trên Trần Phú",
+      "lat": 10.7552675,
+      "lon": 106.6721165,
+      "node_type": "intersection"
+    },
+    {
+      "id": "6639599305",
+      "name": "Giao Lê Hồng Phong × Trần Phú",
+      "lat": 10.7604314,
+      "lon": 106.6770309,
+      "node_type": "intersection"
+    },
+    {
+      "id": "13888660385",
+      "name": "Giao Đường Nguyễn Văn Đừng × Đường Võ Văn Kiệt",
+      "lat": 10.7505207,
+      "lon": 106.6712095,
+      "node_type": "intersection"
+    },
+    {
+      "id": "1997154528",
+      "name": "Giao Đường Bùi Hữu Nghĩa × Đường Nghĩa Thục",
+      "lat": 10.7527047,
+      "lon": 106.6750192,
+      "node_type": "intersection"
+    },
+    {
+      "id": "366461703",
+      "name": "Giao Lê Hồng Phong × Đường Phan Văn Trị",
+      "lat": 10.7559909,
+      "lon": 106.6785336,
+      "node_type": "intersection"
+    },
+    {
+      "id": "4631143724",
+      "name": "Nút giao trên Nguyễn Tri Phương",
+      "lat": 10.7523465,
+      "lon": 106.6693686,
+      "node_type": "intersection"
+    },
+    {
+      "id": "5816931361",
+      "name": "Điểm trên Hẻm 517 Đường Nguyễn Trãi",
+      "lat": 10.7540894,
+      "lon": 106.6691178,
+      "node_type": "intersection"
+    },
+    {
+      "id": "366416137",
+      "name": "Giao Đường Nguyễn Tri Phương × Đường Trần Phú",
+      "lat": 10.7534475,
+      "lon": 106.6695092,
+      "node_type": "intersection"
+    },
+    {
+      "id": "366448311",
+      "name": "Giao Đường Bùi Hữu Nghĩa × Đường Trần Hưng Đạo",
+      "lat": 10.7536311,
+      "lon": 106.674768,
+      "node_type": "intersection"
+    },
+    {
+      "id": "5794854823",
+      "name": "Giao Đường Huỳnh Mẫn Đạt × Đường Trần Hưng Đạo",
+      "lat": 10.754125,
+      "lon": 106.6769,
+      "node_type": "intersection"
+    }
+  ],
+  "edges": [
+    {
+      "from": "366386196",
+      "to": "366461703",
+      "distance": 0.143,
+      "travel_time": 0.21,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Lê Hồng Phong"
+    },
+    {
+      "from": "366416137",
+      "to": "366473174",
+      "distance": 0.22,
+      "travel_time": 0.33,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Trần Phú"
+    },
+    {
+      "from": "366416137",
+      "to": "5802993726",
+      "distance": 0.13,
+      "travel_time": 0.19,
+      "road_type": "primary",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Tri Phương"
+    },
+    {
+      "from": "366426543",
+      "to": "5794854826",
+      "distance": 0.236,
+      "travel_time": 0.35,
+      "road_type": "residential",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Phan Văn Trị"
+    },
+    {
+      "from": "366426543",
+      "to": "5794854817",
+      "distance": 0.103,
+      "travel_time": 0.15,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Bùi Hữu Nghĩa"
+    },
+    {
+      "from": "366426543",
+      "to": "366448311",
+      "distance": 0.116,
+      "travel_time": 0.17,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Bùi Hữu Nghĩa"
+    },
+    {
+      "from": "366426543",
+      "to": "1997154139",
+      "distance": 0.143,
+      "travel_time": 0.21,
+      "road_type": "residential",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Phan Văn Trị"
+    },
+    {
+      "from": "366432387",
+      "to": "12912166070",
+      "distance": 0.009,
+      "travel_time": 0.01,
+      "road_type": "primary_link",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Unknown Road"
+    },
+    {
+      "from": "366432387",
+      "to": "366473174",
+      "distance": 0.191,
+      "travel_time": 0.29,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường An Bình"
+    },
+    {
+      "from": "366448311",
+      "to": "2364075321",
+      "distance": 0.009,
+      "travel_time": 0.01,
+      "road_type": "primary_link",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Unknown Road"
+    },
+    {
+      "from": "366448311",
+      "to": "366426543",
+      "distance": 0.116,
+      "travel_time": 0.17,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Bùi Hữu Nghĩa"
+    },
+    {
+      "from": "366461703",
+      "to": "13420539060",
+      "distance": 0.14,
+      "travel_time": 0.21,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Lê Hồng Phong"
+    },
+    {
+      "from": "366461703",
+      "to": "366386196",
+      "distance": 0.143,
+      "travel_time": 0.21,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Lê Hồng Phong"
+    },
+    {
+      "from": "366461703",
+      "to": "5794854826",
+      "distance": 0.228,
+      "travel_time": 0.34,
+      "road_type": "residential",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Phan Văn Trị"
+    },
+    {
+      "from": "366466647",
+      "to": "6639599303",
+      "distance": 0.011,
+      "travel_time": 0.02,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "An Dương Vương"
+    },
+    {
+      "from": "366473174",
+      "to": "366416137",
+      "distance": 0.22,
+      "travel_time": 0.33,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Trần Phú"
+    },
+    {
+      "from": "366473174",
+      "to": "12001952420",
+      "distance": 0.104,
+      "travel_time": 0.16,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Trần Phú"
+    },
+    {
+      "from": "366473174",
+      "to": "6548820007",
+      "distance": 0.062,
+      "travel_time": 0.09,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường An Bình"
+    },
+    {
+      "from": "366473174",
+      "to": "366432387",
+      "distance": 0.191,
+      "travel_time": 0.29,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường An Bình"
+    },
+    {
+      "from": "1997154139",
+      "to": "366426543",
+      "distance": 0.143,
+      "travel_time": 0.21,
+      "road_type": "residential",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Phan Văn Trị"
+    },
+    {
+      "from": "1997154528",
+      "to": "2364075321",
+      "distance": 0.097,
+      "travel_time": 0.15,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Bùi Hữu Nghĩa"
+    },
+    {
+      "from": "2364075317",
+      "to": "2364075321",
+      "distance": 0.149,
+      "travel_time": 0.22,
+      "road_type": "primary",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Trần Hưng Đạo"
+    },
+    {
+      "from": "2364075317",
+      "to": "5674570742",
+      "distance": 0.054,
+      "travel_time": 0.08,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Trần Tuấn Khải"
+    },
+    {
+      "from": "2364075318",
+      "to": "13888660385",
+      "distance": 0.254,
+      "travel_time": 0.38,
+      "road_type": "residential",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Văn Đừng"
+    },
+    {
+      "from": "2364075318",
+      "to": "12912166070",
+      "distance": 0.111,
+      "travel_time": 0.17,
+      "road_type": "primary",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Trần Hưng Đạo"
+    },
+    {
+      "from": "2364075321",
+      "to": "366448311",
+      "distance": 0.009,
+      "travel_time": 0.01,
+      "road_type": "primary_link",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Unknown Road"
+    },
+    {
+      "from": "2364075321",
+      "to": "1997154528",
+      "distance": 0.097,
+      "travel_time": 0.15,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Bùi Hữu Nghĩa"
+    },
+    {
+      "from": "2364075321",
+      "to": "2364075314",
+      "distance": 0.096,
+      "travel_time": 0.14,
+      "road_type": "primary",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Trần Hưng Đạo"
+    },
+    {
+      "from": "3462850856",
+      "to": "2364075318",
+      "distance": 0.133,
+      "travel_time": 0.2,
+      "road_type": "primary",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Trần Hưng Đạo"
+    },
+    {
+      "from": "4631143724",
+      "to": "6783652547",
+      "distance": 0.272,
+      "travel_time": 0.41,
+      "road_type": "primary",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Nguyễn Tri Phương"
+    },
+    {
+      "from": "4631143725",
+      "to": "4631143724",
+      "distance": 0.041,
+      "travel_time": 0.06,
+      "road_type": "primary",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Nguyễn Tri Phương"
+    },
+    {
+      "from": "4631143725",
+      "to": "6757735276",
+      "distance": 0.023,
+      "travel_time": 0.03,
+      "road_type": "primary_link",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Nguyễn Tri Phương"
+    },
+    {
+      "from": "4631143726",
+      "to": "12912127582",
+      "distance": 0.029,
+      "travel_time": 0.04,
+      "road_type": "primary",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Nguyễn Tri Phương"
+    },
+    {
+      "from": "5598914625",
+      "to": "13420539059",
+      "distance": 0.044,
+      "travel_time": 0.07,
+      "road_type": "secondary",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Lê Hồng Phong"
+    },
+    {
+      "from": "5674570742",
+      "to": "2364075317",
+      "distance": 0.054,
+      "travel_time": 0.08,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Trần Tuấn Khải"
+    },
+    {
+      "from": "5794771156",
+      "to": "5794771158",
+      "distance": 0.248,
+      "travel_time": 0.37,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Trần Nhân Tôn"
+    },
+    {
+      "from": "5794771156",
+      "to": "12783406448",
+      "distance": 0.087,
+      "travel_time": 0.13,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Huỳnh Mẫn Đạt"
+    },
+    {
+      "from": "5794771156",
+      "to": "6639599305",
+      "distance": 0.236,
+      "travel_time": 0.35,
+      "road_type": "primary",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Trần Phú"
+    },
+    {
+      "from": "5794771158",
+      "to": "5794771156",
+      "distance": 0.248,
+      "travel_time": 0.37,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Trần Nhân Tôn"
+    },
+    {
+      "from": "5794854817",
+      "to": "5794854830",
+      "distance": 0.233,
+      "travel_time": 0.35,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Trãi"
+    },
+    {
+      "from": "5794854817",
+      "to": "12001952420",
+      "distance": 0.261,
+      "travel_time": 0.39,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Trãi"
+    },
+    {
+      "from": "5794854817",
+      "to": "366426543",
+      "distance": 0.103,
+      "travel_time": 0.15,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Bùi Hữu Nghĩa"
+    },
+    {
+      "from": "5794854823",
+      "to": "5794854825",
+      "distance": 0.009,
+      "travel_time": 0.01,
+      "road_type": "primary_link",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Unknown Road"
+    },
+    {
+      "from": "5794854825",
+      "to": "5794854823",
+      "distance": 0.009,
+      "travel_time": 0.01,
+      "road_type": "primary_link",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Unknown Road"
+    },
+    {
+      "from": "5794854825",
+      "to": "5794854826",
+      "distance": 0.128,
+      "travel_time": 0.19,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Huỳnh Mẫn Đạt"
+    },
+    {
+      "from": "5794854826",
+      "to": "366426543",
+      "distance": 0.236,
+      "travel_time": 0.35,
+      "road_type": "residential",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Phan Văn Trị"
+    },
+    {
+      "from": "5794854826",
+      "to": "5794854825",
+      "distance": 0.128,
+      "travel_time": 0.19,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Huỳnh Mẫn Đạt"
+    },
+    {
+      "from": "5794854826",
+      "to": "366461703",
+      "distance": 0.228,
+      "travel_time": 0.34,
+      "road_type": "residential",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Phan Văn Trị"
+    },
+    {
+      "from": "5794854826",
+      "to": "5794854830",
+      "distance": 0.124,
+      "travel_time": 0.19,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Huỳnh Mẫn Đạt"
+    },
+    {
+      "from": "5794854830",
+      "to": "12783406448",
+      "distance": 0.201,
+      "travel_time": 0.3,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Huỳnh Mẫn Đạt"
+    },
+    {
+      "from": "5794854830",
+      "to": "5794854817",
+      "distance": 0.233,
+      "travel_time": 0.35,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Trãi"
+    },
+    {
+      "from": "5794854830",
+      "to": "5794854826",
+      "distance": 0.124,
+      "travel_time": 0.19,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Huỳnh Mẫn Đạt"
+    },
+    {
+      "from": "5794854830",
+      "to": "13420539060",
+      "distance": 0.224,
+      "travel_time": 0.34,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Trãi"
+    },
+    {
+      "from": "5802993726",
+      "to": "11938365412",
+      "distance": 0.01,
+      "travel_time": 0.02,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Trãi"
+    },
+    {
+      "from": "5802993726",
+      "to": "6548820007",
+      "distance": 0.139,
+      "travel_time": 0.21,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Trãi"
+    },
+    {
+      "from": "5813970751",
+      "to": "5813971180",
+      "distance": 0.08,
+      "travel_time": 0.12,
+      "road_type": "residential",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Hẻm 94 An Bình"
+    },
+    {
+      "from": "5813970751",
+      "to": "5813971157",
+      "distance": 0.096,
+      "travel_time": 0.14,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường An Bình"
+    },
+    {
+      "from": "5813970751",
+      "to": "12912166070",
+      "distance": 0.132,
+      "travel_time": 0.2,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường An Bình"
+    },
+    {
+      "from": "5813971157",
+      "to": "5813970751",
+      "distance": 0.096,
+      "travel_time": 0.14,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường An Bình"
+    },
+    {
+      "from": "5813971180",
+      "to": "5813970751",
+      "distance": 0.08,
+      "travel_time": 0.12,
+      "road_type": "residential",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Hẻm 94 An Bình"
+    },
+    {
+      "from": "5816931361",
+      "to": "6786085047",
+      "distance": 0.046,
+      "travel_time": 0.07,
+      "road_type": "residential",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Hẻm 517 Đường Nguyễn Trãi"
+    },
+    {
+      "from": "6548820007",
+      "to": "12001952420",
+      "distance": 0.121,
+      "travel_time": 0.18,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Trãi"
+    },
+    {
+      "from": "6548820007",
+      "to": "366473174",
+      "distance": 0.062,
+      "travel_time": 0.09,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường An Bình"
+    },
+    {
+      "from": "6548820007",
+      "to": "5802993726",
+      "distance": 0.139,
+      "travel_time": 0.21,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Trãi"
+    },
+    {
+      "from": "6639599303",
+      "to": "366466647",
+      "distance": 0.011,
+      "travel_time": 0.02,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "An Dương Vương"
+    },
+    {
+      "from": "6639599303",
+      "to": "5598914625",
+      "distance": 0.152,
+      "travel_time": 0.23,
+      "road_type": "secondary",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Lê Hồng Phong"
+    },
+    {
+      "from": "6639599303",
+      "to": "12783406448",
+      "distance": 0.217,
+      "travel_time": 0.33,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "An Dương Vương"
+    },
+    {
+      "from": "6639599305",
+      "to": "6639599303",
+      "distance": 0.185,
+      "travel_time": 0.28,
+      "road_type": "secondary",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Lê Hồng Phong"
+    },
+    {
+      "from": "6750681562",
+      "to": "12001952420",
+      "distance": 0.028,
+      "travel_time": 0.04,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Trần Phú"
+    },
+    {
+      "from": "6751088051",
+      "to": "6786085047",
+      "distance": 0.02,
+      "travel_time": 0.03,
+      "road_type": "secondary",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Trãi"
+    },
+    {
+      "from": "6757735276",
+      "to": "366416137",
+      "distance": 0.068,
+      "travel_time": 0.1,
+      "road_type": "primary",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Tri Phương"
+    },
+    {
+      "from": "6786085047",
+      "to": "5816931361",
+      "distance": 0.046,
+      "travel_time": 0.07,
+      "road_type": "residential",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Hẻm 517 Đường Nguyễn Trãi"
+    },
+    {
+      "from": "6786085047",
+      "to": "11938365412",
+      "distance": 0.054,
+      "travel_time": 0.08,
+      "road_type": "secondary",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Trãi"
+    },
+    {
+      "from": "11938365412",
+      "to": "5802993726",
+      "distance": 0.01,
+      "travel_time": 0.02,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Trãi"
+    },
+    {
+      "from": "11938365412",
+      "to": "366416137",
+      "distance": 0.127,
+      "travel_time": 0.19,
+      "road_type": "primary",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Tri Phương"
+    },
+    {
+      "from": "12001952420",
+      "to": "6750681562",
+      "distance": 0.028,
+      "travel_time": 0.04,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Trần Phú"
+    },
+    {
+      "from": "12001952420",
+      "to": "14000646609",
+      "distance": 0.133,
+      "travel_time": 0.2,
+      "road_type": "residential",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Trần Tuấn Khải"
+    },
+    {
+      "from": "12001952420",
+      "to": "366473174",
+      "distance": 0.104,
+      "travel_time": 0.16,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Trần Phú"
+    },
+    {
+      "from": "12001952420",
+      "to": "6548820007",
+      "distance": 0.121,
+      "travel_time": 0.18,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Trãi"
+    },
+    {
+      "from": "12001952420",
+      "to": "5794854817",
+      "distance": 0.261,
+      "travel_time": 0.39,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Trãi"
+    },
+    {
+      "from": "12783406448",
+      "to": "5794854830",
+      "distance": 0.201,
+      "travel_time": 0.3,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Huỳnh Mẫn Đạt"
+    },
+    {
+      "from": "12783406448",
+      "to": "5794771156",
+      "distance": 0.087,
+      "travel_time": 0.13,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Huỳnh Mẫn Đạt"
+    },
+    {
+      "from": "12783406448",
+      "to": "6639599303",
+      "distance": 0.217,
+      "travel_time": 0.33,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "An Dương Vương"
+    },
+    {
+      "from": "12912127582",
+      "to": "6757735276",
+      "distance": 0.025,
+      "travel_time": 0.04,
+      "road_type": "primary",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Tri Phương"
+    },
+    {
+      "from": "12912127582",
+      "to": "3462850856",
+      "distance": 0.047,
+      "travel_time": 0.07,
+      "road_type": "primary",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Trần Hưng Đạo"
+    },
+    {
+      "from": "12912166070",
+      "to": "366432387",
+      "distance": 0.009,
+      "travel_time": 0.01,
+      "road_type": "primary_link",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Unknown Road"
+    },
+    {
+      "from": "12912166070",
+      "to": "2364075317",
+      "distance": 0.154,
+      "travel_time": 0.23,
+      "road_type": "primary",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Trần Hưng Đạo"
+    },
+    {
+      "from": "12912166070",
+      "to": "5813970751",
+      "distance": 0.132,
+      "travel_time": 0.2,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường An Bình"
+    },
+    {
+      "from": "13420539058",
+      "to": "13420539059",
+      "distance": 0.009,
+      "travel_time": 0.01,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Trãi"
+    },
+    {
+      "from": "13420539058",
+      "to": "366466647",
+      "distance": 0.196,
+      "travel_time": 0.29,
+      "road_type": "secondary",
+      "is_one_way": true,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Lê Hồng Phong"
+    },
+    {
+      "from": "13420539059",
+      "to": "13420539058",
+      "distance": 0.009,
+      "travel_time": 0.01,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Trãi"
+    },
+    {
+      "from": "13420539059",
+      "to": "13420539060",
+      "distance": 0.008,
+      "travel_time": 0.01,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Trãi"
+    },
+    {
+      "from": "13420539060",
+      "to": "13420539059",
+      "distance": 0.008,
+      "travel_time": 0.01,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Trãi"
+    },
+    {
+      "from": "13420539060",
+      "to": "366461703",
+      "distance": 0.14,
+      "travel_time": 0.21,
+      "road_type": "tertiary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Lê Hồng Phong"
+    },
+    {
+      "from": "13420539060",
+      "to": "5794854830",
+      "distance": 0.224,
+      "travel_time": 0.34,
+      "road_type": "secondary",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Trãi"
+    },
+    {
+      "from": "13888660385",
+      "to": "2364075318",
+      "distance": 0.254,
+      "travel_time": 0.38,
+      "road_type": "residential",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Nguyễn Văn Đừng"
+    },
+    {
+      "from": "14000646609",
+      "to": "12001952420",
+      "distance": 0.133,
+      "travel_time": 0.2,
+      "road_type": "residential",
+      "is_one_way": false,
+      "congestion": 0,
+      "risk": 0,
+      "note": "Đường Trần Tuấn Khải"
+    }
+  ],
+  "metadata": {
+    "source": "map_district_5.json",
+    "district": "District 5, Ho Chi Minh City",
+    "note": "Filtered connected subgraph of ~50 nodes via BFS",
+    "total_nodes": 50,
+    "total_edges": 97
+  }
+}
