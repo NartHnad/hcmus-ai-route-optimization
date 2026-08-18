@@ -539,8 +539,16 @@ class MainWindow(QMainWindow):
         self.event_log.document().setMaximumBlockCount(1200)
         self.info_tabs.addTab(self.event_log, "Event log")
 
-        self.comparison_panel = RouteComparisonPanel(self.available_algorithms)
-        self.comparison_panel.configure(self.algorithm_combo.currentText())
+        self.comparison_panel = RouteComparisonPanel(
+            self.available_algorithms,
+            route_mode=self._algorithm_route_mode,
+        )
+        self.comparison_panel.configure(
+            self.algorithm_combo.currentText(),
+            self.available_algorithms,
+            route_mode=self._algorithm_route_mode,
+            respect_goal_order=False,
+        )
         self.comparison_scroll = QScrollArea()
         self.comparison_scroll.setObjectName("comparisonScroll")
         self.comparison_scroll.setWidgetResizable(True)
@@ -664,6 +672,7 @@ class MainWindow(QMainWindow):
             self.comparison_panel.configure(
                 self.algorithm_combo.currentText(),
                 algorithms,
+                route_mode=route_mode,
             )
 
     def _update_route_context(self, request):
@@ -704,6 +713,13 @@ class MainWindow(QMainWindow):
 
     def on_route_selection_changed(self, request):
         self._refresh_algorithm_options(request.route_mode)
+        if hasattr(self, "comparison_panel") and self._active_result is None:
+            self.comparison_panel.configure(
+                self.algorithm_combo.currentText(),
+                self.available_algorithms,
+                route_mode=request.route_mode,
+                respect_goal_order=request.respect_goal_order,
+            )
         self._update_route_context(request)
         if self.graph is not None:
             self._update_route_locations(request)
@@ -840,7 +856,12 @@ class MainWindow(QMainWindow):
             )
             return
 
-        self.comparison_panel.configure(algorithm, self.available_algorithms)
+        self.comparison_panel.configure(
+            algorithm,
+            self.available_algorithms,
+            route_mode=request.route_mode,
+            respect_goal_order=request.respect_goal_order,
+        )
         comparison_mode = self.comparison_panel.current_mode()
         comparison_algorithm = self.comparison_panel.comparison_algorithm()
         self._active_algorithm = algorithm
@@ -1426,7 +1447,13 @@ class MainWindow(QMainWindow):
         if hasattr(self, "algorithm_state"):
             self.algorithm_state.set_algorithm(algorithm)
         if hasattr(self, "comparison_panel") and self._active_result is None:
-            self.comparison_panel.configure(algorithm, self.available_algorithms)
+            request = self.route_request()
+            self.comparison_panel.configure(
+                algorithm,
+                self.available_algorithms,
+                route_mode=request.route_mode,
+                respect_goal_order=request.respect_goal_order,
+            )
         if self.graph is not None and self.execution_state not in {"running", "paused"}:
             self._set_execution_state("ready")
 

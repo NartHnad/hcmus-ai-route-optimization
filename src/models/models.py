@@ -211,16 +211,34 @@ class RouteMetrics:
     total_cost: float = 0.0
     high_congestion_segments: List[RouteSegment] = field(default_factory=list)
     valid: bool = False
+    goal_visit_order: List[str] = field(default_factory=list)
+    start_node: str = ""
+    return_to_start: bool = False
+    processing_time_ms: Optional[float] = None
+    explored_nodes: Optional[int] = None
 
     def to_dict(self):
         return {
             "valid": bool(self.valid),
             "path": list(self.path),
+            "goal_visit_order": list(self.goal_visit_order),
+            "start_node": str(self.start_node or ""),
+            "return_to_start": bool(self.return_to_start),
             "segments": [segment.to_dict() for segment in self.segments],
             "total_distance": _finite_float(self.total_distance),
             "total_time": _finite_float(self.total_time),
             "congestion_penalty": _finite_float(self.congestion_penalty),
             "total_cost": _finite_float(self.total_cost),
+            "processing_time_ms": (
+                None
+                if self.processing_time_ms is None
+                else _finite_float(self.processing_time_ms)
+            ),
+            "explored_nodes": (
+                None
+                if self.explored_nodes is None
+                else max(0, int(self.explored_nodes))
+            ),
             "high_congestion_segments": [
                 segment.to_dict() for segment in self.high_congestion_segments
             ],
@@ -246,6 +264,7 @@ class ComparisonMode(Enum):
 
     DIFFERENT_ALGORITHMS = "different_algorithms"
     SAME_ALGORITHM_ALTERNATIVE = "same_algorithm_alternative"
+    ORIGINAL_VS_OPTIMIZED = "original_vs_optimized"
 
     @classmethod
     def coerce(cls, value):
@@ -270,6 +289,10 @@ class RouteComparison:
     winners: Dict[str, str] = field(default_factory=dict)
     differences: Dict[str, float] = field(default_factory=dict)
     explanation: RouteExplanation = field(default_factory=RouteExplanation)
+    route_mode: str = "single"
+    original_goal_order: List[str] = field(default_factory=list)
+    respect_goal_order: bool = False
+    return_to_start: bool = False
 
     def to_dict(self):
         mode = ComparisonMode.coerce(self.mode)
@@ -284,6 +307,10 @@ class RouteComparison:
                 self.comparison_algorithm or self.algorithm or ""
             ),
             "cost_mode": str(self.cost_mode or "current_composite"),
+            "route_mode": str(self.route_mode or "single"),
+            "original_goal_order": list(self.original_goal_order),
+            "respect_goal_order": bool(self.respect_goal_order),
+            "return_to_start": bool(self.return_to_start),
             "selected": self.selected.to_dict(),
             "alternative": alternative,
             "route_a": self.selected.to_dict(),

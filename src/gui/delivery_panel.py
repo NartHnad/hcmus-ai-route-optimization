@@ -13,6 +13,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
 )
 
+from src.algorithms.algorithms import get_algorithms
 from src.models.models import ComparisonMode
 
 
@@ -206,13 +207,35 @@ class RouteComparisonPanel(QGroupBox):
         ("Travel time", "total_time", "min", 1),
         ("Current total cost", "total_cost", "cost units", 2),
         ("Congestion score", "congestion_penalty", "points", 2),
+        ("Processing time", "processing_time_ms", "ms", 2),
     )
 
-    def __init__(self, algorithms=None, parent=None):
+    SINGLE_MODE_OPTIONS = (
+        (
+            "Same algorithm · alternative route",
+            ComparisonMode.SAME_ALGORITHM_ALTERNATIVE,
+        ),
+        ("Different algorithms", ComparisonMode.DIFFERENT_ALGORITHMS),
+    )
+    MULTI_MODE_OPTIONS = (
+        ("Different algorithms", ComparisonMode.DIFFERENT_ALGORITHMS),
+        (
+            "Original order vs optimized order",
+            ComparisonMode.ORIGINAL_VS_OPTIMIZED,
+        ),
+    )
+
+    def __init__(self, algorithms=None, parent=None, route_mode=None):
         super().__init__("Route comparison", parent)
-        self._algorithms = list(algorithms or [])
+        self._algorithm_source = list(algorithms or [])
+        self._route_mode = str(
+            route_mode or self._infer_route_mode(self._algorithm_source)
+        )
+        self._algorithms = self._compatible_algorithms(self._algorithm_source)
         self._primary_algorithm = ""
         self._has_result = False
+        self._request_respects_goal_order = False
+        self._comparison_respects_order = False
         self.setObjectName("routeComparison")
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 16, 12, 12)
@@ -222,14 +245,8 @@ class RouteComparisonPanel(QGroupBox):
         controls.addWidget(QLabel("Comparison mode"), 0, 0)
         self.mode_combo = QComboBox()
         self.mode_combo.setObjectName("fieldInput")
-        self.mode_combo.addItem(
-            "Same algorithm · alternative route",
-            ComparisonMode.SAME_ALGORITHM_ALTERNATIVE.value,
-        )
-        self.mode_combo.addItem(
-            "Different algorithms",
-            ComparisonMode.DIFFERENT_ALGORITHMS.value,
-        )
+        for label, mode in self._mode_options():
+            self.mode_combo.addItem(label, mode.value)
         controls.addWidget(self.mode_combo, 0, 1)
 
         self.algorithm_label = QLabel("Compare with")
@@ -252,6 +269,13 @@ class RouteComparisonPanel(QGroupBox):
 
         self.selected_route_label = QLabel("Selected: —")
         self.alternative_route_label = QLabel("Alternative: —")
+        self.selected_order_label = QLabel("Visiting order A: —")
+        self.alternative_order_label = QLabel("Visiting order B: —")
+        for label in (self.selected_order_label, self.alternative_order_label):
+            label.setObjectName("routeText")
+            label.setWordWrap(True)
+            label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            layout.addWidget(label)
         for label in (self.selected_route_label, self.alternative_route_label):
             label.setObjectName("routeText")
             label.setWordWrap(True)
@@ -273,7 +297,7 @@ class RouteComparisonPanel(QGroupBox):
         self.metrics_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.metrics_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.metrics_table.setAlternatingRowColors(True)
-        self.metrics_table.setMaximumHeight(170)
+        self.metrics_table.setMaximumHeight(195)
         layout.addWidget(self.metrics_table)
 
         explanation_title = QLabel("Đánh giá nhanh")
@@ -372,6 +396,63 @@ class RouteComparisonPanel(QGroupBox):
     def _path_text(path):
         return " → ".join(str(node_id) for node_id in (path or [])) or "—"
 
+    @staticmethod
+    def _infer_route_mode(algorithms):
+        supplied = set(algorithms or [])
+        multi_algorithms = set(get_algorithms("multi"))
+        if supplied and supplied.issubset(multi_algorithms):
+            return "multi"
+        return "single"
+
+    def _compatible_algorithms(self, algorithms):
+        registered = set(get_algorithms(self._route_mode))
+        return [algorithm for algorithm in algorithms if algorithm in registered]
+
+    def _mode_options(self):
+        if self._route_mode != "multi":
+            return self.SINGLE_MODE_OPTIONS
+        if self._request_respects_goal_order:
+            return tuple(
+                option
+                for option in self.MULTI_MODE_OPTIONS
+                if option[1] is not ComparisonMode.ORIGINAL_VS_OPTIMIZED
+            )
+        return self.MULTI_MODE_OPTIONS
+
+    def _set_route_mode(self, route_mode):
+        normalized = "multi" if str(route_mode) == "multi" else "single"
+        current_value = self.mode_combo.currentData()
+        self._route_mode = normalized
+        options = self._mode_options()
+        allowed = {mode.value for _label, mode in options}
+        desired = current_value if current_value in allowed else options[0][1].value
+
+        self.mode_combo.blockSignals(True)
+        self.mode_combo.clear()
+        for label, mode in options:
+            self.mode_combo.addItem(label, mode.value)
+        index = self.mode_combo.findData(desired)
+        self.mode_combo.setCurrentIndex(max(0, index))
+        self.mode_combo.blockSignals(False)
+        if self._route_mode == "multi" and self._request_respects_goal_order:
+            self.mode_combo.setToolTip(
+                "The current request requires the supplied visiting order to be "
+                "preserved, so there is no optimized visiting order to compare."
+            )
+        else:
+            self.mode_combo.setToolTip("")
+
+    @staticmethod
+    def _visiting_order_text(metrics):
+        if metrics is None:
+            return "—"
+        goals = list(getattr(metrics, "goal_visit_order", []) or [])
+        start = str(getattr(metrics, "start_node", "") or "")
+        order = ([start] if start else []) + goals
+        if getattr(metrics, "return_to_start", False) and start:
+            order.append(start)
+        return RouteComparisonPanel._path_text(order)
+
     def _winner_text(self, winner):
         first_label, second_label = self._route_labels()
         return {
@@ -460,12 +541,26 @@ class RouteComparisonPanel(QGroupBox):
         mode,
         primary_algorithm,
         comparison_algorithm,
+        respect_goal_order=False,
     ):
         if mode is ComparisonMode.DIFFERENT_ALGORITHMS:
             return (
                 f"Route A dùng {primary_algorithm}; Route B dùng "
                 f"{comparison_algorithm}. Cả hai dùng cùng graph, yêu cầu điểm "
                 "đến, dữ liệu giao thông và công thức total cost hiện tại."
+            )
+        if mode is ComparisonMode.ORIGINAL_VS_OPTIMIZED:
+            if respect_goal_order:
+                return (
+                    f"{primary_algorithm} nhận yêu cầu giữ nguyên thứ tự danh "
+                    "sách, nên không thực hiện tối ưu lại thứ tự ghé. Graph, dữ "
+                    "liệu giao thông và return-to-start được giữ nguyên."
+                )
+            return (
+                f"Thứ tự ban đầu được chạy với {primary_algorithm} trong chế độ "
+                "giữ nguyên danh sách; tuyến tối ưu hóa là kết quả hiện tại của "
+                "cùng thuật toán. Graph, dữ liệu giao thông và return-to-start "
+                "được giữ nguyên."
             )
         return (
             f"Cả hai tuyến dùng {primary_algorithm}. Alternative được tính lại "
@@ -477,14 +572,27 @@ class RouteComparisonPanel(QGroupBox):
         return ComparisonMode.coerce(self.mode_combo.currentData())
 
     def comparison_algorithm(self):
-        if self.current_mode() is ComparisonMode.SAME_ALGORITHM_ALTERNATIVE:
+        if self.current_mode() is not ComparisonMode.DIFFERENT_ALGORITHMS:
             return self._primary_algorithm
         return self.algorithm_combo.currentText()
 
-    def configure(self, primary_algorithm, algorithms=None):
+    def configure(
+        self,
+        primary_algorithm,
+        algorithms=None,
+        route_mode=None,
+        respect_goal_order=None,
+    ):
         self._primary_algorithm = str(primary_algorithm or "")
         if algorithms is not None:
-            self._algorithms = list(algorithms)
+            self._algorithm_source = list(algorithms)
+        if route_mode is None and algorithms is not None:
+            route_mode = self._infer_route_mode(self._algorithm_source)
+        if respect_goal_order is not None:
+            self._request_respects_goal_order = bool(respect_goal_order)
+        if route_mode is not None or respect_goal_order is not None:
+            self._set_route_mode(route_mode or self._route_mode)
+        self._algorithms = self._compatible_algorithms(self._algorithm_source)
 
         previous = self.algorithm_combo.currentText()
         self.algorithm_combo.blockSignals(True)
@@ -518,10 +626,22 @@ class RouteComparisonPanel(QGroupBox):
     def _route_labels(self):
         if self.current_mode() is ComparisonMode.DIFFERENT_ALGORITHMS:
             return "Route A", "Route B"
+        if self.current_mode() is ComparisonMode.ORIGINAL_VS_OPTIMIZED:
+            second_label = (
+                "Preserved order"
+                if self._comparison_respects_order
+                else "Optimized order"
+            )
+            return "Original order", second_label
         return "Selected", "Alternative"
 
     def _apply_mode_labels(self):
         different = self.current_mode() is ComparisonMode.DIFFERENT_ALGORITHMS
+        self.algorithm_label.setText(
+            "Algorithm B"
+            if different and self._route_mode == "multi"
+            else "Compare with"
+        )
         self.algorithm_label.setEnabled(different)
         self.algorithm_combo.setEnabled(different and self.mode_combo.isEnabled())
         first_label, second_label = self._route_labels()
@@ -539,12 +659,17 @@ class RouteComparisonPanel(QGroupBox):
 
     def reset(self, context="Choose a comparison mode"):
         self._has_result = False
+        self._comparison_respects_order = False
         self.status_label.setText("No comparison yet")
         self.status_label.setProperty("resultState", "idle")
         self.context_label.setText(context)
         first_label, second_label = self._route_labels()
         self.selected_route_label.setText(f"{first_label}: —")
         self.alternative_route_label.setText(f"{second_label}: —")
+        self.selected_order_label.setText(f"Visiting order {first_label}: —")
+        self.alternative_order_label.setText(f"Visiting order {second_label}: —")
+        self.selected_order_label.setVisible(self._route_mode == "multi")
+        self.alternative_order_label.setVisible(self._route_mode == "multi")
         for row, (label, _attribute, _unit, _decimals) in enumerate(
             self.METRIC_ROWS
         ):
@@ -641,8 +766,17 @@ class RouteComparisonPanel(QGroupBox):
             return
 
         self._has_result = True
+        self._comparison_respects_order = bool(
+            getattr(comparison, "respect_goal_order", False)
+        )
         mode = ComparisonMode.coerce(comparison.mode)
-        self.configure(comparison.algorithm)
+        self.configure(
+            comparison.algorithm,
+            route_mode=getattr(comparison, "route_mode", "single"),
+            respect_goal_order=getattr(
+                comparison, "respect_goal_order", False
+            ),
+        )
         self.set_configuration(mode, comparison.comparison_algorithm)
         self.mode_combo.setEnabled(True)
         self._apply_mode_labels()
@@ -652,15 +786,33 @@ class RouteComparisonPanel(QGroupBox):
         first_label, second_label = self._route_labels()
         if mode is ComparisonMode.DIFFERENT_ALGORITHMS:
             context = f"{comparison.algorithm} vs {comparison.comparison_algorithm}"
+        elif mode is ComparisonMode.ORIGINAL_VS_OPTIMIZED:
+            context = f"Original order vs optimized · {comparison.algorithm}"
         else:
             context = f"{comparison.algorithm} · same algorithm"
         self.context_label.setText(context)
+        is_multi = getattr(comparison, "route_mode", "single") == "multi"
+        self.selected_order_label.setText(
+            f"Visiting order {first_label} ({comparison.algorithm}): "
+            + self._visiting_order_text(selected)
+        )
+        self.alternative_order_label.setText(
+            f"Visiting order {second_label} ({comparison.comparison_algorithm}): "
+            + (
+                self._visiting_order_text(alternative)
+                if alternative is not None and alternative.valid
+                else "Not found"
+            )
+        )
+        self.selected_order_label.setVisible(is_multi)
+        self.alternative_order_label.setVisible(is_multi)
+        path_prefix = "Full graph path " if is_multi else ""
         self.selected_route_label.setText(
-            f"{first_label} ({comparison.algorithm}): "
+            f"{path_prefix}{first_label} ({comparison.algorithm}): "
             + self._path_text(selected.path)
         )
         self.alternative_route_label.setText(
-            f"{second_label} ({comparison.comparison_algorithm}): "
+            f"{path_prefix}{second_label} ({comparison.comparison_algorithm}): "
             + (self._path_text(alternative.path) if alternative else "Not found")
         )
         if not selected.valid:
@@ -682,6 +834,7 @@ class RouteComparisonPanel(QGroupBox):
                 mode,
                 comparison.algorithm,
                 comparison.comparison_algorithm,
+                getattr(comparison, "respect_goal_order", False),
             )
         )
         self._set_congestion_routes(
@@ -732,11 +885,17 @@ class RouteComparisonPanel(QGroupBox):
             )
 
         for row, (label, attribute, unit, decimals) in enumerate(self.METRIC_ROWS):
-            selected_value = float(getattr(selected, attribute, 0.0))
-            alternative_value = (
-                float(getattr(alternative, attribute, 0.0))
+            selected_raw = getattr(selected, attribute, None)
+            alternative_raw = (
+                getattr(alternative, attribute, None)
                 if alternative is not None
                 else None
+            )
+            selected_value = (
+                float(selected_raw) if selected_raw is not None else None
+            )
+            alternative_value = (
+                float(alternative_raw) if alternative_raw is not None else None
             )
             difference = comparison.differences.get(attribute)
             if attribute == "total_distance":
@@ -749,7 +908,11 @@ class RouteComparisonPanel(QGroupBox):
             }.get(attribute, attribute)
             values = (
                 label,
-                f"{selected_value:.{decimals}f} {unit}",
+                (
+                    f"{selected_value:.{decimals}f} {unit}"
+                    if selected_value is not None
+                    else "—"
+                ),
                 (
                     f"{alternative_value:.{decimals}f} {unit}"
                     if alternative_value is not None
