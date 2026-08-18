@@ -76,3 +76,19 @@ def test_node_search_caps_the_popup_model_for_large_node_sets():
         assert combo._suggestion_model.rowCount() < combo.count()
     finally:
         combo.close()
+
+
+def test_node_search_arrow_opens_the_complete_node_list():
+    _app, combo = _combo(
+        [
+            ("N1", "First node"),
+            ("N2", "Second node"),
+        ]
+    )
+    try:
+        combo.showPopup()
+        assert combo.view().isVisible()
+        assert combo.view().model().rowCount() == combo.count()
+    finally:
+        combo.hidePopup()
+        combo.close()
