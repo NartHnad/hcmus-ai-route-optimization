@@ -1,0 +1,234 @@
+{
+  "generated_at_utc": "2026-08-18T10:24:57.421058+00:00",
+  "python": "3.13.11 | packaged by Anaconda, Inc. | (main, Dec 10 2025, 21:21:58) [MSC v.1929 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "processor": "Intel64 Family 6 Model 141 Stepping 1, GenuineIntel",
+  "logical_cpu_count": 12,
+  "git_branch": "fix/nlp-comparision",
+  "git_commit": "427924be6a2db9cc79162d70f9aa977c0114d15a",
+  "configuration": {
+    "datasets": [
+      "map_district_1.json",
+      "map_district_4.json",
+      "map_binh_thanh_district.json"
+    ],
+    "algorithms": [
+      "dfs",
+      "bfs",
+      "ucs",
+      "a_star",
+      "beam",
+      "ga",
+      "sa"
+    ],
+    "scenarios_per_type": 1,
+    "repeats": 3,
+    "warmups": 1,
+    "seed": 20260808
+  },
+  "scenario_definitions": {
+    "map_district_1.json": [
+      {
+        "scenario_id": "S1_Short_1",
+        "scenario_type": "S1_Short",
+        "start_id": "4610643517",
+        "goal_id": "2364030596",
+        "intermediate_ids": [],
+        "is_multi": false
+      },
+      {
+        "scenario_id": "S2_Medium_1",
+        "scenario_type": "S2_Medium",
+        "start_id": "411918789",
+        "goal_id": "1769173835",
+        "intermediate_ids": [],
+        "is_multi": false
+      },
+      {
+        "scenario_id": "S3_Long_1",
+        "scenario_type": "S3_Long",
+        "start_id": "4605453644",
+        "goal_id": "411917818",
+        "intermediate_ids": [],
+        "is_multi": false
+      },
+      {
+        "scenario_id": "M3_1",
+        "scenario_type": "M3",
+        "start_id": "411923507",
+        "goal_id": "411926586",
+        "intermediate_ids": [
+          "12584655705",
+          "411919051"
+        ],
+        "is_multi": true
+      },
+      {
+        "scenario_id": "M5_1",
+        "scenario_type": "M5",
+        "start_id": "411918862",
+        "goal_id": "5762711578",
+        "intermediate_ids": [
+          "411926545",
+          "3338020171",
+          "13075589603",
+          "5742669198"
+        ],
+        "is_multi": true
+      },
+      {
+        "scenario_id": "M8_1",
+        "scenario_type": "M8",
+        "start_id": "411923629",
+        "goal_id": "11383674413",
+        "intermediate_ids": [
+          "411926237",
+          "13271508799",
+          "4122304294",
+          "11383642762",
+          "411926202",
+          "411917818",
+          "411919688"
+        ],
+        "is_multi": true
+      }
+    ],
+    "map_district_4.json": [
+      {
+        "scenario_id": "S1_Short_1",
+        "scenario_type": "S1_Short",
+        "start_id": "1773240191",
+        "goal_id": "2358232115",
+        "intermediate_ids": [],
+        "is_multi": false
+      },
+      {
+        "scenario_id": "S2_Medium_1",
+        "scenario_type": "S2_Medium",
+        "start_id": "1992606672",
+        "goal_id": "1992606678",
+        "intermediate_ids": [],
+        "is_multi": false
+      },
+      {
+        "scenario_id": "S3_Long_1",
+        "scenario_type": "S3_Long",
+        "start_id": "1992606650",
+        "goal_id": "10823295561",
+        "intermediate_ids": [],
+        "is_multi": false
+      },
+      {
+        "scenario_id": "M3_1",
+        "scenario_type": "M3",
+        "start_id": "2026784444",
+        "goal_id": "1778816531",
+        "intermediate_ids": [
+          "11924024812",
+          "1992606866"
+        ],
+        "is_multi": true
+      },
+      {
+        "scenario_id": "M5_1",
+        "scenario_type": "M5",
+        "start_id": "1768376036",
+        "goal_id": "366370535",
+        "intermediate_ids": [
+          "366383425",
+          "1992606644",
+          "2026783544",
+          "5778287282"
+        ],
+        "is_multi": true
+      },
+      {
+        "scenario_id": "M8_1",
+        "scenario_type": "M8",
+        "start_id": "13919166086",
+        "goal_id": "2358272833",
+        "intermediate_ids": [
+          "366380614",
+          "13958480476",
+          "4050376522",
+          "14011243052",
+          "6404114378",
+          "6404114365",
+          "2034589247"
+        ],
+        "is_multi": true
+      }
+    ],
+    "map_binh_thanh_district.json": [
+      {
+        "scenario_id": "S1_Short_1",
+        "scenario_type": "S1_Short",
+        "start_id": "5350664367",
+        "goal_id": "1998235357",
+        "intermediate_ids": [],
+        "is_multi": false
+      },
+      {
+        "scenario_id": "S2_Medium_1",
+        "scenario_type": "S2_Medium",
+        "start_id": "5671815998",
+        "goal_id": "5773399897",
+        "intermediate_ids": [],
+        "is_multi": false
+      },
+      {
+        "scenario_id": "S3_Long_1",
+        "scenario_type": "S3_Long",
+        "start_id": "1769496227",
+        "goal_id": "3861856287",
+        "intermediate_ids": [],
+        "is_multi": false
+      },
+      {
+        "scenario_id": "M3_1",
+        "scenario_type": "M3",
+        "start_id": "1852879441",
+        "goal_id": "5779523217",
+        "intermediate_ids": [
+          "5779523212",
+          "5735911166"
+        ],
+        "is_multi": true
+      },
+      {
+        "scenario_id": "M5_1",
+        "scenario_type": "M5",
+        "start_id": "5733021716",
+        "goal_id": "366417633",
+        "intermediate_ids": [
+          "5110358418",
+          "5755149910",
+          "2351201592",
+          "1671468663"
+        ],
+        "is_multi": true
+      },
+      {
+        "scenario_id": "M8_1",
+        "scenario_type": "M8",
+        "start_id": "762368927",
+        "goal_id": "5737826542",
+        "intermediate_ids": [
+          "5733021717",
+          "5737980761",
+          "366386878",
+          "5757778745",
+          "1497276494",
+          "5764779819",
+          "9532347065"
+        ],
+        "is_multi": true
+      }
+    ]
+  },
+  "measurement_notes": {
+    "runtime": "perf_counter_ns; excludes JSON loading and warm-up runs",
+    "memory": "tracemalloc peak Python allocation; excludes native allocations",
+    "cost": "recomputed from Edge.calculate_cost for cross-algorithm comparison"
+  }
+}
