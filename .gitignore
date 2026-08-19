@@ -235,3 +235,8 @@ graphify-out
 PLAN.md
 .claude
 .agents
+
+# GitNexus local index and generated agent instructions
+.gitnexus/
+AGENTS.md
+CLAUDE.md
