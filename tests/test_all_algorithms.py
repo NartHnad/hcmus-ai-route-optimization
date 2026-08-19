@@ -64,7 +64,6 @@ EXPECTED_SINGLE_ALGORITHMS = (
 
 EXPECTED_MULTI_ALGORITHMS = (
     "Genetic Algorithm (GA)",
-    "Mock Multi-location Search",
     "Nearest Neighbor + 2-Opt",
     "Simulated Annealing (SA)",
 )

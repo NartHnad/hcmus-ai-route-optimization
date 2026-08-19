@@ -7,6 +7,9 @@ from src.constants import StepType
 from src.models.models import Edge, Graph, Node, RouteRequest
 
 
+MULTI_ALGORITHM = "Nearest Neighbor + 2-Opt"
+
+
 def _add_costed_edge(graph, source, target):
     edge = Edge(
         source,
@@ -41,7 +44,6 @@ def test_algorithm_registry_keeps_single_and_multi_modes_separate():
     # #NhatHuyChanged: registry includes every production multi-location optimizer.
     assert get_algorithms("multi") == [
         "Genetic Algorithm (GA)",
-        "Mock Multi-location Search",
         "Nearest Neighbor + 2-Opt",
         "Simulated Annealing (SA)",
     ]
@@ -49,7 +51,7 @@ def test_algorithm_registry_keeps_single_and_multi_modes_separate():
 
 def test_ordered_multi_location_uses_ui_order_and_merges_real_legs():
     result = run_multi_location_algorithm(
-        "Mock Multi-location Search",
+        MULTI_ALGORITHM,
         build_multi_goal_graph(),
         "S",
         ["G10", "G2"],
@@ -64,23 +66,32 @@ def test_ordered_multi_location_uses_ui_order_and_merges_real_legs():
     assert result.estimated_time is None
     assert result.to_dict()["goal_visit_order"] == ["G10", "G2"]
 
-    leg_steps = [step for step in result.steps if step.step_type != StepType.FINISH]
+    leg_steps = [
+        step
+        for step in result.steps
+        if step.metrics.get("route_frame") == "nn2opt:final"
+        and "leg_index" in step.metrics
+    ]
     assert {step.metrics["leg_index"] for step in leg_steps} == {1, 2}
     assert all(step.metrics["leg_count"] == 2 for step in leg_steps)
 
 
-def test_mock_optimize_mode_returns_deterministic_natural_goal_order():
-    result = run_multi_location_algorithm(
-        "Mock Multi-location Search",
-        build_multi_goal_graph(),
-        "S",
-        ["G10", "G2"],
-        respect_goal_order=False,
-    )
+def test_optimize_mode_returns_a_deterministic_goal_order():
+    results = [
+        run_multi_location_algorithm(
+            MULTI_ALGORITHM,
+            build_multi_goal_graph(),
+            "S",
+            ["G10", "G2"],
+            respect_goal_order=False,
+        )
+        for _ in range(2)
+    ]
 
-    assert result.success
-    assert result.goal_visit_order == ["G2", "G10"]
-    assert result.path == ["S", "G2", "G10"]
+    assert all(result.success for result in results)
+    assert results[0].goal_visit_order == results[1].goal_visit_order
+    assert results[0].path == results[1].path
+    assert set(results[0].goal_visit_order) == {"G2", "G10"}
 
 
 def test_multi_location_can_return_to_start_as_a_final_leg():
@@ -89,7 +100,7 @@ def test_multi_location_can_return_to_start_as_a_final_leg():
     _add_costed_edge(graph, "G10", "S")
 
     result = run_multi_location_algorithm(
-        "Mock Multi-location Search",
+        MULTI_ALGORITHM,
         graph,
         "S",
         ["G10", "G2"],
@@ -100,10 +111,15 @@ def test_multi_location_can_return_to_start_as_a_final_leg():
     assert result.success
     assert result.path == ["S", "G10", "G2", "S"]
     assert result.goal_visit_order == ["G10", "G2"]
-    leg_steps = [step for step in result.steps if step.step_type != StepType.FINISH]
+    leg_steps = [
+        step
+        for step in result.steps
+        if step.metrics.get("route_frame") == "nn2opt:final"
+        and "leg_index" in step.metrics
+    ]
     assert {step.metrics["leg_index"] for step in leg_steps} == {1, 2, 3}
     assert all(step.metrics["leg_count"] == 3 for step in leg_steps)
-    assert any(step.metrics["return_leg"] for step in leg_steps)
+    assert any(step.metrics["leg_goal"] == "S" for step in leg_steps)
     assert result.steps[-1].node_id == "S"
 
 
@@ -115,7 +131,7 @@ def test_failed_return_leg_does_not_publish_a_partial_route():
     _add_costed_edge(graph, "A", "B")
 
     result = run_multi_location_algorithm(
-        "Mock Multi-location Search",
+        MULTI_ALGORITHM,
         graph,
         "S",
         ["A", "B"],
@@ -125,9 +141,10 @@ def test_failed_return_leg_does_not_publish_a_partial_route():
 
     assert not result.success
     assert result.path == []
-    assert "B -> S" in result.message
-    assert result.goal_visit_order == ["A", "B"]
-    assert result.steps[-1].metrics["return_leg"]
+    assert "unreachable road leg" in result.message
+    assert result.goal_visit_order == []
+    assert result.steps[-1].step_type == StepType.FINISH
+    assert not result.steps[-1].metrics["success"]
 
 
 def test_failed_leg_does_not_publish_a_partial_route():
@@ -137,7 +154,7 @@ def test_failed_leg_does_not_publish_a_partial_route():
     _add_costed_edge(graph, "S", "A")
 
     result = run_multi_location_algorithm(
-        "Mock Multi-location Search",
+        MULTI_ALGORITHM,
         graph,
         "S",
         ["A", "B"],
@@ -146,11 +163,11 @@ def test_failed_leg_does_not_publish_a_partial_route():
 
     assert not result.success
     assert result.path == []
-    assert "A -> B" in result.message
+    assert "unreachable road leg" in result.message
     finish = result.steps[-1]
     assert finish.step_type == StepType.FINISH
-    assert finish.metrics["leg_start"] == "A"
-    assert finish.metrics["leg_goal"] == "B"
+    assert finish.metrics["stage"] == "nn2opt_preserved_order"
+    assert not finish.metrics["success"]
 
 
 def test_route_request_is_immutable_and_dispatches_by_route_mode():
@@ -167,7 +184,8 @@ def test_route_request_is_immutable_and_dispatches_by_route_mode():
 
     single_result = run_route_request("A* Search", build_multi_goal_graph(), single)
     multi_result = run_route_request(
-        "Mock Multi-location Search", build_multi_goal_graph(), multi
+        MULTI_ALGORITHM, build_multi_goal_graph(), multi
     )
     assert single_result.success
-    assert multi_result.goal_visit_order == ["G2", "G10"]
+    assert multi_result.success
+    assert set(multi_result.goal_visit_order) == {"G2", "G10"}

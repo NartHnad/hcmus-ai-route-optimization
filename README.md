@@ -254,13 +254,13 @@ python -m pytest -q tests/test_nearest_neighbor_2opt.py
 
 ### Smoke test các thuật toán production
 
-Lệnh sau bỏ qua các case legacy còn nhắc đến Mock Multi-location Search:
+Chạy toàn bộ test tích hợp trên registry production và dataset Quận 5:
 
 ```bash
-python -m pytest -q tests/test_all_algorithms.py -k "(every_single_route_algorithm or every_multi_location_algorithm) and not Mock"
+python -m pytest -q tests/test_all_algorithms.py
 ```
 
-Ở revision `0200a8d`, smoke test trên cho kết quả **13 passed**. Toàn bộ test suite hiện có **101 passed, 13 failed**; các lỗi còn lại được mô tả trong [Giới hạn hiện tại](#giới-hạn-hiện-tại).
+Ở trạng thái hiện tại, smoke test trên cho kết quả **15 passed** và toàn bộ test suite cho kết quả **112 passed**.
 
 > `tests/test_all_algorithms.py` hiện ghi báo cáo vào `benchmarks/results/algorithm_test_results_district5.csv`. Vì vậy sau khi chạy test, hãy kiểm tra `git status` trước khi commit.
 
@@ -437,8 +437,6 @@ hcmus-ai-route-optimization/
 
 ## Giới hạn hiện tại
 
-- Một số legacy test vẫn tham chiếu `Mock Multi-location Search`, trong khi mock đã được loại khỏi registry production.
-- `src/models/test_models.py` còn dùng constructor `x`/`y` và hai dataset cũ `mock_data.json`, `map_data.json` không còn tồn tại.
 - Benchmark CLI chưa đăng ký Bidirectional Search và triển khai Nearest Neighbor + 2-Opt hiện tại.
 - Runner benchmark vẫn thử import legacy `src.algorithms.multi_location`, vì vậy có thể in cảnh báo `IMPORT WARN`; cảnh báo này không dừng các thuật toán hợp lệ được chọn bằng `--algorithms`.
 - `matplotlib` là dependency tùy chọn cho biểu đồ và chưa nằm trong `requirements.txt`.
