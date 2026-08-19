@@ -176,7 +176,7 @@ class AlgorithmStatePanel(QFrame):
         self.visited = StateList("Visited order")
         state_layout.addWidget(self.frontier)
         state_layout.addWidget(self.explored)
-        state_layout.addWidget(self.visited)
+        # state_layout.addWidget(self.visited)
         state_layout.addStretch()
         scroll.setWidget(scroll_content)
         outer.addWidget(scroll, 1)
