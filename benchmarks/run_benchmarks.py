@@ -27,9 +27,7 @@ if str(PROJECT_ROOT) not in sys.path:
 DATA_DIR = PROJECT_ROOT / "data"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "benchmarks" / "results"
 DEFAULT_DATASETS = (
-    "map_district_1.json",
-    "map_district_4.json",
-    "map_binh_thanh_district.json",
+    "map_district_3.json",
 )
 
 from src.models.graph_factory import build_graph
@@ -48,9 +46,10 @@ _dfs_fn   = _try_import("dfs",                "src.algorithms.dfs")
 _ucs_fn   = _try_import("ucs",                "src.algorithms.ucs")
 _astar_fn = _try_import("a_star",             "src.algorithms.a_star")
 _beam_fn  = _try_import("beam_search",        "src.algorithms.beam_search")
+_bidir_fn = _try_import("bidirectional_search","src.algorithms.bidirectional_search")
 _ga_fn    = _try_import("genetic_algorithm",  "src.algorithms.genetic_algorithm")
 _sa_fn    = _try_import("simulated_annealing","src.algorithms.simulated_annealing")
-_multi_fn = _try_import("multi_location_nearest_neighbor_2opt", "src.algorithms.multi_location")
+_nn2opt_fn = _try_import("nearest_neighbor_2opt", "src.algorithms.nearest_neighbor_2opt")
 
 # Configuration constants for heuristic / meta-heuristic algorithms
 BEAM_WIDTH = 10
@@ -60,15 +59,20 @@ GA_MUTATION_RATE = 0.2
 SA_INITIAL_TEMP = 1000.0
 SA_DECAY_RATE = 0.995
 
+# Registry format: key -> (display_name, function, group, is_stochastic)
+# group="search"        -> runs single point-to-point scenarios only
+# group="optimization"  -> runs multi-location scenarios only
+# group="both"          -> runs both scenario types
 ALGORITHM_REGISTRY = {
     "dfs": ("DFS", _dfs_fn, "search", False),
     "bfs": ("BFS", _bfs_fn, "search", False),
     "ucs": ("UCS", _ucs_fn, "search", False),
     "a_star": ("A*", _astar_fn, "search", False),
     "beam": ("BeamSearch", _beam_fn, "search", False),
-    "ga": ("GeneticAlgo", _ga_fn, "search", True),
+    "bidirectional": ("Bidirectional", _bidir_fn, "search", False),
+    "ga": ("GeneticAlgo", _ga_fn, "both", True),
     "sa": ("SimulatedAnnealing", _sa_fn, "optimization", True),
-    "multi": ("NN+2Opt", _multi_fn, "optimization", False)
+    "nn2opt": ("NN+2Opt", _nn2opt_fn, "optimization", False),
 }
 
 @dataclass(frozen=True)
@@ -200,23 +204,33 @@ def _run_algorithm(algorithm_key: str, graph, scenario: Scenario, seed: int = No
     if is_stoch and seed is not None:
         random.seed(seed)
 
-    kwargs = {}
-    if algorithm_key == "beam":
-        kwargs["beam_width"] = BEAM_WIDTH
-    elif algorithm_key == "ga":
-        kwargs.update({"population_size": GA_POPULATION_SIZE, "generations": GA_GENERATIONS, "mutation_rate": GA_MUTATION_RATE})
-    elif algorithm_key == "sa":
-        kwargs.update({"respect_goal_order": False, "initial_temp": SA_INITIAL_TEMP, "decay_rate": SA_DECAY_RATE})
-
     if not scenario.is_multi:
+        # --- Single point-to-point ---
+        kwargs = {}
+        if algorithm_key == "beam":
+            kwargs["beam_width"] = BEAM_WIDTH
+        elif algorithm_key == "ga":
+            # GA treats a single goal as a one-element goal list
+            return fn(graph, scenario.start_id, [scenario.goal_id],
+                      population_size=GA_POPULATION_SIZE,
+                      generations=GA_GENERATIONS,
+                      mutation_rate=GA_MUTATION_RATE)
         return fn(graph, scenario.start_id, scenario.goal_id, **kwargs)
     else:
-        # Multi location logic
+        # --- Multi-location ---
         goals = list(scenario.intermediate_ids) + [scenario.goal_id]
-        if algorithm_key == "multi":
-            return fn(graph, scenario.start_id, tuple(scenario.intermediate_ids), end_id=scenario.goal_id)
+        if algorithm_key == "ga":
+            return fn(graph, scenario.start_id, goals,
+                      population_size=GA_POPULATION_SIZE,
+                      generations=GA_GENERATIONS,
+                      mutation_rate=GA_MUTATION_RATE)
         elif algorithm_key == "sa":
-            return fn(graph, scenario.start_id, goals, **kwargs)
+            return fn(graph, scenario.start_id, goals,
+                      respect_goal_order=False,
+                      initial_temp=SA_INITIAL_TEMP,
+                      decay_rate=SA_DECAY_RATE)
+        elif algorithm_key == "nn2opt":
+            return fn(graph, scenario.start_id, goals)
         else:
             raise ValueError(f"Algorithm {algorithm_key} cannot run multi-location scenarios")
 
@@ -248,8 +262,8 @@ def _validate_path(graph, path: list[str], scenario: Scenario):
 
 def benchmark_once(
     algorithm_key: str, graph, dataset: str, scenario: Scenario, repeat: int, seed: int
-) -> tuple[dict, FindingRecord | None]:
-    gc.collect()
+) -> tuple[dict, FindingRecord | None]: # Runtime chính xác, Memory đúng, không bị nhiễu
+    gc.collect() 
     error_msg = ""
     result = None
     finding = None

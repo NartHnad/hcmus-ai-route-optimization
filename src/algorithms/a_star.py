@@ -29,14 +29,16 @@ def a_star(graph, start_id, goal_id):
 
 
     # Priority queue: stores tuples of (f_score, g_score, node_id)
+    
     # Note: We include g_score in the tuple so that in case of an f_score tie,
+    
     # the node with the lower g_score (closer to start) is preferred, or just to avoid tuple comparison errors on node_id string
     open_set = []
     start_h = geographic_heuristic(graph, start_id, goal_id)
     heapq.heappush(open_set, (start_h, 0.0, start_id))
 
     # Track the best known cost to reach each node from the start
-    g_score = {start_id: 0.0}
+    g_score = {start_id: 0.0} # Lưu chi phí tốt nhất hiện biết từ điểm bắt đầu đến từng node
 
     # Track the parent of each node to reconstruct the path
     # child_id -> (parent_id, edge_to_child)
@@ -46,7 +48,7 @@ def a_star(graph, start_id, goal_id):
     visited = set()
 
     while open_set:
-        current_f, current_g, current = heapq.heappop(open_set)
+        current_f, current_g, current = heapq.heappop(open_set) # lấy được node có f nhỏ nhất
 
         if current in visited:
             continue

@@ -237,6 +237,7 @@ class AlternativeRouteSelector:
 
         start_id = selected.path[0]
         goal_id = selected.path[-1]
+        
         selected_edges = list(zip(selected.path, selected.path[1:]))
 
         # Start near the end to prefer a route with a long shared prefix.
@@ -782,10 +783,11 @@ def build_route_comparison(
         algorithm,
         cost_mode=cost_mode,
         route_request=route_request,
-    )
+    ) 
 
     if mode is ComparisonMode.DIFFERENT_ALGORITHMS:
         second_algorithm = str(comparison_algorithm or "")
+        
         if not second_algorithm:
             raise ValueError("A comparison algorithm is required for this mode.")
         if second_algorithm == algorithm:

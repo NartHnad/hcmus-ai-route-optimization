@@ -13,11 +13,34 @@ except ImportError:
 from src.data.traffic_update import generate_random_traffic_updates
 
 
+"""
+có nhiệm vụ đọc dữ liệu JSON và biến nó thành object Graph để các thuật toán sử dụng.
+
+File JSON thô
+    ↓
+graph_factory
+    ├── tạo Node
+    ├── tạo Edge
+    ├── tính thời gian nếu thiếu
+    ├── chuẩn hóa khoảng cách/thời gian
+    ├── tính cost
+    └── xử lý đường một chiều/hai chiều
+    ↓
+Graph hoàn chỉnh
+    ↓
+BFS, DFS, UCS, A*, GA, SA...
+"""
+
 def _get_road_speed(road_type: str) -> float:
     """
     Retrieve the average speed for a given road type.
     If the road type is not recognized, return a default speed of 30 km/h.
     """
+    
+    """
+    Lấy tốc độ trung bình dựa trên loại đường
+    """
+    
     try:
         road_enum = RoadType(road_type.lower())
         return DEFAULT_SPEED_MAP.get(road_enum, 30.0)
@@ -46,10 +69,10 @@ def build_graph(json_path: str) -> Graph:
         data = json.load(file)
 
     # Initialize a Graph object
-    graph = Graph()
+    graph = Graph() # tạo 1 graph rỗng
 
     # Initialize and Append all Nodes
-    for node in _iter_nodes(data.get("nodes", [])):
+    for node in _iter_nodes(data.get("nodes", [])): # biến dữ liệu json thành các node
         new_node = Node(
             node_id=node["id"].strip(),
             name=node["name"].strip(),
@@ -57,7 +80,7 @@ def build_graph(json_path: str) -> Graph:
             lon=float(node.get("lon", node.get("y"))),
             node_type=node.get("type", "intersection"),
         )
-        graph.add_node(new_node)
+        graph.add_node(new_node) # thêm node vào graph, đồng thời tạo luôn danh sách cạnh cho mỗi node
 
     temp_edges = []
     max_distance = 0.0
@@ -71,8 +94,7 @@ def build_graph(json_path: str) -> Graph:
         distance_km = float(edge["distance"])
         road_type_str = str(edge.get("road_type", "primary")).strip()
 
-        # Calculate travel time if not provided,
-        # using distance and average speed for the road type
+        # Tính travel_time nếu không được cung cấp, nếu data có rồi thì dùng luôn
         if "time" in edge or "travel_time" in edge:
             travel_time_min = float(edge.get("time", edge.get("travel_time")))
         else:
@@ -115,7 +137,7 @@ def build_graph(json_path: str) -> Graph:
         # Calculate normalized cost and store it in edge.weight
         edge.weight = edge.calculate_cost()
 
-        graph.add_edge(edge)
+        graph.add_edge(edge) # Xử lý đường 1 chiều và 2 chiều
 
     print(f"[FACTORY SUCCESS] Added {len(graph.nodes)} nodes and paths into Graph.")
     print(

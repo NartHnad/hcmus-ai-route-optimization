@@ -257,7 +257,7 @@ python -m pytest -q tests/test_nearest_neighbor_2opt.py
 Chạy toàn bộ test tích hợp trên registry production và dataset Quận 5:
 
 ```bash
-python -m pytest -q tests/test_all_algorithms.py
+  python -m pytest -q tests/test_all_algorithms.py
 ```
 
 Ở trạng thái hiện tại, smoke test trên cho kết quả **15 passed** và toàn bộ test suite cho kết quả **112 passed**.

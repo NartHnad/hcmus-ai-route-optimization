@@ -74,7 +74,7 @@ class SearchWorker(QObject):
             runtime_ms = (time.perf_counter() - started) * 1000
             result.runtime_ms = runtime_ms
             result.processing_time_ms = runtime_ms
-            if self.comparison_mode is not None:
+            if self.comparison_mode is not None: # nếu có yêu cầu so sánh
                 try:
                     build_route_comparison(
                         self.graph,
@@ -838,15 +838,15 @@ class MainWindow(QMainWindow):
         self.log_event("ERROR", f"{title} rendering failed: {message}")
 
     def on_run_search_clicked(self):
-        if self.graph is None:
+        if self.graph is None: # kiểm tra graph != none
             self.show_alert("Load a dataset before running a search.", "error")
             return
-        if self._active_view not in self._ready_renderers:
+        if self._active_view not in self._ready_renderers: # kiểm tra render 
             title = "Graph" if self._active_view == "graph" else "Map"
             self.show_alert(f"{title} View is still rendering. Please wait.", "warning")
             return
 
-        request = self.route_request()
+        request = self.route_request() # lấy RouteRequest -> start_id, goal_id, repsect_goal_order, restart node start
         start_id = request.start_node
         goals = request.delivery_nodes
         algorithm = self.algorithm_combo.currentText()
@@ -892,7 +892,7 @@ class MainWindow(QMainWindow):
             f"{' → ' + start_id if request.return_to_start else ''}.",
         )
 
-        self._search_thread = QThread(self)
+        self._search_thread = QThread(self) # Tạo thread riêng
         self._search_worker = SearchWorker(
             algorithm,
             self.graph,

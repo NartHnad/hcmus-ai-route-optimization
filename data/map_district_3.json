@@ -120,20 +120,6 @@
             "node_type": "intersection"
         },
         {
-            "id": "411918492",
-            "name": "Giao Hẻm 443 Lê Văn Sỹ × Lê Văn Sỹ",
-            "lat": 10.7895702,
-            "lon": 106.6747468,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411918557",
-            "name": "Điểm trên Hẻm 206 Nam Kỳ Khởi Nghĩa",
-            "lat": 10.782993,
-            "lon": 106.6919092,
-            "node_type": "intersection"
-        },
-        {
             "id": "411918578",
             "name": "Giao Ðường Số 2 Cư Xá Đô Thành × Đường Nguyễn Hiền",
             "lat": 10.7727882,
@@ -145,20 +131,6 @@
             "name": "Giao Ngô Thời Nhiệm × Trần Quốc Thảo",
             "lat": 10.7802238,
             "lon": 106.6895501,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411918611",
-            "name": "Điểm trên Hẻm 206 Đường Pasteur",
-            "lat": 10.783497,
-            "lon": 106.693367,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411918613",
-            "name": "Giao Hẻm 206 Đường Pasteur × Pasteur",
-            "lat": 10.78312,
-            "lon": 106.693016,
             "node_type": "intersection"
         },
         {
@@ -302,34 +274,6 @@
             "node_type": "intersection"
         },
         {
-            "id": "411918973",
-            "name": "Giao Hẻm 796 Trường Sa × Trường Sa",
-            "lat": 10.7882842,
-            "lon": 106.6825422,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411918996",
-            "name": "Điểm trên Trường Sa",
-            "lat": 10.7912286,
-            "lon": 106.6813102,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411919019",
-            "name": "Giao Hẻm 816 Trường Sa × Trường Sa",
-            "lat": 10.7877414,
-            "lon": 106.683245,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411919021",
-            "name": "Giao Hẻm 812 Trường Sa × Trường Sa",
-            "lat": 10.7881629,
-            "lon": 106.6830814,
-            "node_type": "intersection"
-        },
-        {
             "id": "411919061",
             "name": "Giao Trần Văn Ðang × Đường Trần Quang Diệu (+1 đường)",
             "lat": 10.7830427,
@@ -344,13 +288,6 @@
             "node_type": "intersection"
         },
         {
-            "id": "411919086",
-            "name": "Điểm trên Hoàng Sa",
-            "lat": 10.7883716,
-            "lon": 106.668688,
-            "node_type": "intersection"
-        },
-        {
             "id": "411919112",
             "name": "Giao Hẻm 413 Lê Văn Sỹ × Trường Sa",
             "lat": 10.7868294,
@@ -362,27 +299,6 @@
             "name": "Giao Hồ Xuân Hương × Nguyễn Thông",
             "lat": 10.7759463,
             "lon": 106.6869866,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411919168",
-            "name": "Điểm trên Hoàng Sa",
-            "lat": 10.7878126,
-            "lon": 106.6703264,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411919169",
-            "name": "Giao Cầu Số 7 × Hoàng Sa",
-            "lat": 10.7875934,
-            "lon": 106.6709453,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411919170",
-            "name": "Điểm nối Cầu Số 7 / Trường Sa",
-            "lat": 10.7880444,
-            "lon": 106.6711195,
             "node_type": "intersection"
         },
         {
@@ -425,13 +341,6 @@
             "name": "Giao Cầu Số 9 × Hoàng Sa",
             "lat": 10.784266,
             "lon": 106.6806704,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411919291",
-            "name": "Giao Hẻm 1074 Trường Sa × Trường Sa",
-            "lat": 10.7878626,
-            "lon": 106.6717233,
             "node_type": "intersection"
         },
         {
@@ -481,27 +390,6 @@
             "name": "Giao Hẻm 384 Nam Kỳ Khởi Nghĩa × Nam Kỳ Khởi Nghĩa",
             "lat": 10.7913978,
             "lon": 106.6825298,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411919966",
-            "name": "Điểm trên Hẻm 1046 Trường Sa",
-            "lat": 10.7891072,
-            "lon": 106.6736445,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411919968",
-            "name": "Điểm trên Hẻm 491 Lê Văn Sỹ",
-            "lat": 10.7891269,
-            "lon": 106.6735801,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411919985",
-            "name": "Điểm trên Hẻm 443 Lê Văn Sỹ",
-            "lat": 10.788924,
-            "lon": 106.6745455,
             "node_type": "intersection"
         },
         {
@@ -572,13 +460,6 @@
             "name": "Điểm trên Hẻm 443 Lê Văn Sỹ",
             "lat": 10.7871161,
             "lon": 106.6751193,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411920274",
-            "name": "Điểm trên Hẻm 443 Lê Văn Sỹ",
-            "lat": 10.787174,
-            "lon": 106.6751157,
             "node_type": "intersection"
         },
         {
@@ -750,38 +631,10 @@
             "node_type": "intersection"
         },
         {
-            "id": "411921020",
-            "name": "Nút giao trên Hẻm 386 Lê Văn Sỹ",
-            "lat": 10.7897473,
-            "lon": 106.6773349,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411921021",
-            "name": "Điểm trên Hẻm 386 Lê Văn Sỹ",
-            "lat": 10.7899837,
-            "lon": 106.6773498,
-            "node_type": "intersection"
-        },
-        {
             "id": "411921029",
             "name": "Giao Hẻm 386 Lê Văn Sỹ × Lê Văn Sỹ",
             "lat": 10.7880834,
             "lon": 106.6774395,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411921086",
-            "name": "Điểm trên Hẻm 453 Lê Văn Sỹ",
-            "lat": 10.7886331,
-            "lon": 106.671966,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411921088",
-            "name": "Nút giao trên Hẻm 453 Lê Văn Sỹ",
-            "lat": 10.7886843,
-            "lon": 106.6718045,
             "node_type": "intersection"
         },
         {
@@ -803,13 +656,6 @@
             "name": "Giao Hẻm 145 Nguyễn Thiện Thuật × Đường Nguyễn Thiện Thuật",
             "lat": 10.7680673,
             "lon": 106.6798211,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411921349",
-            "name": "Điểm trên Hẻm 304 Lê Văn Sỹ",
-            "lat": 10.7875727,
-            "lon": 106.6792856,
             "node_type": "intersection"
         },
         {
@@ -890,13 +736,6 @@
             "node_type": "intersection"
         },
         {
-            "id": "411921690",
-            "name": "Giao Hẻm 1074 Trường Sa × Hẻm 1074A Trường Sa",
-            "lat": 10.7881932,
-            "lon": 106.6718338,
-            "node_type": "intersection"
-        },
-        {
             "id": "411921691",
             "name": "Giao Hẻm 359 Lê Văn Sỹ × Hẻm 413 Lê Văn Sỹ (+1 đường)",
             "lat": 10.7870755,
@@ -922,20 +761,6 @@
             "name": "Giao Hẻm 195 Trần Văn Ðang × Trần Văn Ðang",
             "lat": 10.7848043,
             "lon": 106.6723393,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411922012",
-            "name": "Điểm trên Hẻm 264 Lê Văn Sỹ",
-            "lat": 10.7875478,
-            "lon": 106.6808698,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411922015",
-            "name": "Điểm trên Hẻm 284 Lê Văn Sỹ",
-            "lat": 10.7880202,
-            "lon": 106.6805602,
             "node_type": "intersection"
         },
         {
@@ -981,13 +806,6 @@
             "node_type": "intersection"
         },
         {
-            "id": "411922131",
-            "name": "Điểm trên Hẻm 139 Lý Chính Thắng",
-            "lat": 10.7861229,
-            "lon": 106.685571,
-            "node_type": "intersection"
-        },
-        {
             "id": "411922215",
             "name": "Điểm trên Hẻm 407 Lê Văn Sỹ",
             "lat": 10.7882578,
@@ -1006,13 +824,6 @@
             "name": "Điểm trên Hẻm 413 Lê Văn Sỹ",
             "lat": 10.7879423,
             "lon": 106.6749306,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411922285",
-            "name": "Điểm trên Hẻm 453/77E-F Lê Văn Sỹ",
-            "lat": 10.7882509,
-            "lon": 106.6727352,
             "node_type": "intersection"
         },
         {
@@ -1051,20 +862,6 @@
             "node_type": "intersection"
         },
         {
-            "id": "411922360",
-            "name": "Nút giao trên Hẻm 290 Nam Kỳ Khởi Nghĩa",
-            "lat": 10.7900062,
-            "lon": 106.6846042,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411922361",
-            "name": "Nút giao trên Hẻm 290 Nam Kỳ Khởi Nghĩa",
-            "lat": 10.790286,
-            "lon": 106.684318,
-            "node_type": "intersection"
-        },
-        {
             "id": "411922363",
             "name": "Giao Hẻm 290 Nam Kỳ Khởi Nghĩa × Hẻm 380 Nam Kỳ Khởi Nghĩa",
             "lat": 10.7905822,
@@ -1076,13 +873,6 @@
             "name": "Giao Ðường Số 4 Cư Xá Đô Thành × Đường Nguyễn Hiền (+1 đường)",
             "lat": 10.7720467,
             "lon": 106.6822736,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411922441",
-            "name": "Nút giao trên Hẻm 491 Lê Văn Sỹ",
-            "lat": 10.7898752,
-            "lon": 106.67367,
             "node_type": "intersection"
         },
         {
@@ -1104,13 +894,6 @@
             "name": "Điểm trên Hẻm 360 Nguyễn Thị Minh Khai",
             "lat": 10.7726879,
             "lon": 106.687656,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411922941",
-            "name": "Điểm trên Hẻm 453 Lê Văn Sỹ",
-            "lat": 10.7890457,
-            "lon": 106.6719108,
             "node_type": "intersection"
         },
         {
@@ -1149,31 +932,10 @@
             "node_type": "intersection"
         },
         {
-            "id": "411922974",
-            "name": "Giao Hẻm 1046 Trường Sa × Hẻm 453/77G-H Lê Văn Sỹ",
-            "lat": 10.7878003,
-            "lon": 106.6730678,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411922975",
-            "name": "Giao Hẻm 1046 Trường Sa × Hẻm 453/77E-F Lê Văn Sỹ",
-            "lat": 10.7881152,
-            "lon": 106.6731738,
-            "node_type": "intersection"
-        },
-        {
             "id": "411922980",
             "name": "Giao Hẻm 351 Lê Văn Sỹ × Lê Văn Sỹ",
             "lat": 10.7883538,
             "lon": 106.6769456,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411923003",
-            "name": "Điểm trên Hẻm 386 Lê Văn Sỹ",
-            "lat": 10.7897091,
-            "lon": 106.676785,
             "node_type": "intersection"
         },
         {
@@ -1212,66 +974,10 @@
             "node_type": "intersection"
         },
         {
-            "id": "411923766",
-            "name": "Giao Hẻm 284 Lê Văn Sỹ × Lê Văn Sỹ",
-            "lat": 10.7868031,
-            "lon": 106.6798395,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411923767",
-            "name": "Điểm trên Hẻm 207 Lê Văn Sỹ",
-            "lat": 10.7862259,
-            "lon": 106.6793452,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411923768",
-            "name": "Giao Hẻm 220 Lê Văn Sỹ × Hẻm 816 Trường Sa",
-            "lat": 10.7871085,
-            "lon": 106.6823458,
-            "node_type": "intersection"
-        },
-        {
             "id": "411923808",
             "name": "Giao Hẻm 120 Trần Quốc Thảo × Trần Quốc Thảo",
             "lat": 10.7847198,
             "lon": 106.6835716,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411923825",
-            "name": "Điểm trên Lý Thái Tổ",
-            "lat": 10.7671244,
-            "lon": 106.6763974,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411923930",
-            "name": "Giao Hẻm 220 Lê Văn Sỹ × Hẻm 812 Trường Sa",
-            "lat": 10.7874484,
-            "lon": 106.6820945,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411923939",
-            "name": "Giao Hẻm 220 Lê Văn Sỹ × Hẻm 796 Trường Sa",
-            "lat": 10.7877545,
-            "lon": 106.6818297,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411923957",
-            "name": "Giao Hẻm 2 Cao Thắng × Nguyễn Sơn Hà",
-            "lat": 10.770465,
-            "lon": 106.6851669,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411923961",
-            "name": "Điểm trên Nguyễn Sơn Hà",
-            "lat": 10.7710773,
-            "lon": 106.6857403,
             "node_type": "intersection"
         },
         {
@@ -1293,13 +999,6 @@
             "name": "Giao Hai Bà Trưng × Hẻm 371 Hai Bà Trưng",
             "lat": 10.7901544,
             "lon": 106.6890874,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411923976",
-            "name": "Giao Hẻm 1074B Trường Sa × Hẻm 453/155 Lê Văn Sỹ",
-            "lat": 10.7887146,
-            "lon": 106.6713378,
             "node_type": "intersection"
         },
         {
@@ -1436,13 +1135,6 @@
             "node_type": "intersection"
         },
         {
-            "id": "411925453",
-            "name": "Điểm nối Hẻm 12 Trương Ðịnh / Trương Định",
-            "lat": 10.776467,
-            "lon": 106.6911352,
-            "node_type": "intersection"
-        },
-        {
             "id": "411925457",
             "name": "Giao Hẻm 83 Trần Quang Diệu × Trần Quang Diệu",
             "lat": 10.785051,
@@ -1454,48 +1146,6 @@
             "name": "Giao Ðường Số 3 Cư Xá Đô Thành × Đường Nguyễn Hiền",
             "lat": 10.7721519,
             "lon": 106.680873,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411925816",
-            "name": "Giao Hẻm 264 Lê Văn Sỹ × Lê Văn Sỹ",
-            "lat": 10.7865415,
-            "lon": 106.6802797,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411925817",
-            "name": "Nút giao trên Lê Văn Sỹ",
-            "lat": 10.7865024,
-            "lon": 106.6803507,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411925818",
-            "name": "Nút giao trên Hẻm 207 Lê Văn Sỹ",
-            "lat": 10.7858583,
-            "lon": 106.6799742,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411925825",
-            "name": "Giao Hẻm 139 Lý Chính Thắng × Lý Chính Thắng",
-            "lat": 10.786164,
-            "lon": 106.6846106,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411925831",
-            "name": "Điểm trên Hẻm 12 Trương Ðịnh",
-            "lat": 10.7769873,
-            "lon": 106.6916317,
-            "node_type": "intersection"
-        },
-        {
-            "id": "411925836",
-            "name": "Giao Hẻm 304 Lê Văn Sỹ × Lê Văn Sỹ",
-            "lat": 10.7870989,
-            "lon": 106.6793152,
             "node_type": "intersection"
         },
         {
@@ -1982,13 +1632,6 @@
             "node_type": "intersection"
         },
         {
-            "id": "698217097",
-            "name": "Điểm trên Lý Thái Tổ",
-            "lat": 10.7676797,
-            "lon": 106.6746261,
-            "node_type": "intersection"
-        },
-        {
             "id": "701666216",
             "name": "Giao Công trường Dân Chủ × Lý Chính Thắng",
             "lat": 10.778085,
@@ -2108,48 +1751,6 @@
             "node_type": "intersection"
         },
         {
-            "id": "2164852626",
-            "name": "Điểm trên Hẻm 453/77G-H Lê Văn Sỹ",
-            "lat": 10.7880444,
-            "lon": 106.6722963,
-            "node_type": "intersection"
-        },
-        {
-            "id": "2164852628",
-            "name": "Giao Hẻm 1074A Trường Sa × Hẻm 453 Lê Văn Sỹ",
-            "lat": 10.7882473,
-            "lon": 106.6716604,
-            "node_type": "intersection"
-        },
-        {
-            "id": "2164852631",
-            "name": "Giao Hẻm 453 Lê Văn Sỹ × Hẻm 453/155 Lê Văn Sỹ",
-            "lat": 10.7888771,
-            "lon": 106.6718554,
-            "node_type": "intersection"
-        },
-        {
-            "id": "2173080037",
-            "name": "Giao Hẻm 1074 Trường Sa × Hẻm 1074B Trường Sa (+1 đường)",
-            "lat": 10.7885407,
-            "lon": 106.6717549,
-            "node_type": "intersection"
-        },
-        {
-            "id": "2230608746",
-            "name": "Giao Hẻm 193 Nam Kỳ Khởi Nghĩa × Nam Kỳ Khởi Nghĩa",
-            "lat": 10.7865731,
-            "lon": 106.6872584,
-            "node_type": "intersection"
-        },
-        {
-            "id": "2230611233",
-            "name": "Điểm trên Hẻm 193 Nam Kỳ Khởi Nghĩa",
-            "lat": 10.7865392,
-            "lon": 106.6864494,
-            "node_type": "intersection"
-        },
-        {
             "id": "2230851096",
             "name": "Giao Hẻm 115 Trần Quốc Thảo × Hẻm 232 Võ Thị Sáu",
             "lat": 10.7832023,
@@ -2157,24 +1758,10 @@
             "node_type": "intersection"
         },
         {
-            "id": "2230851099",
-            "name": "Giao Hẻm 232 Võ Thị Sáu × Võ Thị Sáu",
-            "lat": 10.7817766,
-            "lon": 106.685903,
-            "node_type": "intersection"
-        },
-        {
             "id": "2230859932",
             "name": "Điểm trên Hẻm 177 Đường Lý Chính Thắng",
             "lat": 10.7829441,
             "lon": 106.6845353,
-            "node_type": "intersection"
-        },
-        {
-            "id": "2300360519",
-            "name": "Giao Hẻm 207 Lê Văn Sỹ × Lê Văn Sỹ",
-            "lat": 10.7864459,
-            "lon": 106.6803165,
             "node_type": "intersection"
         },
         {
@@ -2304,13 +1891,6 @@
             "node_type": "intersection"
         },
         {
-            "id": "2393618251",
-            "name": "Giao Cách Mạng Tháng Tám × Nguyễn Thị Minh Khai",
-            "lat": 10.7736956,
-            "lon": 106.6893994,
-            "node_type": "intersection"
-        },
-        {
             "id": "2664205599",
             "name": "Điểm nối Nam Kỳ Khởi Nghĩa / Nguyễn Thị Minh Khai",
             "lat": 10.7795752,
@@ -2364,20 +1944,6 @@
             "name": "Giao Hẻm 57 Trần Quang Diệu × Trần Quang Diệu",
             "lat": 10.7857966,
             "lon": 106.6784141,
-            "node_type": "intersection"
-        },
-        {
-            "id": "3798940837",
-            "name": "Điểm trên Hẻm 1074B Trường Sa",
-            "lat": 10.7888139,
-            "lon": 106.6709452,
-            "node_type": "intersection"
-        },
-        {
-            "id": "3798940841",
-            "name": "Điểm trên Hẻm 1074A Trường Sa",
-            "lat": 10.7884824,
-            "lon": 106.6708886,
             "node_type": "intersection"
         },
         {
@@ -2451,13 +2017,6 @@
             "node_type": "intersection"
         },
         {
-            "id": "4605582047",
-            "name": "Điểm trên Ðường Số 1 Cư Xá Đô Thành",
-            "lat": 10.774319,
-            "lon": 106.6836724,
-            "node_type": "intersection"
-        },
-        {
             "id": "4605588256",
             "name": "Giao Hẻm 67 Đường Số 4 Cư Xá Đô Thành × Ðường Số 4 Cư Xá Đô Thành",
             "lat": 10.7722684,
@@ -2507,24 +2066,10 @@
             "node_type": "intersection"
         },
         {
-            "id": "4646769645",
-            "name": "Điểm trên Công trường Dân Chủ",
-            "lat": 10.77795,
-            "lon": 106.6814502,
-            "node_type": "intersection"
-        },
-        {
             "id": "4905853979",
             "name": "Giao Bà Huyện Thanh Quan × Rạch Bùng Binh",
             "lat": 10.7825762,
             "lon": 106.6802015,
-            "node_type": "intersection"
-        },
-        {
-            "id": "5352258710",
-            "name": "Giao Hẻm 207 Lê Văn Sỹ × Hẻm 57 Trần Quang Diệu (+1 đường)",
-            "lat": 10.7854634,
-            "lon": 106.6792617,
             "node_type": "intersection"
         },
         {
@@ -2553,13 +2098,6 @@
             "name": "Giao Hẻm 637 Nguyễn Ðình Chiểu × Nguyễn Đình Chiểu",
             "lat": 10.766669,
             "lon": 106.6789115,
-            "node_type": "intersection"
-        },
-        {
-            "id": "5758114513",
-            "name": "Giao Lý Thái Tổ × Nguyễn Đình Chiểu",
-            "lat": 10.7664056,
-            "lon": 106.6787221,
             "node_type": "intersection"
         },
         {
@@ -2626,38 +2164,10 @@
             "node_type": "intersection"
         },
         {
-            "id": "5769486919",
-            "name": "Điểm trên Hoàng Sa",
-            "lat": 10.7877981,
-            "lon": 106.6703695,
-            "node_type": "intersection"
-        },
-        {
             "id": "5769504920",
             "name": "Giao Hẻm 413 Lê Văn Sỹ × Lê Văn Sỹ",
             "lat": 10.7891946,
             "lon": 106.675419,
-            "node_type": "intersection"
-        },
-        {
-            "id": "5769504923",
-            "name": "Giao Hẻm 443 Lê Văn Sỹ × Lê Văn Sỹ",
-            "lat": 10.7897034,
-            "lon": 106.6745057,
-            "node_type": "intersection"
-        },
-        {
-            "id": "5769504924",
-            "name": "Điểm nối Hẻm 491 Lê Văn Sỹ / Lê Văn Sỹ",
-            "lat": 10.7900911,
-            "lon": 106.6739325,
-            "node_type": "intersection"
-        },
-        {
-            "id": "5769504951",
-            "name": "Điểm trên hẻm 63 Lê Văn Sỹ",
-            "lat": 10.788629,
-            "lon": 106.6721438,
             "node_type": "intersection"
         },
         {
@@ -2773,13 +2283,6 @@
             "node_type": "intersection"
         },
         {
-            "id": "5778872976",
-            "name": "Giao Hẻm 206 Nam Kỳ Khởi Nghĩa × Nam Kỳ Khởi Nghĩa",
-            "lat": 10.7826789,
-            "lon": 106.6916277,
-            "node_type": "intersection"
-        },
-        {
             "id": "5778872977",
             "name": "Giao Nam Kỳ Khởi Nghĩa × Ngô Thời Nhiệm",
             "lat": 10.7825068,
@@ -2836,38 +2339,10 @@
             "node_type": "intersection"
         },
         {
-            "id": "7822938322",
-            "name": "Điểm trên Hẻm 220 Lê Văn Sỹ",
-            "lat": 10.7893898,
-            "lon": 106.6809851,
-            "node_type": "intersection"
-        },
-        {
-            "id": "8114164411",
-            "name": "Giao Cầu Số 7 × Trường Sa",
-            "lat": 10.7880307,
-            "lon": 106.6711623,
-            "node_type": "intersection"
-        },
-        {
-            "id": "8114164412",
-            "name": "Giao Cầu Số 7 × Hoàng Sa",
-            "lat": 10.7875789,
-            "lon": 106.67099,
-            "node_type": "intersection"
-        },
-        {
             "id": "8366569296",
             "name": "Điểm trên Hẻm 120 Trần Quốc Thảo",
             "lat": 10.7852993,
             "lon": 106.6837504,
-            "node_type": "intersection"
-        },
-        {
-            "id": "8995419797",
-            "name": "Điểm nối Bà Huyện Thanh Quan / Nguyễn Thị Minh Khai",
-            "lat": 10.7748572,
-            "lon": 106.6905386,
             "node_type": "intersection"
         },
         {
@@ -2955,20 +2430,6 @@
             "node_type": "intersection"
         },
         {
-            "id": "11251334766",
-            "name": "Điểm trên Hẻm 491 Lê Văn Sỹ",
-            "lat": 10.7896116,
-            "lon": 106.672391,
-            "node_type": "intersection"
-        },
-        {
-            "id": "11251334767",
-            "name": "Điểm nối Hẻm 491 Lê Văn Sỹ / hẻm 63 Lê Văn Sỹ",
-            "lat": 10.7896084,
-            "lon": 106.6723325,
-            "node_type": "intersection"
-        },
-        {
             "id": "11437527896",
             "name": "Điểm trên Đỗ Thị Lời",
             "lat": 10.7851859,
@@ -3008,13 +2469,6 @@
             "name": "Giao Lê Văn Sỹ × Trường Sa (+1 đường)",
             "lat": 10.7860654,
             "lon": 106.6809834,
-            "node_type": "intersection"
-        },
-        {
-            "id": "11921902988",
-            "name": "Giao Hẻm 220 Lê Văn Sỹ × Trường Sa",
-            "lat": 10.7865848,
-            "lon": 106.6815889,
             "node_type": "intersection"
         },
         {
@@ -3130,13 +2584,6 @@
             "node_type": "intersection"
         },
         {
-            "id": "13084810645",
-            "name": "Giao Hẻm 1046 Trường Sa × Trường Sa",
-            "lat": 10.7874805,
-            "lon": 106.6729861,
-            "node_type": "intersection"
-        },
-        {
             "id": "13156774609",
             "name": "Điểm trên Hai Bà Trưng",
             "lat": 10.7895934,
@@ -3155,13 +2602,6 @@
             "name": "Điểm trên Hai Bà Trưng",
             "lat": 10.7897277,
             "lon": 106.6896367,
-            "node_type": "intersection"
-        },
-        {
-            "id": "13468959703",
-            "name": "Điểm trên Hai Bà Trưng",
-            "lat": 10.7920861,
-            "lon": 106.6866872,
             "node_type": "intersection"
         },
         {
@@ -3595,39 +3035,6 @@
             "note": "Phạm Ngọc Thạch"
         },
         {
-            "from": "411918492",
-            "to": "5769504923",
-            "distance": 0.03,
-            "travel_time": 0.05,
-            "road_type": "secondary",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Lê Văn Sỹ"
-        },
-        {
-            "from": "411918492",
-            "to": "411919985",
-            "distance": 0.075,
-            "travel_time": 0.11,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 443 Lê Văn Sỹ"
-        },
-        {
-            "from": "411918557",
-            "to": "5778872976",
-            "distance": 0.047,
-            "travel_time": 0.07,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 206 Nam Kỳ Khởi Nghĩa"
-        },
-        {
             "from": "411918578",
             "to": "411925479",
             "distance": 0.077,
@@ -3703,28 +3110,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Trần Quốc Thảo"
-        },
-        {
-            "from": "411918611",
-            "to": "411918613",
-            "distance": 0.057,
-            "travel_time": 0.09,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 206 Đường Pasteur"
-        },
-        {
-            "from": "411918613",
-            "to": "411918611",
-            "distance": 0.057,
-            "travel_time": 0.09,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 206 Đường Pasteur"
         },
         {
             "from": "411918630",
@@ -4288,105 +3673,6 @@
             "note": "Võ Văn Tần"
         },
         {
-            "from": "411918973",
-            "to": "411923939",
-            "distance": 0.098,
-            "travel_time": 0.15,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 796 Trường Sa"
-        },
-        {
-            "from": "411918973",
-            "to": "411919021",
-            "distance": 0.062,
-            "travel_time": 0.09,
-            "road_type": "tertiary",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Trường Sa"
-        },
-        {
-            "from": "411918973",
-            "to": "411918996",
-            "distance": 0.44,
-            "travel_time": 0.66,
-            "road_type": "tertiary",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Trường Sa"
-        },
-        {
-            "from": "411918996",
-            "to": "411918973",
-            "distance": 0.44,
-            "travel_time": 0.66,
-            "road_type": "tertiary",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Trường Sa"
-        },
-        {
-            "from": "411919019",
-            "to": "411919021",
-            "distance": 0.052,
-            "travel_time": 0.08,
-            "road_type": "tertiary",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Trường Sa"
-        },
-        {
-            "from": "411919019",
-            "to": "411923768",
-            "distance": 0.121,
-            "travel_time": 0.18,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 816 Trường Sa"
-        },
-        {
-            "from": "411919021",
-            "to": "411923930",
-            "distance": 0.134,
-            "travel_time": 0.2,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 812 Trường Sa"
-        },
-        {
-            "from": "411919021",
-            "to": "411919019",
-            "distance": 0.052,
-            "travel_time": 0.08,
-            "road_type": "tertiary",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Trường Sa"
-        },
-        {
-            "from": "411919021",
-            "to": "411918973",
-            "distance": 0.062,
-            "travel_time": 0.09,
-            "road_type": "tertiary",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Trường Sa"
-        },
-        {
             "from": "411919061",
             "to": "411919074",
             "distance": 0.092,
@@ -4442,17 +3728,6 @@
             "note": "Cầu Trần Quang Diệu"
         },
         {
-            "from": "411919086",
-            "to": "411919168",
-            "distance": 0.19,
-            "travel_time": 0.28,
-            "road_type": "tertiary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hoàng Sa"
-        },
-        {
             "from": "411919112",
             "to": "411921691",
             "distance": 0.126,
@@ -4495,39 +3770,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Nguyễn Thông"
-        },
-        {
-            "from": "411919168",
-            "to": "5769486919",
-            "distance": 0.005,
-            "travel_time": 0.01,
-            "road_type": "tertiary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hoàng Sa"
-        },
-        {
-            "from": "411919169",
-            "to": "8114164412",
-            "distance": 0.005,
-            "travel_time": 0.01,
-            "road_type": "tertiary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hoàng Sa"
-        },
-        {
-            "from": "411919169",
-            "to": "411919170",
-            "distance": 0.054,
-            "travel_time": 0.08,
-            "road_type": "tertiary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Cầu Số 7"
         },
         {
             "from": "411919171",
@@ -4649,28 +3891,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Hoàng Sa"
-        },
-        {
-            "from": "411919291",
-            "to": "411921690",
-            "distance": 0.039,
-            "travel_time": 0.06,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 1074 Trường Sa"
-        },
-        {
-            "from": "411919291",
-            "to": "8114164411",
-            "distance": 0.064,
-            "travel_time": 0.1,
-            "road_type": "tertiary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Trường Sa"
         },
         {
             "from": "411919301",
@@ -4803,39 +4023,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Nam Kỳ Khởi Nghĩa"
-        },
-        {
-            "from": "411919966",
-            "to": "411922975",
-            "distance": 0.133,
-            "travel_time": 0.2,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 1046 Trường Sa"
-        },
-        {
-            "from": "411919968",
-            "to": "411922441",
-            "distance": 0.087,
-            "travel_time": 0.13,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 491 Lê Văn Sỹ"
-        },
-        {
-            "from": "411919985",
-            "to": "411918492",
-            "distance": 0.075,
-            "travel_time": 0.11,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 443 Lê Văn Sỹ"
         },
         {
             "from": "411920096",
@@ -5062,17 +4249,6 @@
             "to": "411921684",
             "distance": 0.113,
             "travel_time": 0.17,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 443 Lê Văn Sỹ"
-        },
-        {
-            "from": "411920274",
-            "to": "5769504923",
-            "distance": 0.364,
-            "travel_time": 0.55,
             "road_type": "residential",
             "is_one_way": false,
             "congestion": 0,
@@ -5674,39 +4850,6 @@
             "note": "Hẻm 335 Điện Biên Phủ"
         },
         {
-            "from": "411921020",
-            "to": "411923003",
-            "distance": 0.06,
-            "travel_time": 0.09,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 386 Lê Văn Sỹ"
-        },
-        {
-            "from": "411921020",
-            "to": "411921021",
-            "distance": 0.026,
-            "travel_time": 0.04,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 386 Lê Văn Sỹ"
-        },
-        {
-            "from": "411921021",
-            "to": "411921020",
-            "distance": 0.026,
-            "travel_time": 0.04,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 386 Lê Văn Sỹ"
-        },
-        {
             "from": "411921029",
             "to": "411925433",
             "distance": 0.021,
@@ -5727,50 +4870,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Lê Văn Sỹ"
-        },
-        {
-            "from": "411921086",
-            "to": "411921088",
-            "distance": 0.019,
-            "travel_time": 0.03,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 453 Lê Văn Sỹ"
-        },
-        {
-            "from": "411921088",
-            "to": "2173080037",
-            "distance": 0.017,
-            "travel_time": 0.03,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 453 Lê Văn Sỹ"
-        },
-        {
-            "from": "411921088",
-            "to": "411921086",
-            "distance": 0.019,
-            "travel_time": 0.03,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 453 Lê Văn Sỹ"
-        },
-        {
-            "from": "411921088",
-            "to": "2164852631",
-            "distance": 0.022,
-            "travel_time": 0.03,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 453 Lê Văn Sỹ"
         },
         {
             "from": "411921110",
@@ -6092,39 +5191,6 @@
             "note": "Hẻm 235 Nam Kỳ Khởi Nghĩa"
         },
         {
-            "from": "411921690",
-            "to": "411919291",
-            "distance": 0.039,
-            "travel_time": 0.06,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 1074 Trường Sa"
-        },
-        {
-            "from": "411921690",
-            "to": "2164852628",
-            "distance": 0.02,
-            "travel_time": 0.03,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 1074A Trường Sa"
-        },
-        {
-            "from": "411921690",
-            "to": "2173080037",
-            "distance": 0.054,
-            "travel_time": 0.08,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 1074 Trường Sa"
-        },
-        {
             "from": "411921691",
             "to": "4643948226",
             "distance": 0.144,
@@ -6233,28 +5299,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Hẻm 195 Trần Văn Ðang"
-        },
-        {
-            "from": "411922012",
-            "to": "411925816",
-            "distance": 0.129,
-            "travel_time": 0.19,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 264 Lê Văn Sỹ"
-        },
-        {
-            "from": "411922015",
-            "to": "411923766",
-            "distance": 0.157,
-            "travel_time": 0.24,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 284 Lê Văn Sỹ"
         },
         {
             "from": "411922049",
@@ -6433,39 +5477,6 @@
             "note": "Hẻm 315 Lê Văn Sỹ"
         },
         {
-            "from": "411922131",
-            "to": "411925825",
-            "distance": 0.105,
-            "travel_time": 0.16,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 139 Lý Chính Thắng"
-        },
-        {
-            "from": "411922131",
-            "to": "411922131",
-            "distance": 0.145,
-            "travel_time": 0.22,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 139 Lý Chính Thắng"
-        },
-        {
-            "from": "411922131",
-            "to": "411922131",
-            "distance": 0.145,
-            "travel_time": 0.22,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 139 Lý Chính Thắng"
-        },
-        {
             "from": "411922215",
             "to": "411922217",
             "distance": 0.079,
@@ -6519,17 +5530,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Hẻm 413 Lê Văn Sỹ"
-        },
-        {
-            "from": "411922285",
-            "to": "411922975",
-            "distance": 0.05,
-            "travel_time": 0.08,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 453/77E-F Lê Văn Sỹ"
         },
         {
             "from": "411922294",
@@ -6642,28 +5642,6 @@
             "note": "Trần Quang Diệu"
         },
         {
-            "from": "411922360",
-            "to": "411922361",
-            "distance": 0.044,
-            "travel_time": 0.07,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 290 Nam Kỳ Khởi Nghĩa"
-        },
-        {
-            "from": "411922361",
-            "to": "411922360",
-            "distance": 0.044,
-            "travel_time": 0.07,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 290 Nam Kỳ Khởi Nghĩa"
-        },
-        {
             "from": "411922363",
             "to": "411922950",
             "distance": 0.109,
@@ -6706,39 +5684,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Ðường Số 4 Cư Xá Đô Thành"
-        },
-        {
-            "from": "411922441",
-            "to": "411919968",
-            "distance": 0.087,
-            "travel_time": 0.13,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 491 Lê Văn Sỹ"
-        },
-        {
-            "from": "411922441",
-            "to": "5769504924",
-            "distance": 0.038,
-            "travel_time": 0.06,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 491 Lê Văn Sỹ"
-        },
-        {
-            "from": "411922441",
-            "to": "11251334766",
-            "distance": 0.144,
-            "travel_time": 0.22,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 491 Lê Văn Sỹ"
         },
         {
             "from": "411922626",
@@ -6794,17 +5739,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Hẻm 360 Nguyễn Thị Minh Khai"
-        },
-        {
-            "from": "411922941",
-            "to": "2164852631",
-            "distance": 0.02,
-            "travel_time": 0.03,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 453 Lê Văn Sỹ"
         },
         {
             "from": "411922945",
@@ -6961,72 +5895,6 @@
             "note": "Hẻm 380 Nam Kỳ Khởi Nghĩa"
         },
         {
-            "from": "411922974",
-            "to": "411922975",
-            "distance": 0.037,
-            "travel_time": 0.06,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 1046 Trường Sa"
-        },
-        {
-            "from": "411922974",
-            "to": "13084810645",
-            "distance": 0.038,
-            "travel_time": 0.06,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 1046 Trường Sa"
-        },
-        {
-            "from": "411922974",
-            "to": "2164852626",
-            "distance": 0.089,
-            "travel_time": 0.13,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 453/77G-H Lê Văn Sỹ"
-        },
-        {
-            "from": "411922975",
-            "to": "411922974",
-            "distance": 0.037,
-            "travel_time": 0.06,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 1046 Trường Sa"
-        },
-        {
-            "from": "411922975",
-            "to": "411919966",
-            "distance": 0.133,
-            "travel_time": 0.2,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 1046 Trường Sa"
-        },
-        {
-            "from": "411922975",
-            "to": "411922285",
-            "distance": 0.05,
-            "travel_time": 0.08,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 453/77E-F Lê Văn Sỹ"
-        },
-        {
             "from": "411922980",
             "to": "411925433",
             "distance": 0.041,
@@ -7047,17 +5915,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Lê Văn Sỹ"
-        },
-        {
-            "from": "411923003",
-            "to": "411921020",
-            "distance": 0.06,
-            "travel_time": 0.09,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 386 Lê Văn Sỹ"
         },
         {
             "from": "411923123",
@@ -7181,61 +6038,6 @@
             "note": "Nam Kỳ Khởi Nghĩa"
         },
         {
-            "from": "411923766",
-            "to": "411925836",
-            "distance": 0.066,
-            "travel_time": 0.1,
-            "road_type": "secondary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Lê Văn Sỹ"
-        },
-        {
-            "from": "411923766",
-            "to": "411922015",
-            "distance": 0.157,
-            "travel_time": 0.24,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 284 Lê Văn Sỹ"
-        },
-        {
-            "from": "411923767",
-            "to": "411925818",
-            "distance": 0.08,
-            "travel_time": 0.12,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 207 Lê Văn Sỹ"
-        },
-        {
-            "from": "411923768",
-            "to": "411919019",
-            "distance": 0.121,
-            "travel_time": 0.18,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 816 Trường Sa"
-        },
-        {
-            "from": "411923768",
-            "to": "411923930",
-            "distance": 0.047,
-            "travel_time": 0.07,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 220 Lê Văn Sỹ"
-        },
-        {
             "from": "411923808",
             "to": "5772101027",
             "distance": 0.108,
@@ -7267,105 +6069,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Hẻm 120 Trần Quốc Thảo"
-        },
-        {
-            "from": "411923825",
-            "to": "698217097",
-            "distance": 0.203,
-            "travel_time": 0.3,
-            "road_type": "primary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Lý Thái Tổ"
-        },
-        {
-            "from": "411923930",
-            "to": "411919021",
-            "distance": 0.134,
-            "travel_time": 0.2,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 812 Trường Sa"
-        },
-        {
-            "from": "411923930",
-            "to": "411923768",
-            "distance": 0.047,
-            "travel_time": 0.07,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 220 Lê Văn Sỹ"
-        },
-        {
-            "from": "411923930",
-            "to": "411923939",
-            "distance": 0.045,
-            "travel_time": 0.07,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 220 Lê Văn Sỹ"
-        },
-        {
-            "from": "411923939",
-            "to": "411918973",
-            "distance": 0.098,
-            "travel_time": 0.15,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 796 Trường Sa"
-        },
-        {
-            "from": "411923939",
-            "to": "411923930",
-            "distance": 0.045,
-            "travel_time": 0.07,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 220 Lê Văn Sỹ"
-        },
-        {
-            "from": "411923939",
-            "to": "7822938322",
-            "distance": 0.242,
-            "travel_time": 0.36,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 220 Lê Văn Sỹ"
-        },
-        {
-            "from": "411923957",
-            "to": "411923961",
-            "distance": 0.093,
-            "travel_time": 0.14,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Nguyễn Sơn Hà"
-        },
-        {
-            "from": "411923961",
-            "to": "411923957",
-            "distance": 0.093,
-            "travel_time": 0.14,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Nguyễn Sơn Hà"
         },
         {
             "from": "411923962",
@@ -7421,39 +6124,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Hai Bà Trưng"
-        },
-        {
-            "from": "411923976",
-            "to": "3798940837",
-            "distance": 0.044,
-            "travel_time": 0.07,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 1074B Trường Sa"
-        },
-        {
-            "from": "411923976",
-            "to": "2173080037",
-            "distance": 0.05,
-            "travel_time": 0.07,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 1074B Trường Sa"
-        },
-        {
-            "from": "411923976",
-            "to": "2164852631",
-            "distance": 0.083,
-            "travel_time": 0.12,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 453/155 Lê Văn Sỹ"
         },
         {
             "from": "411924032",
@@ -7907,28 +6577,6 @@
             "note": "Lê Văn Sỹ"
         },
         {
-            "from": "411925453",
-            "to": "411925831",
-            "distance": 0.079,
-            "travel_time": 0.12,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 12 Trương Ðịnh"
-        },
-        {
-            "from": "411925453",
-            "to": "411925919",
-            "distance": 0.077,
-            "travel_time": 0.12,
-            "road_type": "tertiary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Trương Định"
-        },
-        {
             "from": "411925457",
             "to": "11900708593",
             "distance": 0.061,
@@ -7971,116 +6619,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Đường Nguyễn Hiền"
-        },
-        {
-            "from": "411925816",
-            "to": "411922012",
-            "distance": 0.129,
-            "travel_time": 0.19,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 264 Lê Văn Sỹ"
-        },
-        {
-            "from": "411925816",
-            "to": "411923766",
-            "distance": 0.056,
-            "travel_time": 0.08,
-            "road_type": "secondary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Lê Văn Sỹ"
-        },
-        {
-            "from": "411925817",
-            "to": "2300360519",
-            "distance": 0.007,
-            "travel_time": 0.01,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Lê Văn Sỹ"
-        },
-        {
-            "from": "411925817",
-            "to": "411925816",
-            "distance": 0.009,
-            "travel_time": 0.01,
-            "road_type": "secondary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Lê Văn Sỹ"
-        },
-        {
-            "from": "411925818",
-            "to": "411923767",
-            "distance": 0.08,
-            "travel_time": 0.12,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 207 Lê Văn Sỹ"
-        },
-        {
-            "from": "411925818",
-            "to": "2300360519",
-            "distance": 0.075,
-            "travel_time": 0.11,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 207 Lê Văn Sỹ"
-        },
-        {
-            "from": "411925818",
-            "to": "5352258710",
-            "distance": 0.1,
-            "travel_time": 0.15,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 207 Lê Văn Sỹ"
-        },
-        {
-            "from": "411925825",
-            "to": "411922131",
-            "distance": 0.105,
-            "travel_time": 0.16,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 139 Lý Chính Thắng"
-        },
-        {
-            "from": "411925831",
-            "to": "411925453",
-            "distance": 0.079,
-            "travel_time": 0.12,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 12 Trương Ðịnh"
-        },
-        {
-            "from": "411925836",
-            "to": "411925917",
-            "distance": 0.128,
-            "travel_time": 0.19,
-            "road_type": "secondary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Lê Văn Sỹ"
         },
         {
             "from": "411925840",
@@ -8257,17 +6795,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Trương Định"
-        },
-        {
-            "from": "411925922",
-            "to": "8995419797",
-            "distance": 0.145,
-            "travel_time": 0.22,
-            "road_type": "secondary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Bà Huyện Thanh Quan"
         },
         {
             "from": "411925922",
@@ -9481,17 +8008,6 @@
         },
         {
             "from": "411926554",
-            "to": "411918613",
-            "distance": 0.119,
-            "travel_time": 0.18,
-            "road_type": "secondary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Pasteur"
-        },
-        {
-            "from": "411926554",
             "to": "411926164",
             "distance": 0.138,
             "travel_time": 0.21,
@@ -10184,160 +8700,6 @@
             "note": "Công trường Quốc tế"
         },
         {
-            "from": "2164852626",
-            "to": "411922974",
-            "distance": 0.089,
-            "travel_time": 0.13,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 453/77G-H Lê Văn Sỹ"
-        },
-        {
-            "from": "2164852628",
-            "to": "411921690",
-            "distance": 0.02,
-            "travel_time": 0.03,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 1074A Trường Sa"
-        },
-        {
-            "from": "2164852628",
-            "to": "3798940841",
-            "distance": 0.088,
-            "travel_time": 0.13,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 1074A Trường Sa"
-        },
-        {
-            "from": "2164852628",
-            "to": "2173080037",
-            "distance": 0.034,
-            "travel_time": 0.05,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 453 Lê Văn Sỹ"
-        },
-        {
-            "from": "2164852631",
-            "to": "411922941",
-            "distance": 0.02,
-            "travel_time": 0.03,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 453 Lê Văn Sỹ"
-        },
-        {
-            "from": "2164852631",
-            "to": "411921088",
-            "distance": 0.022,
-            "travel_time": 0.03,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 453 Lê Văn Sỹ"
-        },
-        {
-            "from": "2164852631",
-            "to": "411923976",
-            "distance": 0.083,
-            "travel_time": 0.12,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 453/155 Lê Văn Sỹ"
-        },
-        {
-            "from": "2173080037",
-            "to": "411921088",
-            "distance": 0.017,
-            "travel_time": 0.03,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 453 Lê Văn Sỹ"
-        },
-        {
-            "from": "2173080037",
-            "to": "411921690",
-            "distance": 0.054,
-            "travel_time": 0.08,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 1074 Trường Sa"
-        },
-        {
-            "from": "2173080037",
-            "to": "411923976",
-            "distance": 0.05,
-            "travel_time": 0.07,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 1074B Trường Sa"
-        },
-        {
-            "from": "2173080037",
-            "to": "2164852628",
-            "distance": 0.034,
-            "travel_time": 0.05,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 453 Lê Văn Sỹ"
-        },
-        {
-            "from": "2230608746",
-            "to": "2008273910",
-            "distance": 0.049,
-            "travel_time": 0.07,
-            "road_type": "primary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Nam Kỳ Khởi Nghĩa"
-        },
-        {
-            "from": "2230608746",
-            "to": "2230611233",
-            "distance": 0.093,
-            "travel_time": 0.14,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 193 Nam Kỳ Khởi Nghĩa"
-        },
-        {
-            "from": "2230611233",
-            "to": "2230608746",
-            "distance": 0.093,
-            "travel_time": 0.14,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 193 Nam Kỳ Khởi Nghĩa"
-        },
-        {
             "from": "2230851096",
             "to": "411926693",
             "distance": 0.106,
@@ -10349,17 +8711,6 @@
             "note": "Hẻm 115 Trần Quốc Thảo"
         },
         {
-            "from": "2230851099",
-            "to": "411926208",
-            "distance": 0.076,
-            "travel_time": 0.11,
-            "road_type": "primary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Võ Thị Sáu"
-        },
-        {
             "from": "2230859932",
             "to": "5772101028",
             "distance": 0.071,
@@ -10369,39 +8720,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Hẻm 177 Đường Lý Chính Thắng"
-        },
-        {
-            "from": "2300360519",
-            "to": "411925817",
-            "distance": 0.007,
-            "travel_time": 0.01,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Lê Văn Sỹ"
-        },
-        {
-            "from": "2300360519",
-            "to": "411925818",
-            "distance": 0.075,
-            "travel_time": 0.11,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 207 Lê Văn Sỹ"
-        },
-        {
-            "from": "2300360519",
-            "to": "11901928159",
-            "distance": 0.084,
-            "travel_time": 0.13,
-            "road_type": "secondary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Lê Văn Sỹ"
         },
         {
             "from": "2300360856",
@@ -10789,28 +9107,6 @@
             "note": "Cách Mạng Tháng Tám"
         },
         {
-            "from": "2393618251",
-            "to": "411924874",
-            "distance": 0.012,
-            "travel_time": 0.02,
-            "road_type": "primary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Nguyễn Thị Minh Khai"
-        },
-        {
-            "from": "2393618251",
-            "to": "411926551",
-            "distance": 0.143,
-            "travel_time": 0.21,
-            "road_type": "primary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Cách Mạng Tháng Tám"
-        },
-        {
             "from": "2664205599",
             "to": "411926604",
             "distance": 0.142,
@@ -10985,28 +9281,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Trần Quang Diệu"
-        },
-        {
-            "from": "3798940837",
-            "to": "411923976",
-            "distance": 0.044,
-            "travel_time": 0.07,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 1074B Trường Sa"
-        },
-        {
-            "from": "3798940841",
-            "to": "2164852628",
-            "distance": 0.088,
-            "travel_time": 0.13,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 1074A Trường Sa"
         },
         {
             "from": "3798941158",
@@ -11482,17 +9756,6 @@
             "note": "Rạch Bùng Binh"
         },
         {
-            "from": "5352258710",
-            "to": "411925818",
-            "distance": 0.1,
-            "travel_time": 0.15,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 207 Lê Văn Sỹ"
-        },
-        {
             "from": "5668708614",
             "to": "3798941158",
             "distance": 0.008,
@@ -11612,17 +9875,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Nguyễn Đình Chiểu"
-        },
-        {
-            "from": "5758114513",
-            "to": "411923825",
-            "distance": 0.266,
-            "travel_time": 0.4,
-            "road_type": "primary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Lý Thái Tổ"
         },
         {
             "from": "5762610072",
@@ -11834,17 +10086,6 @@
             "note": "Bàn Cờ"
         },
         {
-            "from": "5769486919",
-            "to": "411919169",
-            "distance": 0.067,
-            "travel_time": 0.1,
-            "road_type": "tertiary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hoàng Sa"
-        },
-        {
             "from": "5769504920",
             "to": "411921683",
             "distance": 0.139,
@@ -11865,72 +10106,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Lê Văn Sỹ"
-        },
-        {
-            "from": "5769504923",
-            "to": "411918492",
-            "distance": 0.03,
-            "travel_time": 0.05,
-            "road_type": "secondary",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Lê Văn Sỹ"
-        },
-        {
-            "from": "5769504923",
-            "to": "411920274",
-            "distance": 0.364,
-            "travel_time": 0.55,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 443 Lê Văn Sỹ"
-        },
-        {
-            "from": "5769504923",
-            "to": "5769504924",
-            "distance": 0.076,
-            "travel_time": 0.11,
-            "road_type": "secondary",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Lê Văn Sỹ"
-        },
-        {
-            "from": "5769504924",
-            "to": "411922441",
-            "distance": 0.038,
-            "travel_time": 0.06,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 491 Lê Văn Sỹ"
-        },
-        {
-            "from": "5769504924",
-            "to": "5769504923",
-            "distance": 0.076,
-            "travel_time": 0.11,
-            "road_type": "secondary",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Lê Văn Sỹ"
-        },
-        {
-            "from": "5769504951",
-            "to": "11251334767",
-            "distance": 0.112,
-            "travel_time": 0.17,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "hẻm 63 Lê Văn Sỹ"
         },
         {
             "from": "5772027665",
@@ -11997,17 +10172,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Trần Quốc Thảo"
-        },
-        {
-            "from": "5772101027",
-            "to": "411925825",
-            "distance": 0.204,
-            "travel_time": 0.31,
-            "road_type": "secondary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Lý Chính Thắng"
         },
         {
             "from": "5772101028",
@@ -12085,17 +10249,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Nguyễn Phúc Nguyên"
-        },
-        {
-            "from": "5778245683",
-            "to": "4646769645",
-            "distance": 0.013,
-            "travel_time": 0.02,
-            "road_type": "primary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Công trường Dân Chủ"
         },
         {
             "from": "5778300405",
@@ -12307,28 +10460,6 @@
             "note": "Rạch Bùng Binh"
         },
         {
-            "from": "5778872976",
-            "to": "411918557",
-            "distance": 0.047,
-            "travel_time": 0.07,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 206 Nam Kỳ Khởi Nghĩa"
-        },
-        {
-            "from": "5778872976",
-            "to": "5778872977",
-            "distance": 0.028,
-            "travel_time": 0.04,
-            "road_type": "secondary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Nam Kỳ Khởi Nghĩa"
-        },
-        {
             "from": "5778872977",
             "to": "411926497",
             "distance": 0.169,
@@ -12406,28 +10537,6 @@
             "note": "Nguyễn Đình Chiểu"
         },
         {
-            "from": "6770152598",
-            "to": "5758114513",
-            "distance": 0.021,
-            "travel_time": 0.03,
-            "road_type": "secondary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Nguyễn Đình Chiểu"
-        },
-        {
-            "from": "6770152600",
-            "to": "5758114513",
-            "distance": 0.007,
-            "travel_time": 0.01,
-            "road_type": "primary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Lý Thái Tổ"
-        },
-        {
             "from": "6770152600",
             "to": "6770152598",
             "distance": 0.02,
@@ -12492,50 +10601,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Hẻm 384 Đường Lê Văn Sỹ"
-        },
-        {
-            "from": "7822938322",
-            "to": "411923939",
-            "distance": 0.242,
-            "travel_time": 0.36,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 220 Lê Văn Sỹ"
-        },
-        {
-            "from": "8114164411",
-            "to": "411919170",
-            "distance": 0.005,
-            "travel_time": 0.01,
-            "road_type": "tertiary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Trường Sa"
-        },
-        {
-            "from": "8114164411",
-            "to": "8114164412",
-            "distance": 0.054,
-            "travel_time": 0.08,
-            "road_type": "tertiary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Cầu Số 7"
-        },
-        {
-            "from": "8114164412",
-            "to": "411920096",
-            "distance": 0.12,
-            "travel_time": 0.18,
-            "road_type": "tertiary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hoàng Sa"
         },
         {
             "from": "8366569296",
@@ -12802,50 +10867,6 @@
             "note": "Hai Bà Trưng"
         },
         {
-            "from": "11251334766",
-            "to": "11251334767",
-            "distance": 0.006,
-            "travel_time": 0.01,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 491 Lê Văn Sỹ"
-        },
-        {
-            "from": "11251334766",
-            "to": "411922441",
-            "distance": 0.144,
-            "travel_time": 0.22,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 491 Lê Văn Sỹ"
-        },
-        {
-            "from": "11251334767",
-            "to": "11251334766",
-            "distance": 0.006,
-            "travel_time": 0.01,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 491 Lê Văn Sỹ"
-        },
-        {
-            "from": "11251334767",
-            "to": "5769504951",
-            "distance": 0.112,
-            "travel_time": 0.17,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "hẻm 63 Lê Văn Sỹ"
-        },
-        {
             "from": "11437527896",
             "to": "5772233419",
             "distance": 0.042,
@@ -12976,17 +10997,6 @@
             "congestion": 0,
             "risk": 0,
             "note": "Lê Văn Sỹ"
-        },
-        {
-            "from": "11945627176",
-            "to": "13468959703",
-            "distance": 0.001,
-            "travel_time": 0.0,
-            "road_type": "primary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hai Bà Trưng"
         },
         {
             "from": "11945627176",
@@ -13264,28 +11274,6 @@
             "note": "Hai Bà Trưng"
         },
         {
-            "from": "13084810645",
-            "to": "411922974",
-            "distance": 0.038,
-            "travel_time": 0.06,
-            "road_type": "residential",
-            "is_one_way": false,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Hẻm 1046 Trường Sa"
-        },
-        {
-            "from": "13084810645",
-            "to": "411919291",
-            "distance": 0.144,
-            "travel_time": 0.22,
-            "road_type": "tertiary",
-            "is_one_way": true,
-            "congestion": 0,
-            "risk": 0,
-            "note": "Trường Sa"
-        },
-        {
             "from": "13156774609",
             "to": "411926363",
             "distance": 0.032,
@@ -13407,6 +11395,9 @@
             "connection_labels": 24,
             "street_labels": 111,
             "unnamed_coordinate_labels": 0
-        }
+        },
+        "node_count": 375,
+        "edge_count": 796,
+        "strongly_connected": true
     }
 }
